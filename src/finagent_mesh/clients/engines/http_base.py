@@ -65,8 +65,14 @@ class HttpSystemOneAdapter:
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 resp = client.post(url, json=payload)
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    detail = (resp.text or "")[:800]
+                    raise OpenDecisionError(
+                        f"{self.engine_id} HTTP {resp.status_code} {url}: {detail}"
+                    )
                 data = resp.json()
+        except OpenDecisionError:
+            raise
         except httpx.HTTPError as exc:
             raise OpenDecisionError(f"{self.engine_id} System-1 call failed: {exc}") from exc
         finally:

@@ -69,6 +69,16 @@ def main(
     gemini_model: Optional[str] = typer.Option(None, "--gemini-model"),
     allow_mock: bool = typer.Option(False, "--allow-mock", help="Debug only."),
     no_manage_servers: bool = typer.Option(False, "--no-manage-servers"),
+    force_restart: bool = typer.Option(
+        False,
+        "--force-restart",
+        help="Kill all System-1 sidecars and ports 8000/8001/8002 before the run.",
+    ),
+    keep_servers: bool = typer.Option(
+        False,
+        "--keep-servers",
+        help="With --real, reuse already-running sidecars instead of a full restart.",
+    ),
     list_engines: bool = typer.Option(False, "--list-engines"),
     real: bool = typer.Option(
         False,
@@ -173,6 +183,10 @@ def main(
                 raise typer.Exit(2) from exc
 
     backend = os.getenv("SYSTEMONE_BACKEND", "lexical")
+    do_force = bool(force_restart) or (bool(real) and not keep_servers)
+    if keep_servers:
+        do_force = False
+
     typer.echo("=== FinAgent Mesh · FinAgentBench multi-engine benchmark ===")
     typer.echo(f"mode       : {'REAL (HF models)' if real or backend == 'real' else 'lexical/wiring'}")
     typer.echo(f"run_id     : {matrix_run_id}")
@@ -185,12 +199,14 @@ def main(
     model = gemini_model or settings.gemini_model
     typer.echo(f"synthesis  : {'off' if skip_synthesis else f'on ({model})'}")
     typer.echo(f"backend    : {backend}")
+    typer.echo(f"servers    : {'force-restart' if do_force else 'reuse-if-running'}")
     typer.echo("")
 
     runner = MatrixRunner(
         settings,
         allow_mock=allow_mock,
         manage_servers=not no_manage_servers,
+        force_restart=do_force,
         repo_root=ROOT,
     )
 

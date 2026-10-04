@@ -173,7 +173,14 @@ class Harness:
                             )
                         continue
                     t0 = time.perf_counter()
-                    progress_log(f"  [{idx}/{n_ex}] {short_id} {entry.state} → ranking…")
+                    was = entry.state
+                    if was == "failed_retriable":
+                        progress_log(
+                            f"  [{idx}/{n_ex}] {short_id} retry ranking "
+                            f"(ledger leftover from an earlier failed attempt)"
+                        )
+                    else:
+                        progress_log(f"  [{idx}/{n_ex}] {short_id} ranking…")
                     if entry.state == "synthesis_retriable" and entry.ranking_payload_json:
                         self._resume_synthesis(
                             ledger, run_id, example.example_id, entry, skip_synthesis, k, agg
@@ -202,8 +209,11 @@ class Harness:
                     )
                     done = ledger.get_entry(run_id, example.example_id)
                     st = done.state if done else "?"
+                    err = (done.last_error if done else None) or ""
+                    extra = f"  error={err[:300]}" if err else ""
                     progress_log(
-                        f"  [{idx}/{n_ex}] {short_id} → {st} ({time.perf_counter() - t0:.1f}s)"
+                        f"  [{idx}/{n_ex}] {short_id} → {st} "
+                        f"({time.perf_counter() - t0:.1f}s){extra}"
                     )
             return {
                 "status": ledger.status_counts(run_id),

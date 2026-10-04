@@ -64,7 +64,7 @@ Figures below are from the survey’s comparison table (JevBench / 54-task Decis
 | **Decision-2.0 Lux-9B** | Qwen3.5 + Gated DeltaNet hybrid decoder | ~8B / **16,384** | Prompt candidate vectors + shared Choice/Score heads | ~18 ms | **76.94** (54-task) | Default **Stage-1 Choice**; optional **Stage-2 Score** (`lux-lux`) when chunks exceed CLM’s 2k window. Weights: [`vllm-sr/Decision-2.0-Lux-9B`](https://huggingface.co/vllm-sr/Decision-2.0-Lux-9B). |
 | **Decision-2.0 Kai-0.6B** | Vela bidirectional encoder | 0.6B / **1,024** | Parallel Choice/Noul/Score heads | **~4.9 ms** | 53.52 (54-task) | **Latency Stage-1 only**. Five filing labels fit; long chunks do not. [`vllm-sr/Decision-2.0-Kai-0.6B`](https://huggingface.co/vllm-sr/Decision-2.0-Kai-0.6B). |
 | **CLM-8B** | Frozen Qwen3-8B **dual encoder** + ~40M InfoNCE heads | 8B+heads / **2,048** | Hypersphere match; **Action Cache** of pre-embedded candidates | 15–40 ms cached | Strong on verifier benches (e.g. Terminal-Bench), not JevBench Choice | Default **Stage-2**. Enumerated chunks ≈ cached actions. Not a 5-way taxonomy Choice model. [`Contrastive-LM/CLM-v0.1-8B`](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B), [CLM](https://github.com/Contrastive-LM/CLM). |
-| **AnyJev L0 / L1** | Wrapper on a causal LLM (Qwen / Mistral / …) | inherits base | L0: cyclic permutations + log-mean (kills additive **position bias**). L1: temperature scaling on ~200 labels | 150–400 ms (rotations) | Depends on base; L1 ECE ~0.036 on BANKING77 | **Stage-1 Choice** when *K*=5 (cheap permutations). L1 skipped until `configs/calibration/anyjev_l1_heldout.json`. Today L0/L1 **stand in with Lux weights** until AnyJev is packaged. [GitHub](https://github.com/nokia-applied-research/AnyJev). |
+| **AnyJev L0 / L1** | Wrapper on a Choice backbone | inherits base | L0: cyclic permutations + mean scores (kills additive **position bias**). L1: temperature scaling on ~200 labels | 150–400 ms (rotations) | Depends on base; L1 ECE ~0.036 on BANKING77 | **Stage-1 Choice** when *K*=5. Implemented as L0 cyclic permutations on the configured Lux backbone. L1 skipped until `configs/calibration/anyjev_l1_heldout.json`. [GitHub](https://github.com/nokia-applied-research/AnyJev). |
 | **Laya (ModernBERT)** | Bidirectional MLM + task heads | **421M** / **512** | Full bidirectional attention, Choice/Noul/Score | 5–15 ms | **54.4** JevBench | **Edge Stage-1 only**. CPU-capable; truncates Stage-2 passages. [`ameerhmz5/laya-modernbert-decision-90pct`](https://huggingface.co/ameerhmz5/laya-modernbert-decision-90pct). |
 | **Qwen3-8B-Instruct** | Autoregressive chat | 8B / long | Generate JSON ranks | hundreds of ms–s | N/A (anti-pattern in the survey) | **Baseline** (`--include-baseline`): parse failures + verbal confidence. [`Qwen/Qwen3-8B-Instruct`](https://huggingface.co/Qwen/Qwen3-8B-Instruct). |
 
@@ -115,7 +115,9 @@ GPU policy: **sequential exclusive** heavies; keep CLM warm across Choice-variab
 3. Runs FinAgentBench end-to-end: Stage 1 → Stage 2 → Gemini Flash synthesis (unless `--skip-synthesis`).
 4. Writes `artifacts/benchmarks/<run-id>.{json,csv,md}` — metrics + interpretation.
 
-`--real` **refuses** to start if `SYSTEMONE_MOCK=1` or FinAgentBench cannot be fetched/converted.
+`--real` **refuses** to start if `SYSTEMONE_MOCK=1` or FinAgentBench cannot be fetched/converted. Stage 2 CLM is **Qwen3-8B last-token pooling + Contrastive-LM heads** (not Decision-2.0 Kai).
+
+`--real` **force-restarts** System-1 sidecars (kills leftover processes on ports 8000/8001/8002). Pass `--keep-servers` to reuse a warm engine. You can also run `bash scripts/serve_engine.sh stop-all` by hand.
 
 If `data/finagentbench/finagentbench_*.jsonl` is missing, `--real` **downloads from Kaggle and converts** (same as `scripts/download_finagentbench_kaggle.py`). Existing files are skipped. Pass `--no-fetch-data` to disable auto-fetch.
 
@@ -139,7 +141,11 @@ Accept Kaggle competition rules, then create an API token at [Kaggle settings](h
 uv run python scripts/run_benchmark.py --list-pairs
 
 # Default architecture set (lux-clm, anyjev-l0-clm, kai-clm, laya-clm, lux-lux; L1 if calibrated)
+# --real also force-restarts sidecars; add --keep-servers to reuse warm processes
 uv run python scripts/run_benchmark.py --real --run-id prod-full
+
+# Explicit full restart (also the --real default)
+uv run python scripts/run_benchmark.py --real --force-restart --records 10 --seed 42 --skip-synthesis --run-id smoke-10-rank
 
 # Reproducible subset
 uv run python scripts/run_benchmark.py --real --records 200 --seed 42 --run-id prod-200
@@ -174,7 +180,7 @@ uv sync --extra real --group dev
 - `configs/engines.yaml` — engines, HF ids, **`matrix_pairs`**
 - `scripts/download_finagentbench_kaggle.py` — fetch + convert ICAIF’25 FinAgentBench
 - `scripts/prepare_real_stack.sh` — torch/transformers; optional HF prefetch
-- `scripts/serve_engine.sh` — start/stop/health (`SYSTEMONE_BACKEND=real|lexical`)
+- `scripts/serve_engine.sh` — start/stop/restart/health/`stop-all` (`SYSTEMONE_BACKEND=real|lexical`)
 - `src/finagent_mesh/matrix/partners.py` — pair resolution + legacy partner binding
 - `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM inference
 - `artifacts/benchmarks/` — JSON / CSV / Markdown outputs

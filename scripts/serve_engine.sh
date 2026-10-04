@@ -14,14 +14,61 @@ PID_DIR="${SYSTEMONE_PID_DIR:-$ROOT/artifacts/engine_pids}"
 mkdir -p "$PID_DIR"
 
 usage() {
-  echo "Usage: $0 {start|stop|health} <config_id>" >&2
+  echo "Usage: $0 {start|stop|restart|health} <config_id>" >&2
+  echo "       $0 stop-all" >&2
   echo "  SYSTEMONE_BACKEND=real|lexical (default lexical)" >&2
+  echo "  SYSTEMONE_FORCE_RESTART=1  kill pid + listeners on the engine port before start" >&2
   exit 2
 }
 
-[[ $# -ge 2 ]] || usage
+[[ $# -ge 1 ]] || usage
 ACTION="$1"
-CONFIG_ID="$2"
+CONFIG_ID="${2:-}"
+
+kill_listeners() {
+  local port="$1"
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${port}/tcp" >/dev/null 2>&1 || true
+  fi
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+    if [[ -n "$pids" ]]; then
+      # shellcheck disable=SC2086
+      kill $pids 2>/dev/null || true
+      sleep 0.2
+      # shellcheck disable=SC2086
+      kill -9 $pids 2>/dev/null || true
+    fi
+  fi
+}
+
+stop_all_local() {
+  shopt -s nullglob
+  local f pid
+  for f in "$PID_DIR"/*.pid; do
+    pid="$(cat "$f" 2>/dev/null || true)"
+    if [[ -n "${pid:-}" ]]; then
+      kill "$pid" 2>/dev/null || true
+      sleep 0.1
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+    rm -f "$f"
+  done
+  local p
+  for p in 8000 8001 8002 8090 8700; do
+    kill_listeners "$p"
+  done
+  pkill -f "$ROOT/scripts/systemone_sidecar.py" >/dev/null 2>&1 || true
+  echo "stopped all local System-1 sidecars (pids under $PID_DIR, ports 8000/8001/8002/8090/8700)"
+}
+
+if [[ "$ACTION" == "stop-all" ]]; then
+  stop_all_local
+  exit 0
+fi
+
+[[ -n "$CONFIG_ID" ]] || usage
 
 resolve_meta() {
   local validate="$1"
@@ -53,7 +100,7 @@ print(json.dumps({
 PY
 }
 
-if [[ "$ACTION" == "start" ]]; then
+if [[ "$ACTION" == "start" || "$ACTION" == "restart" ]]; then
   META="$(resolve_meta 1)"
 else
   META="$(resolve_meta 0)"
@@ -78,8 +125,9 @@ elif [[ "$BACKEND" == "auto" ]]; then
 fi
 
 start_local() {
-  if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    # Restart if backend/model changed
+  if [[ "${SYSTEMONE_FORCE_RESTART:-0}" == "1" ]]; then
+    stop_local
+  elif [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
     echo "already running $CONFIG_ID pid=$(cat "$PID_FILE")"
     return 0
   fi
@@ -102,6 +150,20 @@ start_local() {
     fi
     sleep 0.5
   done
+  SEEN="$(curl -sf "$HEALTH_URL" | uv run python -c 'import json,sys; print(json.load(sys.stdin).get("engine",""))' 2>/dev/null || true)"
+  if [[ -z "$SEEN" ]]; then
+    echo "ERROR: $CONFIG_ID did not become healthy at $HEALTH_URL (see $PID_DIR/${CONFIG_ID}.log)" >&2
+    stop_local
+    exit 2
+  fi
+  if [[ "$SEEN" != "$CONFIG_ID" ]]; then
+    echo "ERROR: $HEALTH_URL is serving engine=$SEEN, expected $CONFIG_ID (stale sidecar on this port). Stop the other engine first." >&2
+    if [[ -f "$PID_FILE" ]]; then
+      kill "$(cat "$PID_FILE")" 2>/dev/null || true
+      rm -f "$PID_FILE"
+    fi
+    exit 2
+  fi
   echo "started local $CONFIG_ID backend=$EFFECTIVE_BACKEND model=$WEIGHTS port=$PORT pid=$(cat "$PID_FILE")"
   if [[ "$EFFECTIVE_BACKEND" == "real" ]]; then
     echo "note: real weights load on first /v1/systemone (Hugging Face download can take several minutes; logs: $PID_DIR/${CONFIG_ID}.log)"
@@ -111,9 +173,12 @@ start_local() {
 stop_local() {
   if [[ -f "$PID_FILE" ]]; then
     kill "$(cat "$PID_FILE")" 2>/dev/null || true
+    sleep 0.2
+    kill -9 "$(cat "$PID_FILE")" 2>/dev/null || true
     rm -f "$PID_FILE"
   fi
-  echo "stopped local $CONFIG_ID"
+  kill_listeners "$PORT"
+  echo "stopped local $CONFIG_ID (port $PORT)"
 }
 
 start_podman() {
@@ -152,6 +217,14 @@ case "$ACTION" in
       start_podman
     else
       start_local
+    fi
+    ;;
+  restart)
+    if [[ "$MODE" == "podman" || "$MODE" == "docker" ]]; then
+      stop_podman
+      start_podman
+    else
+      SYSTEMONE_FORCE_RESTART=1 start_local
     fi
     ;;
   stop)

@@ -195,6 +195,10 @@ class Handler(BaseHTTPRequestHandler):
                     result["primitive"] = primitive
             self._send(200, result)
         except Exception as exc:  # noqa: BLE001
+            import traceback
+
+            traceback.print_exc()
+            print(f"{ENGINE_ID} infer FAILED: {exc}", flush=True)
             self._send(503, {"error": str(exc), "engine": ENGINE_ID, "backend": BACKEND})
 
 

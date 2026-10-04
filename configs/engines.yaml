@@ -17,7 +17,7 @@ engines:
     is_light_edge: false
     calibration_ref: null
     container_ref: containers/anyjev
-    # Until AnyJev runtime is packaged, real mode uses Decision-2.0 Lux as Choice engine
+    # AnyJev L0 = cyclic option permutations on this Choice backbone (Lux).
     weights_ref: ${ANYJEV_WEIGHTS:-vllm-sr/Decision-2.0-Lux-9B}
     model_revision: anyjev-l0
     backend: decision20
@@ -50,6 +50,8 @@ engines:
     is_light_edge: false
     calibration_ref: null
     container_ref: containers/clm-8b
+    # Heads: Contrastive-LM/CLM-v0.1-8B. Encoder is always Qwen/Qwen3-8B
+    # (CLM_ENCODER_ID). Optional CLM_EMB_URL for a vLLM pooling server.
     weights_ref: ${CLM8B_WEIGHTS:-Contrastive-LM/CLM-v0.1-8B}
     model_revision: clm-8b
     backend: clm

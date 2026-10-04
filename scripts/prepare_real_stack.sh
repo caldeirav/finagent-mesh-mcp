@@ -33,6 +33,8 @@ for eid in reg.all_ids():
     seen.add(mid)
     print(f"download {mid}")
     snapshot_download(mid)
+print("download Qwen/Qwen3-8B (CLM encoder)")
+snapshot_download("Qwen/Qwen3-8B")
 print("prefetch complete")
 PY
 fi

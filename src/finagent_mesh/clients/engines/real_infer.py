@@ -35,6 +35,48 @@ def _require_torch():
         ) from exc
 
 
+def _torch_device():
+    import torch
+
+    raw = (os.getenv("SYSTEMONE_DEVICE") or "auto").strip().lower()
+    if raw in {"", "auto"}:
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        return torch.device("cpu")
+    return torch.device(raw)
+
+
+def _torch_dtype(device):
+    import torch
+
+    if device.type == "cuda":
+        return torch.bfloat16
+    return torch.float32
+
+
+def _place_model(model, *, label: str, cast_dtype: bool = True):
+    """Move weights to CUDA/CPU. Decision-2.0 forbids dtype casts."""
+    import torch
+
+    device = _torch_device()
+    dtype = _torch_dtype(device)
+    if cast_dtype:
+        try:
+            model = model.to(device=device, dtype=dtype)
+        except TypeError:
+            log(f"{label}: runtime forbids dtype cast; moving to {device} only")
+            model = model.to(device=device)
+    else:
+        log(f"{label}: moving to {device} (Decision-2.0 reloads natively; can take several minutes)…")
+        model = model.to(device=device)
+    model.eval()
+    extra = ""
+    if device.type == "cuda":
+        extra = f" ({torch.cuda.get_device_name(device)})"
+    log(f"{label} on {device}{extra}")
+    return model, device
+
+
 @lru_cache(maxsize=4)
 def _load_decision20(model_id: str):
     _require_torch()
@@ -42,8 +84,8 @@ def _load_decision20(model_id: str):
 
     log(f"Loading Decision-2.0 weights {model_id} (first call downloads from Hugging Face)…")
     model = AutoModel.from_pretrained(model_id, trust_remote_code=True)
-    log(f"Loaded Decision-2.0 {model_id}")
-    return model
+    model, device = _place_model(model, label=f"Decision-2.0 {model_id}", cast_dtype=False)
+    return model, device
 
 
 @lru_cache(maxsize=2)
@@ -54,8 +96,8 @@ def _load_ar(model_id: str):
     log(f"Loading AR causal LM {model_id} (first call may download)…")
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True)
-    log(f"Loaded AR {model_id}")
-    return tok, model
+    model, device = _place_model(model, label=f"AR {model_id}")
+    return tok, model, device
 
 
 @lru_cache(maxsize=2)
@@ -66,9 +108,8 @@ def _load_embedder(model_id: str):
     log(f"Loading embedder {model_id} (first call may download)…")
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModel.from_pretrained(model_id, trust_remote_code=True)
-    model.eval()
-    log(f"Loaded embedder {model_id}")
-    return tok, model
+    model, device = _place_model(model, label=f"embedder {model_id}")
+    return tok, model, device
 
 
 def _mean_pool(last_hidden, attention_mask):
@@ -80,49 +121,82 @@ def _mean_pool(last_hidden, attention_mask):
     return summed / counts
 
 
-def decide_decision20(
+def _criterion_chars() -> int:
+    raw = os.getenv("SYSTEMONE_CRITERION_CHARS", "240")
+    try:
+        return max(32, int(raw))
+    except ValueError:
+        return 240
+
+
+def _score_batch_size(model_id: str) -> int:
+    raw = os.getenv("SYSTEMONE_SCORE_BATCH", "").strip()
+    if raw:
+        try:
+            return max(1, int(raw))
+        except ValueError:
+            pass
+    lowered = model_id.lower()
+    if "kai" in lowered or "0.6b" in lowered:
+        return 8
+    return 16
+
+
+def _probs_from_answer(ans: Any, candidates: list[dict[str, str]]) -> dict[str, float]:
+    probs: dict[str, float] = {}
+    if not isinstance(ans, dict):
+        return probs
+    raw_probs = ans.get("probabilities") or ans.get("scores") or ans.get("values")
+    if isinstance(raw_probs, dict):
+        probs = {str(k): float(v) for k, v in raw_probs.items()}
+    elif isinstance(raw_probs, list) and raw_probs:
+        for cand, val in zip(candidates, raw_probs):
+            try:
+                probs[cand["id"]] = float(val)
+            except (TypeError, ValueError):
+                continue
+    if not probs and ans.get("choice") is not None:
+        probs = {str(ans["choice"]): 1.0}
+    return probs
+
+
+def _system_one_rank(
+    model: Any,
     *,
-    model_id: str,
     query: str,
     candidates: list[dict[str, str]],
     primitive: str,
+    model_id: str,
 ) -> dict[str, Any]:
-    """Choice/score via Decision-2.0 system_one API."""
-    model = _load_decision20(model_id)
-    criteria = {c["id"]: (c.get("text") or c["id"])[:500] for c in candidates}
+    limit = _criterion_chars()
+    criteria = {c["id"]: (c.get("text") or c["id"])[:limit] for c in candidates}
     qtype = "choice" if primitive == "choice" else "score"
     started = time.perf_counter()
     result = model.system_one(
-        state=query,
+        state=query[:4000],
         questions={
             "rank": {
                 "type": qtype,
                 "instructions": "Rank which candidate best answers the financial query.",
-                "criteria": criteria
-                if qtype == "choice"
-                else list(criteria.values()),
+                "criteria": criteria if qtype == "choice" else list(criteria.values()),
             }
         },
     )
     latency_ms = (time.perf_counter() - started) * 1000.0
-    answers = result.get("answers") or result
+    if isinstance(result, dict) and result.get("max_length_exceeded"):
+        raise RealInferError(
+            f"Decision-2.0 max_length_exceeded n_cand={len(candidates)} "
+            f"chars={limit}; lower SYSTEMONE_SCORE_BATCH / SYSTEMONE_CRITERION_CHARS"
+        )
+    answers = result.get("answers") if isinstance(result, dict) else None
+    if answers is None:
+        answers = result
     ans = answers.get("rank") if isinstance(answers, dict) else None
-    probs: dict[str, float] = {}
-    if isinstance(ans, dict):
-        probs = {
-            str(k): float(v)
-            for k, v in (ans.get("probabilities") or ans.get("scores") or {}).items()
-        }
-        # Map criterion text back to ids when score mode used text list
-        if not probs and ans.get("choice") is not None:
-            choice = str(ans["choice"])
-            probs = {choice: 1.0}
+    probs = _probs_from_answer(ans, candidates)
     if not probs:
-        # Fall back: use criteria keys with uniform if API shape differs
         raise RealInferError(f"Decision-2.0 returned unusable answers: {ans!r}")
 
-    # Normalize keys to candidate ids
-    id_by_text = {(c.get("text") or c["id"])[:500]: c["id"] for c in candidates}
+    id_by_text = {(c.get("text") or c["id"])[:limit]: c["id"] for c in candidates}
     mapped: dict[str, float] = {}
     for k, v in probs.items():
         if k in criteria:
@@ -148,6 +222,60 @@ def decide_decision20(
     }
 
 
+def decide_decision20(
+    *,
+    model_id: str,
+    query: str,
+    candidates: list[dict[str, str]],
+    primitive: str,
+) -> dict[str, Any]:
+    """Choice/score via Decision-2.0 system_one API.
+
+    Stage-2 Score often has 50–300 filing chunks. Kai is a 1024-token
+    Choice/Score head, so candidates are truncated and scored in batches.
+    """
+    model, _device = _load_decision20(model_id)
+    if primitive == "choice" or len(candidates) <= _score_batch_size(model_id):
+        return _system_one_rank(
+            model,
+            query=query,
+            candidates=candidates,
+            primitive=primitive,
+            model_id=model_id,
+        )
+
+    batch = _score_batch_size(model_id)
+    log(
+        f"Decision-2.0 {model_id}: scoring {len(candidates)} candidates "
+        f"in batches of {batch} (truncated to {_criterion_chars()} chars)"
+    )
+    merged: dict[str, float] = {}
+    latency_ms = 0.0
+    for i in range(0, len(candidates), batch):
+        part = _system_one_rank(
+            model,
+            query=query,
+            candidates=candidates[i : i + batch],
+            primitive="score",
+            model_id=model_id,
+        )
+        latency_ms += float(part.get("latency_ms") or 0.0)
+        for row in part["ranking"]:
+            merged[str(row["id"])] = float(row["score"])
+    ids = [c["id"] for c in candidates]
+    scores = [merged.get(i, 0.0) for i in ids]
+    ranked = stable_rank(ids, scores)
+    total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
+    return {
+        "primitive": primitive,
+        "ranking": [{"id": i, "score": s, "rank": r} for i, s, r in ranked],
+        "distribution": {i: max(s, 0.0) / total for i, s, _ in ranked},
+        "latency_ms": latency_ms,
+        "backend": "decision20_batched",
+        "model_id": model_id,
+    }
+
+
 def decide_embed_rank(
     *,
     model_id: str,
@@ -158,10 +286,11 @@ def decide_embed_rank(
     """Dense cosine ranking (Laya / embedding baselines)."""
     import torch
 
-    tok, model = _load_embedder(model_id)
+    tok, model, device = _load_embedder(model_id)
     started = time.perf_counter()
     texts = [query] + [f"{c['id']}: {c.get('text') or ''}" for c in candidates]
     enc = tok(texts, padding=True, truncation=True, max_length=512, return_tensors="pt")
+    enc = {k: v.to(device) for k, v in enc.items()}
     with torch.no_grad():
         out = model(**enc)
         hidden = getattr(out, "last_hidden_state", None)
@@ -195,7 +324,7 @@ def decide_ar_json(
     """Autoregressive JSON ordered_ids baseline."""
     import torch
 
-    tok, model = _load_ar(model_id)
+    tok, model, device = _load_ar(model_id)
     cand_blob = json.dumps(
         [{"id": c["id"], "text": (c.get("text") or "")[:300]} for c in candidates]
     )
@@ -206,6 +335,7 @@ def decide_ar_json(
     )
     started = time.perf_counter()
     inputs = tok(prompt, return_tensors="pt")
+    inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
         out = model.generate(
             **inputs,
@@ -241,6 +371,54 @@ def decide_ar_json(
     }
 
 
+def decide_anyjev(
+    *,
+    model_id: str,
+    query: str,
+    candidates: list[dict[str, str]],
+    primitive: str,
+    mode: str = "l0",
+) -> dict[str, Any]:
+    """AnyJev L0: cyclic option permutations + mean scores on the configured backbone.
+
+    The registry backbone is Decision-2.0 Lux until a packaged AnyJev runtime exists.
+    That is the L0 algorithm on those weights — not a silent swap to Kai.
+    """
+    if primitive != "choice":
+        raise RealInferError(
+            "AnyJev L0/L1 is a Stage-1 Choice engine; it does not score Stage-2 chunks"
+        )
+    n = len(candidates)
+    if n == 0:
+        raise RealInferError("AnyJev Choice requires candidates")
+    acc = {c["id"]: 0.0 for c in candidates}
+    latency_ms = 0.0
+    log(f"AnyJev {mode}: {n} cyclic permutations on backbone {model_id}")
+    for shift in range(n):
+        rotated = candidates[shift:] + candidates[:shift]
+        part = decide_decision20(
+            model_id=model_id,
+            query=query,
+            candidates=rotated,
+            primitive="choice",
+        )
+        latency_ms += float(part.get("latency_ms") or 0.0)
+        for row in part["ranking"]:
+            acc[str(row["id"])] += float(row["score"])
+    ids = [c["id"] for c in candidates]
+    scores = [acc[i] / float(n) for i in ids]
+    ranked = stable_rank(ids, scores)
+    total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
+    return {
+        "primitive": primitive,
+        "ranking": [{"id": i, "score": s, "rank": r} for i, s, r in ranked],
+        "distribution": {i: max(s, 0.0) / total for i, s, _ in ranked},
+        "latency_ms": latency_ms,
+        "backend": f"anyjev_{mode}",
+        "model_id": model_id,
+    }
+
+
 def decide_clm(
     *,
     model_id: str,
@@ -249,32 +427,38 @@ def decide_clm(
     candidates: list[dict[str, str]],
     primitive: str,
 ) -> dict[str, Any]:
-    """CLM Action Cache / rank via contrastive-lm when available."""
+    """CLM Action Cache / rank: Qwen3-8B encoder + Contrastive-LM heads."""
+    from finagent_mesh.clients.engines.clm_runtime import (
+        CLM_ENCODER_DEFAULT,
+        CLM_INSTALL_HINT,
+        load_clm_engine,
+    )
+
     started = time.perf_counter()
     try:
-        from clm import Engine  # type: ignore
-    except ImportError:
-        # Fall back to Decision-2.0 scoring with model_id if clm not installed
-        return decide_decision20(
-            model_id=os.getenv("CLM_FALLBACK_DECISION_MODEL", "vllm-sr/Decision-2.0-Kai-0.6B"),
-            query=query,
-            candidates=candidates,
-            primitive="score" if primitive != "choice" else "choice",
-        )
-
-    url = emb_url or os.getenv("CLM_EMB_URL", "http://127.0.0.1:8090/v1/embeddings")
-    engine = Engine(emb_url=url)
-    texts = [c.get("text") or c["id"] for c in candidates]
-    ranked_raw = engine.rank(query, texts)
+        if emb_url:
+            os.environ["CLM_EMB_URL"] = emb_url
+        encoder_id = os.getenv("CLM_ENCODER_ID", CLM_ENCODER_DEFAULT)
+        engine = load_clm_engine(encoder_id)
+    except ImportError as exc:
+        raise RealInferError(CLM_INSTALL_HINT) from exc
+    texts = [(c.get("text") or c["id"])[:4000] for c in candidates]
+    ranked_raw = engine.rank(
+        query,
+        texts,
+        instructions="Rank which passage best answers the financial query.",
+    )
     latency_ms = (time.perf_counter() - started) * 1000.0
-    # Map back to ids by text
-    by_text = {(c.get("text") or c["id"]): c["id"] for c in candidates}
+    by_text: dict[str, list[str]] = {}
+    for c, text in zip(candidates, texts):
+        by_text.setdefault(text, []).append(c["id"])
     ids: list[str] = []
     scores: list[float] = []
     for item in ranked_raw:
         cand = item.get("candidate") if isinstance(item, dict) else str(item)
         score = float(item.get("prob", item.get("score", 0.0))) if isinstance(item, dict) else 0.0
-        ids.append(by_text.get(cand, cand))
+        bucket = by_text.get(cand) or [str(cand)]
+        ids.append(bucket.pop(0) if bucket else str(cand))
         scores.append(score)
     ranked = stable_rank(ids, scores)
     total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
@@ -285,6 +469,7 @@ def decide_clm(
         "latency_ms": latency_ms,
         "backend": "clm",
         "model_id": model_id,
+        "encoder_id": os.getenv("CLM_ENCODER_ID", CLM_ENCODER_DEFAULT),
     }
 
 
@@ -297,11 +482,19 @@ def infer_for_family(
     primitive: str,
     emb_url: str | None = None,
 ) -> dict[str, Any]:
-    if family in {"vllm-sr", "anyjev"}:
-        # AnyJev L0/L1: until anyjev runtime is packaged, use Decision-2.0-compatible
-        # system_one path on the configured weights (Qwen3-8B decision checkpoint).
+    if family == "vllm-sr":
         return decide_decision20(
             model_id=model_id, query=query, candidates=candidates, primitive=primitive
+        )
+    if family == "anyjev":
+        engine_id = (os.getenv("SYSTEMONE_ENGINE_ID") or "").lower()
+        mode = "l1" if "l1" in engine_id else "l0"
+        return decide_anyjev(
+            model_id=model_id,
+            query=query,
+            candidates=candidates,
+            primitive=primitive,
+            mode=mode,
         )
     if family == "laya":
         return decide_embed_rank(

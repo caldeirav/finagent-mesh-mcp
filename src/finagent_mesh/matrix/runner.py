@@ -27,11 +27,13 @@ class MatrixRunner:
         *,
         allow_mock: bool = False,
         manage_servers: bool = True,
+        force_restart: bool = False,
         repo_root: Path | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.allow_mock = allow_mock
         self.manage_servers = manage_servers
+        self.force_restart = force_restart
         self.repo_root = repo_root or Path.cwd()
         self.registry: EngineRegistry = load_registry(self.settings.engines_registry_path)
         self.partners = FixedStagePartners.from_registry(self.registry)
@@ -97,15 +99,19 @@ class MatrixRunner:
             created_at=raw.get("created_at", ""),
         )
 
-    def _serve(self, action: str, config_id: str) -> None:
+    def _serve(self, action: str, config_id: str | None = None, *, force: bool = False) -> None:
         if not self.manage_servers:
             return
         script = self.repo_root / "scripts" / "serve_engine.sh"
         env = {**dict(__import__("os").environ)}
-        # Preserve caller SYSTEMONE_BACKEND (real|lexical)
         env.setdefault("SYSTEMONE_BACKEND", "lexical")
+        if force:
+            env["SYSTEMONE_FORCE_RESTART"] = "1"
+        cmd = ["bash", str(script), action]
+        if config_id:
+            cmd.append(config_id)
         subprocess.run(
-            ["bash", str(script), action, config_id],
+            cmd,
             check=True,
             cwd=str(self.repo_root),
             env=env,
@@ -174,6 +180,10 @@ class MatrixRunner:
             synthesis_enabled=not skip_synthesis,
         )
         self.save(matrix)
+
+        if self.force_restart and self.manage_servers:
+            progress_log("force-restart: stopping all System-1 sidecars and listeners")
+            self._serve("stop-all")
 
         progress_log(
             f"Matrix {matrix_run_id}: {len(pairs)} pair(s), "
