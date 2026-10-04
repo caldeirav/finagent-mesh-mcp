@@ -1,50 +1,127 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: (unset template) → 1.0.0
+- Modified principles:
+  - [PRINCIPLE_1_NAME] → I. Deterministic Finance Math
+  - [PRINCIPLE_2_NAME] → II. Local System-1 First Guardrails
+  - [PRINCIPLE_3_NAME] → III. Local ARM64 Container Native
+  - [PRINCIPLE_4_NAME] → IV. MCP Protocol Isolation
+  - [PRINCIPLE_5_NAME] → V. State Persistence & Auto-Resume
+  - (added) VI. Trace Completeness
+- Added sections:
+  - Technology Stack Constraints
+  - Evaluation & Runtime Workflow
+  - Governance (concrete rules)
+- Removed sections: none (template placeholders replaced)
+- Follow-up TODOs: none
+-->
+
+# FinAgent Mesh Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Deterministic Finance Math
+No financial math or ratio calculations MAY be performed via direct
+model token generation. All numeric evaluations MUST be dispatched to
+deterministic MCP Python tool servers.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Rationale: Financial correctness requires reproducible arithmetic;
+language-model numerics are non-deterministic and unsuitable as a source
+of truth for ratios, valuations, or benchmark scoring.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Local System-1 First Guardrails
+Incoming routing, policy checks, and tool choices MUST be evaluated by
+open decision models (System 1) running locally inside containerized
+engines on local ZGX Nano (DGX Spark) hardware before triggering
+frontier models (System 2).
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+Rationale: Local System-1 gatekeeping reduces unsafe or wasteful
+frontier calls, keeps policy enforcement on-premises, and preserves a
+clear control plane before expensive System-2 reasoning.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Local ARM64 Container Native
+Container builds MUST target native Grace Blackwell ARM64 architecture
+using Podman with `nvidia-container-toolkit`.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Rationale: The deployment target is ZGX Nano / DGX Spark; non-native
+or Docker-only paths introduce emulation risk and diverge from the
+supported GPU container stack.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. MCP Protocol Isolation
+All tool calls MUST adhere strictly to Model Context Protocol (MCP)
+schemas and pass through AgentGateway for access control and rate
+limiting.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Rationale: MCP schemas and AgentGateway form the sole trusted tool
+boundary; bypassing them breaks auditability, authorization, and
+rate-limit guarantees.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. State Persistence & Auto-Resume
+The evaluation runner MUST maintain an atomic persistence ledger. If an
+execution run crashes or breaks, re-launching the harness MUST
+automatically resume from the last uncompleted benchmark task without
+duplicating completed work.
+
+Rationale: Long FinAgentBench runs must survive process failure without
+lost progress or double-counted results.
+
+### VI. Trace Completeness
+Every state transition in LangGraph, decision probability distribution,
+and tool execution MUST be recorded in MLflow traces.
+
+Rationale: Agentic evaluation is only trustworthy when every routing
+decision and tool side effect is reconstructible from traces.
+
+## Technology Stack Constraints
+
+- Orchestration MUST use LangGraph for agent state machines.
+- System-1 inference MUST run on local open models (e.g. CLM-8B,
+  AnyJev, vLLM-sr) inside ARM64 containers on ZGX Nano.
+- System-2 reasoning MAY use frontier models (e.g. Gemini) only after
+  System-1 guardrails approve the escalation.
+- Tooling MUST be exposed exclusively as MCP servers; clients MUST
+  reach tools only via AgentGateway.
+- Observability MUST use MLflow agentic tracing for runs and decisions.
+- Python packaging and environments MUST use `uv` (not pip/poetry/
+  conda/pyenv as project tooling).
+- Container runtime MUST be Podman with `nvidia-container-toolkit` on
+  Grace Blackwell ARM64.
+
+## Evaluation & Runtime Workflow
+
+1. Persist benchmark task state atomically before and after each task
+   transition in the evaluation ledger.
+2. Route each request through local System-1 policy and tool-choice
+   models; escalate to System-2 only when System-1 authorizes it.
+3. Dispatch all financial numerics to MCP Python tool servers; never
+   accept model-generated numbers as evaluation results.
+4. Emit MLflow traces for LangGraph transitions, System-1 probability
+   distributions, and every MCP tool invocation.
+5. On harness restart, resume from the first incomplete ledger entry and
+   skip tasks already marked complete.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes conflicting project conventions, prompts,
+and ad-hoc implementation choices. Amendments MUST:
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+1. Update `.specify/memory/constitution.md` with a Sync Impact Report
+   for human review (remove the report before committing the amend).
+2. Bump `CONSTITUTION_VERSION` using semantic versioning:
+   - MAJOR: remove or redefine a principle incompatibly
+   - MINOR: add a principle/section or materially expand guidance
+   - PATCH: clarifications, wording, or non-semantic refinements
+3. Set **Last Amended** to the amendment date (ISO `YYYY-MM-DD`).
+4. Document migration impact for any change that invalidates existing
+   runners, containers, gateway policies, or trace schemas.
+
+Compliance review expectations:
+
+- Every PR and Spec Kit plan/implement cycle MUST verify alignment with
+  all six Core Principles and the Technology Stack Constraints.
+- Exceptions MUST be recorded in the relevant spec with explicit
+  rationale and an expiration or removal condition.
+- Complexity that bypasses MCP, AgentGateway, local System-1, or MLflow
+  tracing is forbidden unless this constitution is first amended.
+
+**Version**: 1.0.0 | **Ratified**: 2026-10-04 | **Last Amended**: 2026-10-04
