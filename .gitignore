@@ -124,7 +124,13 @@ activemq-data/
 # Environments
 .env
 .envrc
+.env.local
 .venv
+
+# Harness runtime artifacts
+eval_ledger.db
+*.db
+mlruns/
 env/
 venv/
 ENV/
@@ -186,3 +192,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project local artifacts
+eval_ledger.db
+*.db
+mlruns/
+.env.local

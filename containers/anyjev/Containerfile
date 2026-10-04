@@ -1,0 +1,10 @@
+# Stage-1 Choice engine (AnyJev L0/L1) — Grace Blackwell ARM64
+FROM --platform=linux/arm64 nvidia/cuda:12.6.0-runtime-ubuntu24.04
+
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    SYSTEMONE_PORT=8000
+
+WORKDIR /app
+# Placeholder: install/serve AnyJev and expose /v1/systemone + /healthz
+EXPOSE 8000
+CMD ["bash", "-lc", "echo 'Build model image layers for AnyJev on target host' && sleep infinity"]

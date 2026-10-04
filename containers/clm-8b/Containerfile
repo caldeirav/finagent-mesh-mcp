@@ -1,0 +1,10 @@
+# Stage-2 Score / Action Cache engine (CLM-8B) — Grace Blackwell ARM64
+FROM --platform=linux/arm64 nvidia/cuda:12.6.0-runtime-ubuntu24.04
+
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    SYSTEMONE_PORT=8001
+
+WORKDIR /app
+# Placeholder: install/serve CLM-8B and expose /v1/systemone + /healthz
+EXPOSE 8001
+CMD ["bash", "-lc", "echo 'Build model image layers for CLM-8B on target host' && sleep infinity"]
