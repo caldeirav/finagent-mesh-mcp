@@ -35,6 +35,7 @@ def write_report(matrix: MatrixRun, out: Path, *, fmt: str = "json") -> Path:
     if fmt == "csv":
         fieldnames = [
             "variable_config_id",
+            "pair_id",
             "eval_run_id",
             "stage1_engine_id",
             "stage2_engine_id",
@@ -66,6 +67,7 @@ def write_report(matrix: MatrixRun, out: Path, *, fmt: str = "json") -> Path:
                 out_row.update(
                     {
                         "variable_config_id": row["variable_config_id"],
+                        "pair_id": row["variable_config_id"],
                         "eval_run_id": row["eval_run_id"],
                         "stage1_engine_id": row["stage1_engine_id"],
                         "stage2_engine_id": row["stage2_engine_id"],

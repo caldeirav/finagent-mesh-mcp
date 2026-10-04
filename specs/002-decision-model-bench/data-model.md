@@ -29,6 +29,22 @@ Named matrix / pipeline engine row.
 
 **Validation**: `config_id` unique; `anyjev-l1` MUST have calibration_ref resolving to 200 IDs.
 
+### MatrixPair
+
+Explicit Stage-1 Choice × Stage-2 Score row (`configs/engines.yaml` `matrix_pairs`).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `pair_id` | string (PK) | e.g. `lux-clm`, `kai-clm` |
+| `stage1` | string | FK EngineConfiguration |
+| `stage2` | string | FK EngineConfiguration |
+| `role` | string | `production`, `calibrated`, `latency`, `long_context`, `baseline` |
+| `optional` | bool | Default false; baseline off unless `--include-baseline` |
+| `requires_calibration` | bool | Skip unless 200-id file exists |
+| `rationale` | string | Why this primitive pairing |
+
+Default `run_benchmark.py --real` uses required pairs. `--engines` still applies FixedStagePartners (legacy ablation).
+
 ### FixedStagePartners
 
 | Field | Type | Notes |

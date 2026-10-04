@@ -27,12 +27,9 @@ if str(ROOT / "src") not in sys.path:
 from finagent_mesh.config import get_settings
 from finagent_mesh.dataset.validate_real import RealRunError, assert_real_dataset, assert_real_runtime
 from finagent_mesh.matrix.interpret import report_summary_dict, write_interpretation_report
+from finagent_mesh.matrix.partners import pairs_from_registry, resolve_matrix_pairs
 from finagent_mesh.matrix.report import write_report
 from finagent_mesh.matrix.runner import MatrixRunner
-
-DEFAULT_REAL_ENGINES = (
-    "anyjev-l0,clm-8b,decision20-kai,decision20-lux,laya-modernbert,ar-qwen3-8b-instruct"
-)
 
 
 def main(
@@ -47,8 +44,20 @@ def main(
         None,
         "--engines",
         "-e",
-        help="Comma-separated config_ids (default: all production engines except AnyJev L1).",
+        help="Legacy ablation: comma-separated engine ids with fixed partners (S2=clm-8b, S1=anyjev-l0).",
     ),
+    pairs: Optional[str] = typer.Option(
+        None,
+        "--pairs",
+        "-p",
+        help="Comma-separated matrix pair_ids from configs/engines.yaml (default: architecture-true set).",
+    ),
+    include_baseline: bool = typer.Option(
+        False,
+        "--include-baseline",
+        help="Also run ar-clm (autoregressive JSON Choice × CLM).",
+    ),
+    list_pairs: bool = typer.Option(False, "--list-pairs"),
     run_id: Optional[str] = typer.Option(None, "--run-id"),
     dataset_path: Optional[Path] = typer.Option(None, "--dataset-path"),
     out_dir: Path = typer.Option(Path("artifacts/benchmarks"), "--out-dir"),
@@ -81,15 +90,31 @@ def main(
     os.chdir(ROOT)
     settings = get_settings()
 
-    if list_engines:
+    if list_engines or list_pairs:
         from finagent_mesh.clients.engines.registry import load_registry
 
         reg = load_registry(settings.engines_registry_path)
-        for eid in reg.all_ids():
-            cfg = reg.get(eid)
+        if list_engines:
+            for eid in reg.all_ids():
+                cfg = reg.get(eid)
+                typer.echo(
+                    f"{eid:28} family={cfg.family:12} backend={cfg.backend:12} "
+                    f"model={cfg.weights_ref}"
+                )
+        resolved = resolve_matrix_pairs(
+            reg,
+            include_baseline=True,
+            include_optional=True,
+            repo_root=ROOT,
+        )
+        catalog = {p.pair_id: p for p in pairs_from_registry(reg)}
+        typer.echo("")
+        typer.echo("Matrix pairs (default omits baseline; L1 only if calibrated):")
+        for pair in catalog.values():
+            flag = "default" if pair.pair_id in {p.pair_id for p in resolved} and pair.role != "baseline" else pair.role
             typer.echo(
-                f"{eid:28} family={cfg.family:12} backend={cfg.backend:12} "
-                f"model={cfg.weights_ref}"
+                f"  {pair.pair_id:18} S1={pair.stage1_config_id:24} "
+                f"S2={pair.stage2_config_id:24} [{flag}]"
             )
         raise typer.Exit(0)
 
@@ -108,11 +133,11 @@ def main(
             typer.secho(str(exc), fg=typer.colors.RED, err=True)
             raise typer.Exit(2) from exc
 
-    engine_list = [
-        e.strip()
-        for e in (engines or DEFAULT_REAL_ENGINES).split(",")
-        if e.strip()
-    ]
+    pair_list = [p.strip() for p in (pairs or "").split(",") if p.strip()] or None
+    engine_list = [e.strip() for e in (engines or "").split(",") if e.strip()] or None
+    if pair_list and engine_list:
+        typer.secho("Pass either --pairs or --engines, not both.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(2)
     matrix_run_id = run_id or datetime.now(timezone.utc).strftime("bench-%Y%m%d-%H%M%S")
     path = dataset_path or settings.finagentbench_path
     if path is None:
@@ -153,7 +178,9 @@ def main(
     typer.echo(f"dataset    : {path}")
     typer.echo(f"records    : {records if records is not None else 'ALL (full dataset)'}")
     typer.echo(f"seed       : {seed if records is not None else 'n/a'}")
-    typer.echo(f"engines    : {', '.join(engine_list)}")
+    typer.echo(f"pairs      : {', '.join(pair_list) if pair_list else ('legacy engines' if engine_list else 'architecture default')}")
+    if engine_list:
+        typer.echo(f"engines    : {', '.join(engine_list)}")
     model = gemini_model or settings.gemini_model
     typer.echo(f"synthesis  : {'off' if skip_synthesis else f'on ({model})'}")
     typer.echo(f"backend    : {backend}")
@@ -170,6 +197,8 @@ def main(
         matrix = runner.run(
             matrix_run_id,
             engines=engine_list,
+            pair_ids=pair_list,
+            include_baseline=include_baseline,
             sample_size=records,
             sample_seed=seed if records is not None else None,
             gemini_model=gemini_model,

@@ -43,8 +43,8 @@ Next:
   1. Put Kaggle credentials in .env (KAGGLE_USERNAME / KAGGLE_KEY) if FinAgentBench is not already local
   2. Set SYSTEMONE_MOCK=0 and SYSTEMONE_BACKEND=real in .env
   3. Set GOOGLE_API_KEY for Gemini synthesis
-  4. Run (downloads + converts from Kaggle if data/finagentbench is missing):
+  4. Run architecture-true pairs (see README):
        uv run python scripts/run_benchmark.py --real --run-id prod-full
-     Or a reproducible subset:
-       uv run python scripts/run_benchmark.py --real --records 200 --seed 42 --run-id prod-200
+     Core two rows:
+       uv run python scripts/run_benchmark.py --real --pairs lux-clm,kai-clm --records 200 --seed 42 --run-id prod-core
 EOF

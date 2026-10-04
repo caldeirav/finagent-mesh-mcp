@@ -68,9 +68,12 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
         "3. **System-2 (optional)** — Gemini synthesizes a final answer from top Stage-2 chunks "
         "(fail-closed; no extractive fallback).",
         "",
-        "Matrix rows vary **one engine at a time**. A fixed partner covers the other stage "
+        "Each matrix row is an **architecture-true pair**: Stage 1 is a small-K **Choice** "
+        "(five filing types) and Stage 2 is **Score** over long enumerated chunks. "
+        "Default partners remain available for `--engines` ablation "
         f"(Stage-1 partner=`{matrix.partner_ids.get('stage1_partner_id', 'anyjev-l0')}`, "
-        f"Stage-2 partner=`{matrix.partner_ids.get('stage2_partner_id', 'clm-8b')}`). "
+        f"Stage-2 partner=`{matrix.partner_ids.get('stage2_partner_id', 'clm-8b')}`; "
+        f"binding=`{matrix.partner_ids.get('binding', 'architecture-pairs')}`). "
         "Stage-1 metrics are attributed to the Stage-1 producer; Stage-2 metrics to the Stage-2 producer.",
         "",
         "## Metric definitions",
@@ -86,9 +89,9 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
         "",
         "Higher nDCG / MAP / MRR / answer scores are better. Lower parse-failure and latency are better.",
         "",
-        "## Results by engine (variable under test)",
+        "## Results by pair (Stage 1 × Stage 2)",
         "",
-        "| Variable engine | Status | Stage-1 producer | Stage-2 producer | "
+        "| Pair | Status | Stage-1 producer | Stage-2 producer | "
         "S1 nDCG@5 | S1 MAP@5 | S1 MRR@5 | S2 nDCG@5 | S2 MAP@5 | S2 MRR@5 | "
         "Ans EM | Ans F1 | Parse fail | N |",
         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
@@ -178,14 +181,20 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             )
 
         lines.append(
-            "- When a Stage-1-only engine is under test, Stage-2 metrics largely reflect the "
-            f"**fixed partner** (`{matrix.partner_ids.get('stage2_partner_id', 'clm-8b')}`), "
-            "not the variable engine. Compare Stage-1 columns to judge Choice engines."
+            "- Compare **pairs**, not isolated engines. Stage-1 nDCG judges the Choice "
+            "model; Stage-2 nDCG judges the chunk scorer (and is bounded by Stage-1 recall)."
         )
         lines.append(
-            "- When CLM-8B is the variable engine, Stage-1 metrics largely reflect the "
-            f"**Choice partner** (`{matrix.partner_ids.get('stage1_partner_id', 'anyjev-l0')}`)."
+            "- `lux-clm` is the intended production pair (Lux Choice + CLM Action Cache). "
+            "`lux-lux` tests long-context Score when chunks exceed CLM's 2,048-token window. "
+            "`kai-clm` / `laya-clm` are latency/edge Stage-1 routers with a real Stage-2 scorer."
         )
+        if matrix.partner_ids.get("binding") == "legacy-engines":
+            lines.append(
+                "- This run used **legacy `--engines` ablation** (one variable + fixed partner). "
+                "Stage-2 numbers for Choice-only variables largely reflect "
+                f"`{matrix.partner_ids.get('stage2_partner_id', 'clm-8b')}`."
+            )
         if not matrix.synthesis_enabled:
             lines.append(
                 "- **Synthesis was disabled** (`--skip-synthesis`). Answer EM/F1 are empty. "
@@ -236,7 +245,7 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             "```bash",
             f"uv run python scripts/run_benchmark.py \\",
             f"  --run-id {matrix.matrix_run_id} \\",
-            f"  --engines {','.join(matrix.config_ids)} \\",
+            f"  --pairs {','.join(matrix.config_ids)} \\",
         ]
     )
     if matrix.sample_size is not None:

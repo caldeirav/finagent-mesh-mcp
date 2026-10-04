@@ -1,5 +1,7 @@
 # Engine registry contract (configs/engines.yaml shape)
 # Consumers: matrix runner, serve_engine.sh, OpenDecisionClient adapters
+# Production rows: matrix_pairs in configs/engines.yaml (lux-clm, anyjev-l0-clm,
+# kai-clm, laya-clm, lux-lux; optional anyjev-l1-clm, ar-clm).
 
 version: 1
 partners:

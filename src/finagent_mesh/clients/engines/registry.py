@@ -59,6 +59,7 @@ class EngineRegistry:
     partners: dict[str, str]
     engines: dict[str, EngineConfiguration]
     ports: dict[str, int] = field(default_factory=dict)
+    matrix_pairs: list[dict[str, Any]] = field(default_factory=list)
 
     def get(self, config_id: str) -> EngineConfiguration:
         if config_id not in self.engines:
@@ -103,11 +104,13 @@ def load_registry(path: Path | str | None = None) -> EngineRegistry:
         "stage1_partner_id": str((raw.get("partners") or {}).get("stage1_partner_id", "anyjev-l0")),
         "stage2_partner_id": str((raw.get("partners") or {}).get("stage2_partner_id", "clm-8b")),
     }
+    matrix_pairs = list(raw.get("matrix_pairs") or [])
     return EngineRegistry(
         version=int(raw.get("version") or 1),
         partners=partners,
         engines=engines,
         ports=ports,
+        matrix_pairs=matrix_pairs,
     )
 
 

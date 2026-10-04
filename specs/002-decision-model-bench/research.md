@@ -30,16 +30,23 @@
 
 **Alternatives considered**: Collapsing L0/L1 into one row — loses calibration comparison.
 
-## 3. Fixed partners for end-to-end Stage 1+2
+## 3. Architecture-true Stage 1×2 pairs (default matrix)
 
-**Decision**:
-- Stage-2 fixed partner = `clm-8b`
-- Stage-1 fixed partner = `anyjev-l0`
-- Matrix varies one engine; partner co-runs so each example is one LangGraph execution (Stage 1→2→Gemini).
+**Decision**: Default production matrix is an explicit `matrix_pairs` list in `configs/engines.yaml`, not a full cross-product and not “every engine × fixed partner”.
 
-**Rationale**: Clarification session: sequential variable engine + mandatory end-to-end stages + fixed partners.
+| Pair | Stage 1 | Stage 2 | Role |
+|------|---------|---------|------|
+| `lux-clm` | `decision20-lux` | `clm-8b` | Production Choice × Action Cache Score |
+| `anyjev-l0-clm` | `anyjev-l0` | `clm-8b` | Order-debiased Choice × CLM |
+| `anyjev-l1-clm` | `anyjev-l1` | `clm-8b` | Optional; requires 200-id calibration |
+| `kai-clm` | `decision20-kai` | `clm-8b` | Latency S1 router × CLM |
+| `laya-clm` | `laya-modernbert` | `clm-8b` | Edge S1 × CLM |
+| `lux-lux` | `decision20-lux` | `decision20-lux` | Long-context Score control |
+| `ar-clm` | `ar-qwen3-8b-instruct` | `clm-8b` | Baseline; `--include-baseline` |
 
-**Alternatives considered**: Offline stage-only jobs — rejected by operator. Free partner pick per row — higher ops complexity for v1.
+Rationale: FinAgentBench Stage 1 is K=5 **Choice** (filing types); Stage 2 is **Score** over long enumerated chunks. CLM’s Action Cache matches Stage 2; compact bidirectional models match Stage 1 routing only. Stage-1 errors impose a pre-filtering recall ceiling on Stage 2. `--engines` preserves the older one-variable + fixed-partner ablation (`stage2_partner_id=clm-8b`, `stage1_partner_id=anyjev-l0`).
+
+**Alternatives considered**: Full S1×S2 cross-product — ops/GPU cost. CLM or Laya as both stages — primitive/context mismatch. Offline stage-only jobs — rejected by operator (end-to-end LangGraph still required).
 
 ## 4. Sequential matrix orchestration
 

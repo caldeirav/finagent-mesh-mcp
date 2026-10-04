@@ -48,3 +48,19 @@ def test_sequential_binding_varies_one_engine() -> None:
     # Partner co-runs: stage2 of first row is partner clm; stage1 of second is partner anyjev
     assert rows[0].stage2_config_id == "clm-8b"
     assert rows[1].stage1_config_id == "anyjev-l0"
+
+
+def test_architecture_default_pairs_exclude_baseline() -> None:
+    from finagent_mesh.matrix.partners import resolve_matrix_pairs
+
+    reg = load_registry(ROOT / "configs" / "engines.yaml")
+    pairs = resolve_matrix_pairs(reg, repo_root=ROOT)
+    ids = [p.pair_id for p in pairs]
+    assert "lux-clm" in ids
+    assert "kai-clm" in ids
+    assert "laya-clm" in ids
+    assert "lux-lux" in ids
+    assert "anyjev-l0-clm" in ids
+    assert "ar-clm" not in ids
+    lux_lux = next(p for p in pairs if p.pair_id == "lux-lux")
+    assert lux_lux.unique_engines() == ["decision20-lux"]

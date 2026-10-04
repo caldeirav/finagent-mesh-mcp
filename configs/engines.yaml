@@ -118,6 +118,69 @@ engines:
     model_revision: qwen3-8b-instruct
     backend: ar_json
 
+# Architecture-true Stage-1 Choice × Stage-2 Score pairs (see README).
+# Default `run_benchmark.py --real` runs required rows; L1 is added when
+# configs/calibration/anyjev_l1_heldout.json exists; AR needs --include-baseline.
+matrix_pairs:
+  - pair_id: lux-clm
+    stage1: decision20-lux
+    stage2: clm-8b
+    role: production
+    rationale: >
+      Strongest open Choice head (Lux, 16k context) with CLM Action Cache for
+      enumerated chunk scoring. Primary FinAgentBench production pair.
+
+  - pair_id: anyjev-l0-clm
+    stage1: anyjev-l0
+    stage2: clm-8b
+    role: calibrated
+    rationale: >
+      AnyJev L0 cyclic permutation cancels option-order bias on the K=5 filing-type
+      Choice. CLM remains the Stage-2 scorer.
+
+  - pair_id: anyjev-l1-clm
+    stage1: anyjev-l1
+    stage2: clm-8b
+    role: calibrated
+    optional: true
+    requires_calibration: true
+    rationale: >
+      AnyJev L1 temperature scaling over 200 held-out ids. Skipped until
+      configs/calibration/anyjev_l1_heldout.json is present.
+
+  - pair_id: kai-clm
+    stage1: decision20-kai
+    stage2: clm-8b
+    role: latency
+    rationale: >
+      Kai-0.6B bidirectional encoder is a sub-5 ms S1 router; 1,024-token budget
+      is enough for five doc-type labels. Do not use Kai as Stage 2.
+
+  - pair_id: laya-clm
+    stage1: laya-modernbert
+    stage2: clm-8b
+    role: latency
+    rationale: >
+      Laya ModernBERT is the edge/CPU Choice baseline (512-token cap). Pair with
+      CLM so Stage 2 is not truncated.
+
+  - pair_id: lux-lux
+    stage1: decision20-lux
+    stage2: decision20-lux
+    role: long_context
+    rationale: >
+      Same Lux Score heads on both stages so Stage-2 chunks can use the 16k
+      window (CLM is capped at 2,048 tokens). One process serves both stages.
+
+  - pair_id: ar-clm
+    stage1: ar-qwen3-8b-instruct
+    stage2: clm-8b
+    role: baseline
+    optional: true
+    rationale: >
+      Autoregressive JSON Choice anti-pattern (parse failures, uncalibrated
+      verbal confidence). Off by default; enable with --include-baseline.
+
 ports:
   stage1_default: 8000
   stage2_default: 8001

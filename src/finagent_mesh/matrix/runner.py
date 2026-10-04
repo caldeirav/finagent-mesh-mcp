@@ -12,7 +12,7 @@ from finagent_mesh.clients.engines.registry import EngineRegistry, load_registry
 from finagent_mesh.config import Settings, get_settings, require_official_mock_policy
 from finagent_mesh.dataset.finagentbench import load_examples
 from finagent_mesh.matrix.models import EngineMetricsRecord, MatrixRun, MatrixRowResult
-from finagent_mesh.matrix.partners import FixedStagePartners, bind_matrix_row
+from finagent_mesh.matrix.partners import FixedStagePartners, resolve_matrix_pairs
 from finagent_mesh.matrix.report import write_report
 from finagent_mesh.matrix.sampling import select_example_ids
 from finagent_mesh.runtime.harness import Harness
@@ -121,6 +121,8 @@ class MatrixRunner:
         matrix_run_id: str,
         *,
         engines: list[str] | None = None,
+        pair_ids: list[str] | None = None,
+        include_baseline: bool = False,
         sample_size: int | None = None,
         sample_seed: int | None = None,
         gemini_model: str | None = None,
@@ -133,7 +135,19 @@ class MatrixRunner:
         path = dataset_path or self.settings.finagentbench_path
         if path is None:
             raise RuntimeError("FINAGENTBENCH_PATH is required")
-        config_ids = engines or self.registry.all_ids()
+        pairs = resolve_matrix_pairs(
+            self.registry,
+            pair_ids=pair_ids,
+            engines=engines,
+            include_baseline=include_baseline,
+            repo_root=self.repo_root,
+        )
+        if not pairs:
+            raise RuntimeError(
+                "No matrix pairs selected. Check configs/engines.yaml matrix_pairs "
+                "or pass --pairs / --engines."
+            )
+        config_ids = [p.pair_id for p in pairs]
         all_examples = load_examples(Path(path))
         selection = select_example_ids(
             [e.example_id for e in all_examples],
@@ -151,6 +165,7 @@ class MatrixRunner:
             partner_ids={
                 "stage1_partner_id": self.partners.stage1_partner_id,
                 "stage2_partner_id": self.partners.stage2_partner_id,
+                "binding": "architecture-pairs" if not engines else "legacy-engines",
             },
             gemini_model=gemini_model or self.settings.gemini_model,
             systemone_mock=self.settings.systemone_mock,
@@ -158,36 +173,29 @@ class MatrixRunner:
         )
         self.save(matrix)
 
-        prev_variable: str | None = None
-        for vid in config_ids:
-            cfg = self.registry.get(vid)
-            binding = bind_matrix_row(cfg, self.partners)
+        prev_engines: set[str] = set()
+        for pair in pairs:
+            binding = pair.as_binding()
+            needed = pair.unique_engines()
             row = MatrixRowResult(
-                variable_config_id=vid,
-                eval_run_id=f"{matrix_run_id}:{vid}",
-                stage1_engine_id=binding.stage1_config_id,
-                stage2_engine_id=binding.stage2_config_id,
+                variable_config_id=pair.pair_id,
+                eval_run_id=f"{matrix_run_id}:{pair.pair_id}",
+                stage1_engine_id=pair.stage1_config_id,
+                stage2_engine_id=pair.stage2_config_id,
                 status="running",
             )
             matrix.rows.append(row)
             self.save(matrix)
             try:
-                # Sequential exclusive: stop previous variable if different and heavy
-                if prev_variable and prev_variable != vid:
-                    if prev_variable not in {
-                        binding.stage1_config_id,
-                        binding.stage2_config_id,
-                    }:
-                        self._serve("stop", prev_variable)
-                # Ensure partner + variable
-                if binding.stage1_config_id != vid:
-                    self._ensure_partner(binding.stage1_config_id)
-                if binding.stage2_config_id != vid:
-                    self._ensure_partner(binding.stage2_config_id)
-                self._serve("start", vid)
-                time.sleep(0.3)
-                self._serve("health", vid)
-                self._active_variable = vid
+                for old in prev_engines:
+                    if old not in needed:
+                        self._serve("stop", old)
+                for eid in needed:
+                    self._serve("start", eid)
+                    time.sleep(0.3)
+                    self._serve("health", eid)
+                self._active_variable = pair.pair_id
+                prev_engines = set(needed)
 
                 harness = Harness(
                     self.settings,
@@ -206,11 +214,10 @@ class MatrixRunner:
                     row.eval_run_id,
                     stage1_id=binding.stage1_config_id,
                     stage2_id=binding.stage2_config_id,
-                    variable_id=vid,
+                    variable_id=pair.pair_id,
                     synthesis_enabled=matrix.synthesis_enabled,
                 )
                 row.status = "completed"
-                prev_variable = vid
             except Exception as exc:  # noqa: BLE001
                 row.status = "failed"
                 row.error = str(exc)

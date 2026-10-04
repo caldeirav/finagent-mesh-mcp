@@ -18,7 +18,7 @@ app = typer.Typer(help="FinAgent Mesh decision-model benchmark matrix")
 def run(
     matrix_run_id: str = typer.Option(..., "--matrix-run-id"),
     engines: Optional[str] = typer.Option(
-        None, "--engines", help="Comma-separated config_ids (default: all registry)"
+        None, "--engines", help="Comma-separated config_ids (legacy ablation). Default: architecture matrix_pairs."
     ),
     sample_size: Optional[int] = typer.Option(None, "--sample-size"),
     sample_seed: Optional[int] = typer.Option(None, "--sample-seed"),
