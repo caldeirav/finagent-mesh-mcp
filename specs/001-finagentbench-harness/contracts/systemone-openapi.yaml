@@ -1,0 +1,102 @@
+openapi: 3.1.0
+info:
+  title: Local System-1 Decision API
+  version: 1.0.0
+  description: >
+    TypeSafe-compatible System-1 endpoints served on ZGX Nano behind AgentGateway.
+    Default hosts: http://localhost:8000 (Stage 1 Choice), http://localhost:8001 (Stage 2 Score).
+servers:
+  - url: http://localhost:8000
+    description: Stage 1 Choice engines (AnyJev / vLLM-sr)
+  - url: http://localhost:8001
+    description: Stage 2 Score / CLM-8B Action Cache
+paths:
+  /healthz:
+    get:
+      summary: Liveness/health
+      operationId: healthz
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  engine:
+                    type: string
+  /v1/systemone:
+    post:
+      summary: System-1 decision primitive
+      operationId: systemOneDecide
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemOneRequest"
+      responses:
+        "200":
+          description: Decision result with scores/distribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemOneResponse"
+        "400":
+          description: Invalid request
+        "503":
+          description: Engine unavailable
+components:
+  schemas:
+    SystemOneRequest:
+      type: object
+      required: [primitive, query, candidates]
+      properties:
+        primitive:
+          type: string
+          enum: [choice, score, action_cache]
+        query:
+          type: string
+        candidates:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [id, text]
+            properties:
+              id:
+                type: string
+              text:
+                type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    SystemOneResponse:
+      type: object
+      required: [primitive, ranking, distribution]
+      properties:
+        primitive:
+          type: string
+          enum: [choice, score, action_cache]
+        ranking:
+          type: array
+          items:
+            type: object
+            required: [id, score, rank]
+            properties:
+              id: { type: string }
+              score: { type: number }
+              rank: { type: integer, minimum: 1 }
+        distribution:
+          type: object
+          description: Probability or score vector keyed by candidate id
+          additionalProperties:
+            type: number
+        engine:
+          type: string
+        model_revision:
+          type: string

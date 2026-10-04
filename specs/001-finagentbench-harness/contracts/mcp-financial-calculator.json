@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mcp-financial-calculator tool contracts",
+  "description": "Deterministic Python financial math tools. Sole allowed source for IRR, NPV, amortization, and ratio numerics.",
+  "tools": [
+    {
+      "name": "compute_irr",
+      "description": "Compute internal rate of return for a cashflow series.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["cashflows"],
+        "properties": {
+          "cashflows": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "number" }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["irr"],
+        "properties": {
+          "irr": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "compute_npv",
+      "description": "Compute net present value.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["rate", "cashflows"],
+        "properties": {
+          "rate": { "type": "number" },
+          "cashflows": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "number" }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["npv"],
+        "properties": {
+          "npv": { "type": "number" }
+        }
+      }
+    },
+    {
+      "name": "amortization_schedule",
+      "description": "Build an amortization schedule for a loan.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["principal", "annual_rate", "periods"],
+        "properties": {
+          "principal": { "type": "number", "exclusiveMinimum": 0 },
+          "annual_rate": { "type": "number" },
+          "periods": { "type": "integer", "minimum": 1 },
+          "payments_per_year": { "type": "integer", "minimum": 1, "default": 12 }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["payment", "schedule"],
+        "properties": {
+          "payment": { "type": "number" },
+          "schedule": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["period", "interest", "principal", "balance"],
+              "properties": {
+                "period": { "type": "integer" },
+                "interest": { "type": "number" },
+                "principal": { "type": "number" },
+                "balance": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "ratio_analysis",
+      "description": "Compute named financial ratios from provided inputs.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["ratio", "inputs"],
+        "properties": {
+          "ratio": {
+            "type": "string",
+            "enum": [
+              "current_ratio",
+              "quick_ratio",
+              "debt_to_equity",
+              "gross_margin",
+              "net_margin",
+              "roe",
+              "roa"
+            ]
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["ratio", "value"],
+        "properties": {
+          "ratio": { "type": "string" },
+          "value": { "type": "number" }
+        }
+      }
+    }
+  ]
+}

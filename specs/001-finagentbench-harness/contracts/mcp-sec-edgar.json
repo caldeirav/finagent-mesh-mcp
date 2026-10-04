@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mcp-sec-edgar tool contracts",
+  "description": "MCP tools for SEC filings retrieval, document-type metadata, and chunk extraction. Invoked only via AgentGateway.",
+  "tools": [
+    {
+      "name": "list_document_types",
+      "description": "Return FinAgentBench document-type set and optional firm filing availability metadata.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["firm_id"],
+        "properties": {
+          "firm_id": { "type": "string" },
+          "as_of": { "type": "string", "format": "date" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["document_types"],
+        "properties": {
+          "document_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["10-K", "10-Q", "8-K", "Earnings", "DEF14A"]
+            }
+          },
+          "availability": {
+            "type": "object",
+            "additionalProperties": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    {
+      "name": "fetch_filing",
+      "description": "Retrieve filing content/metadata for a firm and document type.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["firm_id", "doc_type"],
+        "properties": {
+          "firm_id": { "type": "string" },
+          "doc_type": {
+            "type": "string",
+            "enum": ["10-K", "10-Q", "8-K", "Earnings", "DEF14A"]
+          },
+          "accession": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["firm_id", "doc_type", "filing_id", "content_ref"],
+        "properties": {
+          "firm_id": { "type": "string" },
+          "doc_type": { "type": "string" },
+          "filing_id": { "type": "string" },
+          "content_ref": { "type": "string" },
+          "metadata": { "type": "object" }
+        }
+      }
+    },
+    {
+      "name": "extract_chunks",
+      "description": "Extract paragraph-level chunks; preserve tables as single units.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["filing_id"],
+        "properties": {
+          "filing_id": { "type": "string" },
+          "doc_type": {
+            "type": "string",
+            "enum": ["10-K", "10-Q", "8-K", "Earnings", "DEF14A"]
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["filing_id", "chunks"],
+        "properties": {
+          "filing_id": { "type": "string" },
+          "chunks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["chunk_id", "text", "is_table"],
+              "properties": {
+                "chunk_id": { "type": "string" },
+                "text": { "type": "string" },
+                "is_table": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
