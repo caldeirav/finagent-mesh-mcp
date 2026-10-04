@@ -35,4 +35,4 @@
 - Fail-closed Gemini (no extractive fallback) captured in US3, FR-012/013, SC-004.
 - Full dataset + random sample modes captured in US4, FR-011, SC-005.
 - Pre-existing branch `002-systemone-model-serving` reused; feature directory is `specs/002-decision-model-bench`.
-- Checklist complete: ready for `/speckit-clarify` (optional) or `/speckit-plan`.
+- Checklist complete after clarify session 2026-10-04 (5 answers): ready for `/speckit-plan`.
