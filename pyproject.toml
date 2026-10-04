@@ -17,7 +17,13 @@ dependencies = [
     "numpy>=2.5.3",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
     "typer>=0.27.2",
+]
+
+[project.optional-dependencies]
+engines = [
+    "transformers>=5.18.0",
 ]
 
 [build-system]

@@ -1,12 +1,12 @@
-"""System-1 health checks."""
+"""System-1 health checks (single URL or multi-engine)."""
 
 from __future__ import annotations
 
 import httpx
 
 
-def check_healthz(base_url: str, *, timeout: float = 5.0) -> tuple[bool, str]:
-    url = f"{base_url.rstrip('/')}/healthz"
+def check_healthz(base_url: str, *, health_path: str = "/healthz", timeout: float = 5.0) -> tuple[bool, str]:
+    url = f"{base_url.rstrip('/')}{health_path}"
     try:
         with httpx.Client(timeout=timeout) as client:
             resp = client.get(url)
@@ -20,13 +20,27 @@ def check_healthz(base_url: str, *, timeout: float = 5.0) -> tuple[bool, str]:
         return False, f"{url} error={exc}"
 
 
-def require_systemone_healthy(stage1_url: str, stage2_url: str, *, mock: bool) -> None:
+def require_engines_healthy(
+    targets: list[tuple[str, str]],
+    *,
+    mock: bool,
+) -> None:
+    """targets: list of (base_url, health_path). Fail closed if any unhealthy when not mocking."""
     if mock:
         return
-    ok1, msg1 = check_healthz(stage1_url)
-    ok2, msg2 = check_healthz(stage2_url)
-    if not ok1 or not ok2:
+    failures: list[str] = []
+    for base_url, health_path in targets:
+        ok, msg = check_healthz(base_url, health_path=health_path)
+        if not ok:
+            failures.append(msg)
+    if failures:
         raise RuntimeError(
-            "Local System-1 unhealthy; fail closed (no cloud ranking). "
-            f"stage1={msg1}; stage2={msg2}"
+            "Local System-1 unhealthy; fail closed (no cloud ranking). " + "; ".join(failures)
         )
+
+
+def require_systemone_healthy(stage1_url: str, stage2_url: str, *, mock: bool) -> None:
+    require_engines_healthy(
+        [(stage1_url, "/healthz"), (stage2_url, "/healthz")],
+        mock=mock,
+    )

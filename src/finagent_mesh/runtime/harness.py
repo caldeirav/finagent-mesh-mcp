@@ -8,25 +8,49 @@ from typing import Any
 
 from finagent_mesh.agent.graph import build_graph, run_example
 from finagent_mesh.agent.state import AgentState
-from finagent_mesh.clients.gemini import GeminiClient
-from finagent_mesh.clients.open_decision import OpenDecisionClient, OpenDecisionError
-from finagent_mesh.config import Settings, get_settings
+from finagent_mesh.clients.gemini import GeminiClient, GeminiError
+from finagent_mesh.clients.open_decision import OpenDecisionClient, OpenDecisionError, bind_from_registry
+from finagent_mesh.config import Settings, get_settings, require_official_mock_policy
 from finagent_mesh.dataset.finagentbench import load_examples
 from finagent_mesh.ledger.sqlite_ledger import TERMINAL_NO_RERANK, SqliteLedger
-from finagent_mesh.runtime.health import require_systemone_healthy
+from finagent_mesh.matrix.sampling import select_example_ids
+from finagent_mesh.runtime.health import require_engines_healthy, require_systemone_healthy
 from finagent_mesh.runtime import tracing
 from finagent_mesh.scoring.run_aggregator import RunAggregator
 
 
 class Harness:
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        stage1_engine: str | None = None,
+        stage2_engine: str | None = None,
+        gemini_model: str | None = None,
+        allow_mock: bool = False,
+    ) -> None:
         self.settings = settings or get_settings()
-        self.decision = OpenDecisionClient(
-            self.settings.systemone_stage1_url,
-            self.settings.systemone_stage2_url,
-            mock=self.settings.systemone_mock,
+        self.allow_mock = allow_mock
+        self.stage1_engine = stage1_engine
+        self.stage2_engine = stage2_engine
+        self.gemini_model = gemini_model or self.settings.gemini_model
+        require_official_mock_policy(
+            systemone_mock=self.settings.systemone_mock, allow_mock=allow_mock
         )
-        self.gemini = GeminiClient(self.settings.google_api_key, self.settings.gemini_model)
+        if stage1_engine and stage2_engine and not self.settings.systemone_mock:
+            self.decision = bind_from_registry(
+                stage1_engine,
+                stage2_engine,
+                mock=False,
+                registry_path=str(self.settings.engines_registry_path),
+            )
+        else:
+            self.decision = OpenDecisionClient(
+                self.settings.systemone_stage1_url,
+                self.settings.systemone_stage2_url,
+                mock=self.settings.systemone_mock,
+            )
+        self.gemini = GeminiClient(self.settings.google_api_key, self.gemini_model)
         self.graph = build_graph(self.decision, self.gemini)
 
     def run(
@@ -37,25 +61,76 @@ class Harness:
         dataset_path: Path | None = None,
         skip_synthesis: bool = False,
         synthesis_k: int | None = None,
+        sample_size: int | None = None,
+        sample_seed: int | None = None,
+        example_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         settings = self.settings
         path = dataset_path or settings.finagentbench_path
         if path is None:
             raise RuntimeError("FINAGENTBENCH_PATH is required")
-        require_systemone_healthy(
-            settings.systemone_stage1_url,
-            settings.systemone_stage2_url,
-            mock=settings.systemone_mock,
-        )
-        examples = load_examples(Path(path), limit=limit)
+
+        if self.stage1_engine and self.stage2_engine and not settings.systemone_mock:
+            from finagent_mesh.clients.engines.registry import load_registry
+
+            reg = load_registry(settings.engines_registry_path)
+            s1 = reg.get(self.stage1_engine)
+            s2 = reg.get(self.stage2_engine)
+            require_engines_healthy(
+                [(s1.base_url, s1.health_path), (s2.base_url, s2.health_path)],
+                mock=False,
+            )
+        else:
+            require_systemone_healthy(
+                settings.systemone_stage1_url,
+                settings.systemone_stage2_url,
+                mock=settings.systemone_mock,
+            )
+
+        all_examples = load_examples(Path(path), limit=None if sample_size or example_ids else limit)
+        if example_ids is not None:
+            id_set = set(example_ids)
+            examples = [e for e in all_examples if e.example_id in id_set]
+            # Preserve sample order
+            order = {eid: i for i, eid in enumerate(example_ids)}
+            examples.sort(key=lambda e: order.get(e.example_id, 10**9))
+            selected_ids = list(example_ids)
+            capped = False
+        elif sample_size is not None:
+            selection = select_example_ids(
+                [e.example_id for e in all_examples],
+                sample_size=sample_size,
+                sample_seed=sample_seed,
+            )
+            id_set = set(selection.selected_example_ids)
+            examples = [e for e in all_examples if e.example_id in id_set]
+            order = {eid: i for i, eid in enumerate(selection.selected_example_ids)}
+            examples.sort(key=lambda e: order.get(e.example_id, 10**9))
+            selected_ids = selection.selected_example_ids
+            capped = selection.capped
+        else:
+            examples = all_examples[:limit] if limit is not None else all_examples
+            selected_ids = [e.example_id for e in examples]
+            capped = False
+
         k = synthesis_k if synthesis_k is not None else settings.synthesis_k
         ledger = SqliteLedger(settings.eval_ledger_path)
         owner = SqliteLedger.default_owner()
         config = {
             "limit": limit,
             "skip_synthesis": skip_synthesis,
+            "synthesis_enabled": not skip_synthesis,
             "synthesis_k": k,
             "dataset_path": str(path),
+            "stage1_engine": self.stage1_engine,
+            "stage2_engine": self.stage2_engine,
+            "gemini_model": self.gemini_model,
+            "systemone_mock": settings.systemone_mock,
+            "allow_mock": self.allow_mock,
+            "sample_size": sample_size,
+            "sample_seed": sample_seed,
+            "selected_example_ids": selected_ids,
+            "sample_capped": capped,
         }
         try:
             ledger.ensure_run(run_id, config)
@@ -66,6 +141,14 @@ class Harness:
             import mlflow
 
             with mlflow.start_run(run_name=run_id):
+                mlflow.set_tags(
+                    {
+                        "stage1_engine": self.stage1_engine or "",
+                        "stage2_engine": self.stage2_engine or "",
+                        "gemini_model": self.gemini_model,
+                        "systemone_mock": str(settings.systemone_mock),
+                    }
+                )
                 for example in examples:
                     entry = ledger.get_entry(run_id, example.example_id)
                     assert entry is not None
@@ -94,7 +177,11 @@ class Harness:
                     self._process_full(
                         ledger, run_id, example, skip_synthesis=skip_synthesis, k=k, agg=agg
                     )
-            return {"status": ledger.status_counts(run_id), "lease": ledger.lease_info(run_id)}
+            return {
+                "status": ledger.status_counts(run_id),
+                "lease": ledger.lease_info(run_id),
+                "config": config,
+            }
         finally:
             ledger.release_lease(run_id, owner)
             ledger.close()
@@ -118,13 +205,18 @@ class Harness:
             attempts += 1
             try:
                 with tracing.example_run(run_id, example.example_id):
+                    tracing.log_binding(
+                        stage1_engine=self.stage1_engine,
+                        stage2_engine=self.stage2_engine,
+                        gemini_model=self.gemini_model,
+                    )
                     state = run_example(
                         self.graph,
                         example,
-                        skip_synthesis=True,  # commit ranking first
+                        skip_synthesis=True,
                         synthesis_k=k,
                     )
-                    tracing.log_agent_state(state)
+                    tracing.log_agent_state(state, decision_meta=self.decision.last_response_meta)
                 if state.error == "empty_top1_chunks":
                     ledger.transition(
                         run_id,
@@ -139,6 +231,8 @@ class Harness:
                     "stage2": state.stage2.model_dump() if state.stage2 else None,
                     "top1_doc_type": state.top1_doc_type,
                     "stage2_chunks": [c.model_dump() for c in state.stage2_chunks],
+                    "stage1_engine": self.stage1_engine or self.decision.stage1_engine_id,
+                    "stage2_engine": self.stage2_engine or self.decision.stage2_engine_id,
                 }
                 ledger.transition(
                     run_id,
@@ -196,8 +290,6 @@ class Harness:
         ranking = entry.ranking_payload_json or {}
         from finagent_mesh.agent.state import BenchmarkExample, PassageChunk, StageRankingResult
 
-        # Rebuild minimal state for synthesis from durable ranking payload.
-        # Example content reloaded lazily from ranking payload chunks.
         chunks = [PassageChunk.model_validate(c) for c in ranking.get("stage2_chunks") or []]
         example = BenchmarkExample(
             example_id=example_id,
@@ -206,7 +298,6 @@ class Harness:
             chunks=chunks,
             answer_label=(entry.synthesis_payload_json or {}).get("label"),
         )
-        # Prefer reloading full example from dataset if available.
         try:
             if settings.finagentbench_path:
                 for ex in load_examples(Path(settings.finagentbench_path)):
@@ -222,13 +313,17 @@ class Harness:
             attempts += 1
             try:
                 with tracing.example_run(run_id, example_id):
+                    tracing.log_binding(
+                        stage1_engine=self.stage1_engine,
+                        stage2_engine=self.stage2_engine,
+                        gemini_model=self.gemini_model,
+                    )
                     state = run_example(
                         self.graph,
                         example,
                         skip_synthesis=False,
                         synthesis_k=k,
                     )
-                    # Preserve committed ranking metrics if re-rank differs; prefer durable.
                     if ranking.get("stage1"):
                         state.stage1 = StageRankingResult.model_validate(ranking["stage1"])
                     if ranking.get("stage2"):
@@ -238,6 +333,7 @@ class Harness:
                     "answer": state.synthesized_answer,
                     "answer_score": state.answer_score.model_dump() if state.answer_score else None,
                     "label": example.answer_label,
+                    "gemini_model": self.gemini_model,
                 }
                 ledger.transition(
                     run_id,
@@ -248,6 +344,15 @@ class Harness:
                 )
                 agg.add_payload(example_id, ranking, synth_payload)
                 return
+            except GeminiError as exc:
+                last_err = str(exc)
+                ledger.transition(
+                    run_id,
+                    example_id,
+                    "synthesis_retriable",
+                    last_error=last_err,
+                    inc_synthesis=True,
+                )
             except Exception as exc:  # noqa: BLE001
                 last_err = str(exc)
                 ledger.transition(
@@ -257,7 +362,6 @@ class Harness:
                     last_error=last_err,
                     inc_synthesis=True,
                 )
-        # Exhausted
         ledger.transition(
             run_id,
             example_id,

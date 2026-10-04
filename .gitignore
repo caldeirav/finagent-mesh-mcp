@@ -198,3 +198,8 @@ eval_ledger.db
 *.db
 mlruns/
 .env.local
+!artifacts/.gitkeep
+
+# Runtime artifacts (keep directory)
+artifacts/*
+!artifacts/.gitkeep

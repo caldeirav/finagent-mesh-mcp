@@ -13,7 +13,6 @@ def setup_mlflow(tracking_uri: str) -> None:
 
     import mlflow
 
-    # MLflow 3.x puts the local filesystem store in maintenance mode by default.
     os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
     mlflow.set_tracking_uri(tracking_uri)
 
@@ -27,8 +26,39 @@ def example_run(run_id: str, example_id: str) -> Iterator[Any]:
         yield active
 
 
-def log_agent_state(state: AgentState) -> None:
+def log_binding(
+    *,
+    stage1_engine: str | None,
+    stage2_engine: str | None,
+    gemini_model: str | None,
+) -> None:
     import mlflow
+
+    tags = {}
+    if stage1_engine:
+        tags["stage1_engine"] = stage1_engine
+    if stage2_engine:
+        tags["stage2_engine"] = stage2_engine
+    if gemini_model:
+        tags["gemini_model"] = gemini_model
+    if tags:
+        mlflow.set_tags(tags)
+
+
+def log_agent_state(
+    state: AgentState,
+    *,
+    decision_meta: dict[str, Any] | None = None,
+) -> None:
+    import mlflow
+
+    if decision_meta:
+        if decision_meta.get("engine"):
+            mlflow.set_tag("decision_engine", str(decision_meta["engine"]))
+        if decision_meta.get("model_revision"):
+            mlflow.set_tag("model_revision", str(decision_meta["model_revision"]))
+        if decision_meta.get("latency_ms") is not None:
+            mlflow.log_metric("decision_latency_ms", float(decision_meta["latency_ms"]))
 
     if state.stage1:
         mlflow.log_dict(state.stage1.decision_distribution, "stage1_distribution.json")

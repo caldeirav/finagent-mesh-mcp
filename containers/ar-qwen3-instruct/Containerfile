@@ -1,12 +1,11 @@
-# vLLM-sr Decision-2.0 Kai/Lux — Grace Blackwell ARM64
-# Select variant via SYSTEMONE_ENGINE_ID + weights mount.
+# AR Qwen3-8B-Instruct JSON choice baseline — Grace Blackwell ARM64
 FROM --platform=linux/arm64 python:3.12-slim-bookworm
 
 ENV NVIDIA_VISIBLE_DEVICES=all \
     SYSTEMONE_PORT=8000 \
-    SYSTEMONE_ENGINE_ID=decision20-kai \
-    SYSTEMONE_FAMILY=vllm-sr \
-    SYSTEMONE_MODEL_REVISION=decision20-kai-0.6b
+    SYSTEMONE_ENGINE_ID=ar-qwen3-8b-instruct \
+    SYSTEMONE_FAMILY=ar-baseline \
+    SYSTEMONE_MODEL_REVISION=qwen3-8b-instruct
 
 WORKDIR /app
 COPY systemone_sidecar.py /app/systemone_sidecar.py

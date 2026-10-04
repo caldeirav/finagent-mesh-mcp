@@ -1,10 +1,14 @@
-# Stage-1 Choice engine (AnyJev L0/L1) — Grace Blackwell ARM64
-FROM --platform=linux/arm64 nvidia/cuda:12.6.0-runtime-ubuntu24.04
+# AnyJev L0/L1 Stage-1 Choice — Grace Blackwell ARM64
+# Replace sidecar scoring with anyjev+vLLM when ANYJEV_WEIGHTS are mounted.
+FROM --platform=linux/arm64 python:3.12-slim-bookworm
 
 ENV NVIDIA_VISIBLE_DEVICES=all \
-    SYSTEMONE_PORT=8000
+    SYSTEMONE_PORT=8000 \
+    SYSTEMONE_ENGINE_ID=anyjev-l0 \
+    SYSTEMONE_FAMILY=anyjev \
+    SYSTEMONE_MODEL_REVISION=anyjev-l0
 
 WORKDIR /app
-# Placeholder: install/serve AnyJev and expose /v1/systemone + /healthz
+COPY systemone_sidecar.py /app/systemone_sidecar.py
 EXPOSE 8000
-CMD ["bash", "-lc", "echo 'Build model image layers for AnyJev on target host' && sleep infinity"]
+CMD ["python", "/app/systemone_sidecar.py"]

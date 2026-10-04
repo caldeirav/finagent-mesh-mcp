@@ -18,6 +18,10 @@ def _int(name: str, default: int) -> int:
     return int(raw)
 
 
+def _truthy(name: str, default: str = "0") -> bool:
+    return os.getenv(name, default) in {"1", "true", "TRUE", "yes", "YES"}
+
+
 @dataclass(frozen=True)
 class Settings:
     finagentbench_path: Path | None
@@ -32,6 +36,7 @@ class Settings:
     mlflow_tracking_uri: str
     podman_or_docker: str
     systemone_mock: bool
+    engines_registry_path: Path
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -48,9 +53,21 @@ class Settings:
             harness_max_attempts=_int("HARNESS_MAX_ATTEMPTS", 3),
             mlflow_tracking_uri=os.getenv("MLFLOW_TRACKING_URI", "./mlruns"),
             podman_or_docker=os.getenv("PODMAN_OR_DOCKER", "podman"),
-            systemone_mock=os.getenv("SYSTEMONE_MOCK", "0") in {"1", "true", "TRUE", "yes"},
+            systemone_mock=_truthy("SYSTEMONE_MOCK", "0"),
+            engines_registry_path=Path(
+                os.getenv("ENGINES_REGISTRY_PATH", "./configs/engines.yaml")
+            ),
         )
 
 
 def get_settings() -> Settings:
     return Settings.from_env()
+
+
+def require_official_mock_policy(*, systemone_mock: bool, allow_mock: bool) -> None:
+    """Refuse official starts when mock is enabled unless --allow-mock."""
+    if systemone_mock and not allow_mock:
+        raise RuntimeError(
+            "SYSTEMONE_MOCK is enabled; refuse official run without --allow-mock "
+            "(record allow_mock in config for debug-only)"
+        )

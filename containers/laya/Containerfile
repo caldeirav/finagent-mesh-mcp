@@ -1,0 +1,12 @@
+# Laya ModernBERT 421M edge baseline — Grace Blackwell ARM64
+FROM --platform=linux/arm64 python:3.12-slim-bookworm
+
+ENV SYSTEMONE_PORT=8000 \
+    SYSTEMONE_ENGINE_ID=laya-modernbert \
+    SYSTEMONE_FAMILY=laya \
+    SYSTEMONE_MODEL_REVISION=laya-modernbert-421m
+
+WORKDIR /app
+COPY systemone_sidecar.py /app/systemone_sidecar.py
+EXPOSE 8000
+CMD ["python", "/app/systemone_sidecar.py"]

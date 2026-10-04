@@ -1,0 +1,5 @@
+{
+  "calibration_id": "anyjev_l1_heldout",
+  "example_ids": [],
+  "source": "FinAgentBench held-out split — replace with exactly 200 example IDs before starting anyjev-l1"
+}
