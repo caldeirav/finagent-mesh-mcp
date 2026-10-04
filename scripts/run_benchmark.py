@@ -26,6 +26,7 @@ if str(ROOT / "src") not in sys.path:
 
 from finagent_mesh.config import get_settings
 from finagent_mesh.dataset.validate_real import RealRunError, assert_real_dataset, assert_real_runtime
+from finagent_mesh.matrix.inspect import write_inspect_reports
 from finagent_mesh.matrix.interpret import report_summary_dict, write_interpretation_report
 from finagent_mesh.matrix.partners import pairs_from_registry, resolve_matrix_pairs
 from finagent_mesh.matrix.report import write_report
@@ -80,6 +81,11 @@ def main(
         help="With --real, reuse already-running sidecars instead of a full restart.",
     ),
     list_engines: bool = typer.Option(False, "--list-engines"),
+    inspect_from: Optional[str] = typer.Option(
+        None,
+        "--inspect-from",
+        help="Rebuild inspect HTML/JSON from an existing matrix --run-id (no re-run).",
+    ),
     real: bool = typer.Option(
         False,
         "--real",
@@ -100,6 +106,25 @@ def main(
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
     os.chdir(ROOT)
     settings = get_settings()
+
+    if inspect_from:
+        runner = MatrixRunner(settings, allow_mock=True, manage_servers=False, repo_root=ROOT)
+        try:
+            matrix = runner.load(inspect_from)
+        except FileNotFoundError as exc:
+            typer.secho(f"No saved matrix run {inspect_from}: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(2) from exc
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ins_json, ins_html = write_inspect_reports(
+            matrix,
+            ledger_path=settings.eval_ledger_path,
+            out_json=out_dir / f"{inspect_from}.inspect.json",
+            out_html=out_dir / f"{inspect_from}.inspect.html",
+            dataset_path=Path(matrix.dataset_path),
+        )
+        typer.secho(f"Inspect HTML : {ins_html}", fg=typer.colors.GREEN)
+        typer.secho(f"Inspect JSON : {ins_json}", fg=typer.colors.GREEN)
+        raise typer.Exit(0)
 
     if list_engines or list_pairs:
         from finagent_mesh.clients.engines.registry import load_registry
@@ -233,6 +258,13 @@ def main(
     write_report(matrix, json_path, fmt="json")
     write_report(matrix, csv_path, fmt="csv")
     write_interpretation_report(matrix, md_path)
+    ins_json, ins_html = write_inspect_reports(
+        matrix,
+        ledger_path=settings.eval_ledger_path,
+        out_json=out_dir / f"{matrix_run_id}.inspect.json",
+        out_html=out_dir / f"{matrix_run_id}.inspect.html",
+        dataset_path=Path(path),
+    )
 
     summary = report_summary_dict(matrix)
     typer.echo("")
@@ -242,6 +274,8 @@ def main(
     typer.secho(f"JSON report : {json_path}", fg=typer.colors.GREEN)
     typer.secho(f"CSV report  : {csv_path}", fg=typer.colors.GREEN)
     typer.secho(f"MD report   : {md_path}", fg=typer.colors.GREEN)
+    typer.secho(f"Inspect HTML: {ins_html}", fg=typer.colors.GREEN)
+    typer.secho(f"Inspect JSON: {ins_json}", fg=typer.colors.GREEN)
 
     if matrix.status != "completed":
         raise typer.Exit(1)

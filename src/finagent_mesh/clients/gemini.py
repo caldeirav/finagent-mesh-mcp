@@ -11,6 +11,8 @@ class GeminiClient:
     def __init__(self, api_key: str | None, model: str) -> None:
         self.api_key = api_key
         self.model = model
+        self.last_prompt: str | None = None
+        self.last_answer: str | None = None
 
     def synthesize(self, query: str, chunks: list[tuple[str, str]]) -> str:
         """Synthesize an answer from (chunk_id, text) pairs. Fail closed — no extractive fallback."""
@@ -25,6 +27,8 @@ class GeminiClient:
             "the provided retrieved passages. If insufficient, say you cannot determine.\n\n"
             f"Question: {query}\n\nPassages:\n{context}\n\nAnswer:"
         )
+        self.last_prompt = prompt
+        self.last_answer = None
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -35,5 +39,7 @@ class GeminiClient:
 
         content = getattr(result, "content", str(result))
         if isinstance(content, list):
-            return " ".join(str(part) for part in content)
-        return str(content)
+            content = " ".join(str(part) for part in content)
+        text = str(content)
+        self.last_answer = text
+        return text

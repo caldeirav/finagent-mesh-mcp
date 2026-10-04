@@ -261,7 +261,11 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             "",
             "## Artifacts",
             "",
-            f"- Machine-readable matrix JSON: `artifacts/benchmarks/{matrix.matrix_run_id}.json`",
+            f"- Interactive inspect (click pair → example: labels vs S1/S2/synthesis I/O): "
+            f"`artifacts/benchmarks/{matrix.matrix_run_id}.inspect.html`",
+            f"- Inspect JSON: `artifacts/benchmarks/{matrix.matrix_run_id}.inspect.json`",
+            f"- Matrix JSON / CSV: `artifacts/benchmarks/{matrix.matrix_run_id}.json`, "
+            f"`artifacts/benchmarks/{matrix.matrix_run_id}.csv`",
             f"- This report: `artifacts/benchmarks/{matrix.matrix_run_id}.md`",
             "",
             "---",

@@ -226,6 +226,13 @@ class SqliteLedger:
             self._conn.rollback()
             raise
 
+    def list_entries(self, run_id: str) -> list[LedgerEntry]:
+        rows = self._conn.execute(
+            "SELECT * FROM ledger_entries WHERE run_id=? ORDER BY example_id",
+            (run_id,),
+        ).fetchall()
+        return [self._row_to_entry(r) for r in rows]
+
     def status_counts(self, run_id: str) -> dict[str, int]:
         rows = self._conn.execute(
             "SELECT state, COUNT(*) AS c FROM ledger_entries WHERE run_id=? GROUP BY state",

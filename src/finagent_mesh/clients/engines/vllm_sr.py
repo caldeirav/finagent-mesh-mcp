@@ -19,8 +19,10 @@ class VllmSrAdapter(HttpSystemOneAdapter):
         candidates: list[dict[str, str]],
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        if primitive != "choice":
-            raise ValueError(f"vLLM-sr Decision-2.0 supports choice only; got {primitive}")
+        if primitive not in {"choice", "score"}:
+            raise ValueError(
+                f"vLLM-sr Decision-2.0 supports choice and score; got {primitive}"
+            )
         meta = dict(metadata or {})
         meta["decision20_variant"] = "lux" if "lux" in self.engine_id else "kai"
         return super().decide(primitive, query, candidates, meta)

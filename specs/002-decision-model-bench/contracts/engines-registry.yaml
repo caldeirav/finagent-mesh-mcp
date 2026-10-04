@@ -111,7 +111,7 @@ engines:
     is_light_edge: false
     calibration_ref: null
     container_ref: containers/ar-qwen3-instruct
-    weights_ref: ${AR_QWEN3_WEIGHTS}
+    weights_ref: ${AR_QWEN3_WEIGHTS:-Qwen/Qwen3-8B}
     model_revision: qwen3-8b-instruct
 
 # Port collision rule when variable engine is clm-8b:

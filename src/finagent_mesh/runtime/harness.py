@@ -21,6 +21,53 @@ from finagent_mesh.runtime import tracing
 from finagent_mesh.scoring.run_aggregator import RunAggregator
 
 
+def expected_snapshot(example) -> dict[str, Any]:
+    by_type: dict[str, int] = {}
+    for c in example.chunks:
+        by_type[c.doc_type] = by_type.get(c.doc_type, 0) + 1
+    return {
+        "example_id": example.example_id,
+        "firm_id": example.firm_id,
+        "query_text": example.query_text,
+        "query_category": getattr(example, "query_category", "") or "",
+        "stage1_labels": example.stage1_labels,
+        "stage2_labels": example.stage2_labels,
+        "answer_label": example.answer_label,
+        "n_chunks": len(example.chunks),
+        "chunks_by_doc_type": by_type,
+    }
+
+
+def _ranking_payload(
+    example,
+    state: AgentState | None,
+    decision: OpenDecisionClient,
+    stage1_engine: str | None,
+    stage2_engine: str | None,
+    *,
+    error: str | None = None,
+) -> dict[str, Any]:
+    s1 = state.stage1.model_dump() if state and state.stage1 else None
+    s2 = state.stage2.model_dump() if state and state.stage2 else None
+    chunks = []
+    if state:
+        for c in state.stage2_chunks:
+            d = c.model_dump()
+            d["text"] = (d.get("text") or "")[:500]
+            chunks.append(d)
+    return {
+        "stage1": s1,
+        "stage2": s2,
+        "top1_doc_type": state.top1_doc_type if state else None,
+        "stage2_chunks": chunks,
+        "stage1_engine": stage1_engine or decision.stage1_engine_id,
+        "stage2_engine": stage2_engine or decision.stage2_engine_id,
+        "expected": expected_snapshot(example),
+        "io_traces": list(decision.io_traces),
+        "error": error or (state.error if state else None),
+    }
+
+
 class Harness:
     def __init__(
         self,
@@ -248,6 +295,7 @@ class Harness:
                         stage2_engine=self.stage2_engine,
                         gemini_model=self.gemini_model,
                     )
+                    self.decision.reset_traces()
                     state = run_example(
                         self.graph,
                         example,
@@ -255,23 +303,20 @@ class Harness:
                         synthesis_k=k,
                     )
                     tracing.log_agent_state(state, decision_meta=self.decision.last_response_meta)
+                ranking_payload = _ranking_payload(
+                    example, state, self.decision, self.stage1_engine, self.stage2_engine
+                )
                 if state.error == "empty_top1_chunks":
                     ledger.transition(
                         run_id,
                         example.example_id,
                         "failed_retriable",
                         last_error=state.error,
+                        ranking_payload=ranking_payload,
                         inc_stage2=True,
                     )
+                    agg.add_payload(example.example_id, ranking_payload, None)
                     return
-                ranking_payload = {
-                    "stage1": state.stage1.model_dump() if state.stage1 else None,
-                    "stage2": state.stage2.model_dump() if state.stage2 else None,
-                    "top1_doc_type": state.top1_doc_type,
-                    "stage2_chunks": [c.model_dump() for c in state.stage2_chunks],
-                    "stage1_engine": self.stage1_engine or self.decision.stage1_engine_id,
-                    "stage2_engine": self.stage2_engine or self.decision.stage2_engine_id,
-                }
                 ledger.transition(
                     run_id,
                     example.example_id,
@@ -283,24 +328,44 @@ class Harness:
                 break
             except OpenDecisionError as exc:
                 last_err = str(exc)
+                ranking_payload = _ranking_payload(
+                    example,
+                    state,
+                    self.decision,
+                    self.stage1_engine,
+                    self.stage2_engine,
+                    error=last_err,
+                )
                 if attempts >= settings.harness_max_attempts:
                     ledger.transition(
                         run_id,
                         example.example_id,
                         "failed_retriable",
                         last_error=last_err,
+                        ranking_payload=ranking_payload,
                         inc_stage1=True,
                     )
+                    agg.add_payload(example.example_id, ranking_payload, None)
                     return
             except Exception as exc:  # noqa: BLE001
                 last_err = str(exc)
+                ranking_payload = _ranking_payload(
+                    example,
+                    state,
+                    self.decision,
+                    self.stage1_engine,
+                    self.stage2_engine,
+                    error=last_err,
+                )
                 if attempts >= settings.harness_max_attempts:
                     ledger.transition(
                         run_id,
                         example.example_id,
                         "failed_retriable",
                         last_error=last_err,
+                        ranking_payload=ranking_payload,
                     )
+                    agg.add_payload(example.example_id, ranking_payload, None)
                     return
         entry = ledger.get_entry(run_id, example.example_id)
         assert entry is not None
@@ -372,6 +437,11 @@ class Harness:
                     "answer_score": state.answer_score.model_dump() if state.answer_score else None,
                     "label": example.answer_label,
                     "gemini_model": self.gemini_model,
+                    "prompt": self.gemini.last_prompt,
+                    "passages": [
+                        {"chunk_id": c.chunk_id, "text": (c.text or "")[:800]}
+                        for c in (state.stage2_chunks or chunks)[:k]
+                    ],
                 }
                 ledger.transition(
                     run_id,

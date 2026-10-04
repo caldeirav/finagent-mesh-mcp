@@ -66,7 +66,7 @@ Figures below are from the survey’s comparison table (JevBench / 54-task Decis
 | **CLM-8B** | Frozen Qwen3-8B **dual encoder** + ~40M InfoNCE heads | 8B+heads / **2,048** | Hypersphere match; **Action Cache** of pre-embedded candidates | 15–40 ms cached | Strong on verifier benches (e.g. Terminal-Bench), not JevBench Choice | Default **Stage-2**. Enumerated chunks ≈ cached actions. Not a 5-way taxonomy Choice model. [`Contrastive-LM/CLM-v0.1-8B`](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B), [CLM](https://github.com/Contrastive-LM/CLM). |
 | **AnyJev L0 / L1** | Wrapper on a Choice backbone | inherits base | L0: cyclic permutations + mean scores (kills additive **position bias**). L1: temperature scaling on ~200 labels | 150–400 ms (rotations) | Depends on base; L1 ECE ~0.036 on BANKING77 | **Stage-1 Choice** when *K*=5. Implemented as L0 cyclic permutations on the configured Lux backbone. L1 skipped until `configs/calibration/anyjev_l1_heldout.json`. [GitHub](https://github.com/nokia-applied-research/AnyJev). |
 | **Laya (ModernBERT)** | Bidirectional MLM + task heads | **421M** / **512** | Full bidirectional attention, Choice/Noul/Score | 5–15 ms | **54.4** JevBench | **Edge Stage-1 only**. CPU-capable; truncates Stage-2 passages. [`ameerhmz5/laya-modernbert-decision-90pct`](https://huggingface.co/ameerhmz5/laya-modernbert-decision-90pct). |
-| **Qwen3-8B-Instruct** | Autoregressive chat | 8B / long | Generate JSON ranks | hundreds of ms–s | N/A (anti-pattern in the survey) | **Baseline** (`--include-baseline`): parse failures + verbal confidence. [`Qwen/Qwen3-8B-Instruct`](https://huggingface.co/Qwen/Qwen3-8B-Instruct). |
+| **Qwen3-8B** | Autoregressive chat | 8B / long | Generate JSON ranks | hundreds of ms–s | N/A (anti-pattern in the survey) | **Baseline** (`--include-baseline`): parse failures + verbal confidence. Hub id [`Qwen/Qwen3-8B`](https://huggingface.co/Qwen/Qwen3-8B) (there is no official `Qwen/Qwen3-8B-Instruct`). |
 
 **Jev 1.x (hosted)** is the closed reference (~10B MoE-class, 64k context, ECE ~0.03, JevBench ~74.4). We do not call the TypeSafe API; open rows are compared against FinAgentBench labels, not against Jev’s black box.
 
@@ -164,6 +164,10 @@ uv run python scripts/run_benchmark.py --real --engines decision20-kai,clm-8b --
 
 ```bash
 less artifacts/benchmarks/prod-full.md
+# Open inspect.html in a browser: click a pair, then an example, to compare
+# expected labels vs Stage-1/Stage-2 model I/O (and Gemini if synthesis ran).
+# Rebuild inspect without rerunning:
+#   uv run python scripts/run_benchmark.py --inspect-from prod-full
 ```
 
 ---
@@ -181,7 +185,7 @@ uv sync --extra real --group dev
 - `scripts/download_finagentbench_kaggle.py` — fetch + convert ICAIF’25 FinAgentBench
 - `scripts/prepare_real_stack.sh` — torch/transformers; optional HF prefetch
 - `scripts/serve_engine.sh` — start/stop/restart/health/`stop-all` (`SYSTEMONE_BACKEND=real|lexical`)
-- `src/finagent_mesh/matrix/partners.py` — pair resolution + legacy partner binding
+- `src/finagent_mesh/matrix/inspect.py` — per-example inspect HTML/JSON (labels vs S1/S2 I/O)
 - `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM inference
 - `artifacts/benchmarks/` — JSON / CSV / Markdown outputs
 - [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md) — System-1 survey used above

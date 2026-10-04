@@ -56,6 +56,11 @@ class OpenDecisionClient:
         self.stage1_engine_id = stage1_engine_id or getattr(stage1_client, "engine_id", "stage1")
         self.stage2_engine_id = stage2_engine_id or getattr(stage2_client, "engine_id", "stage2")
         self.last_response_meta: dict[str, Any] = {}
+        self.io_traces: list[dict[str, Any]] = []
+
+    def reset_traces(self) -> None:
+        self.io_traces = []
+        self.last_response_meta = {}
 
     def _base_for(self, primitive: Primitive) -> str:
         if primitive == "choice":
@@ -74,49 +79,78 @@ class OpenDecisionClient:
         candidates: list[dict[str, str]],
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        if self.mock:
-            data = self._mock_decide(primitive, query, candidates)
-            self.last_response_meta = {
-                "engine": data.get("engine"),
-                "model_revision": data.get("model_revision"),
-                "latency_ms": data.get("latency_ms"),
-            }
-            return data
-
-        bound = self._client_for(primitive)
-        if bound is not None:
-            data = bound.decide(primitive, query, candidates, metadata)
-            self.last_response_meta = {
-                "engine": data.get("engine", getattr(bound, "engine_id", None)),
-                "model_revision": data.get(
-                    "model_revision", getattr(bound, "model_revision", None)
-                ),
-                "latency_ms": data.get("latency_ms"),
-            }
-            return data
-
-        payload = {
+        slim_cands = [
+            {"id": c["id"], "text": (c.get("text") or "")[:400]} for c in candidates
+        ]
+        rec: dict[str, Any] = {
             "primitive": primitive,
             "query": query,
-            "candidates": candidates,
-            "metadata": metadata or {},
+            "n_candidates": len(candidates),
+            "candidates": slim_cands,
+            "metadata": dict(metadata or {}),
         }
-        url = f"{self._base_for(primitive)}/v1/systemone"
         try:
-            with httpx.Client(timeout=self.timeout) as client:
-                resp = client.post(url, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-        except httpx.HTTPError as exc:
-            raise OpenDecisionError(f"System-1 call failed: {exc}") from exc
-        if "ranking" not in data or "distribution" not in data:
-            raise OpenDecisionError("System-1 response missing ranking/distribution")
-        self.last_response_meta = {
-            "engine": data.get("engine"),
-            "model_revision": data.get("model_revision"),
-            "latency_ms": data.get("latency_ms"),
-        }
-        return data
+            if self.mock:
+                data = self._mock_decide(primitive, query, candidates)
+                self.last_response_meta = {
+                    "engine": data.get("engine"),
+                    "model_revision": data.get("model_revision"),
+                    "latency_ms": data.get("latency_ms"),
+                }
+            else:
+                bound = self._client_for(primitive)
+                if bound is not None:
+                    data = bound.decide(primitive, query, candidates, metadata)
+                    self.last_response_meta = {
+                        "engine": data.get("engine", getattr(bound, "engine_id", None)),
+                        "model_revision": data.get(
+                            "model_revision", getattr(bound, "model_revision", None)
+                        ),
+                        "latency_ms": data.get("latency_ms"),
+                    }
+                else:
+                    payload = {
+                        "primitive": primitive,
+                        "query": query,
+                        "candidates": candidates,
+                        "metadata": metadata or {},
+                    }
+                    url = f"{self._base_for(primitive)}/v1/systemone"
+                    try:
+                        with httpx.Client(timeout=self.timeout) as client:
+                            resp = client.post(url, json=payload)
+                            resp.raise_for_status()
+                            data = resp.json()
+                    except httpx.HTTPError as exc:
+                        raise OpenDecisionError(f"System-1 call failed: {exc}") from exc
+                    if "ranking" not in data or "distribution" not in data:
+                        raise OpenDecisionError("System-1 response missing ranking/distribution")
+                    self.last_response_meta = {
+                        "engine": data.get("engine"),
+                        "model_revision": data.get("model_revision"),
+                        "latency_ms": data.get("latency_ms"),
+                    }
+            rec.update(
+                {
+                    "engine": self.last_response_meta.get("engine"),
+                    "model_revision": self.last_response_meta.get("model_revision"),
+                    "latency_ms": self.last_response_meta.get("latency_ms"),
+                    "ranking": data.get("ranking"),
+                    "distribution": data.get("distribution"),
+                    "backend": data.get("backend"),
+                    "model_id": data.get("model_id"),
+                    "error": None,
+                }
+            )
+            self.io_traces.append(rec)
+            return data
+        except Exception as exc:
+            rec["error"] = str(exc)
+            rec["engine"] = rec.get("engine") or (
+                self.stage1_engine_id if primitive == "choice" else self.stage2_engine_id
+            )
+            self.io_traces.append(rec)
+            raise
 
     def _mock_decide(
         self,

@@ -106,7 +106,7 @@ engines:
 
   - config_id: ar-qwen3-8b-instruct
     family: ar-baseline
-    display_name: AR Qwen3-8B-Instruct
+    display_name: AR Qwen3-8B (instruct-tuned Hub id)
     primitives: [json_choice]
     primary_stages: [stage1]
     base_url: http://localhost:8000
@@ -116,7 +116,7 @@ engines:
     is_light_edge: false
     calibration_ref: null
     container_ref: containers/ar-qwen3-instruct
-    weights_ref: ${AR_QWEN3_WEIGHTS:-Qwen/Qwen3-8B-Instruct}
+    weights_ref: ${AR_QWEN3_WEIGHTS:-Qwen/Qwen3-8B}
     model_revision: qwen3-8b-instruct
     backend: ar_json
 
