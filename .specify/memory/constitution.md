@@ -1,18 +1,13 @@
 <!--
 Sync Impact Report
-- Version change: (unset template) → 1.0.0
-- Modified principles:
-  - [PRINCIPLE_1_NAME] → I. Deterministic Finance Math
-  - [PRINCIPLE_2_NAME] → II. Local System-1 First Guardrails
-  - [PRINCIPLE_3_NAME] → III. Local ARM64 Container Native
-  - [PRINCIPLE_4_NAME] → IV. MCP Protocol Isolation
-  - [PRINCIPLE_5_NAME] → V. State Persistence & Auto-Resume
-  - (added) VI. Trace Completeness
-- Added sections:
-  - Technology Stack Constraints
-  - Evaluation & Runtime Workflow
-  - Governance (concrete rules)
-- Removed sections: none (template placeholders replaced)
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: none renamed
+- Added sections / principles:
+  - VII. Two-Stage Agentic Retrieval Paradigm
+- Removed sections: none
+- Other updates:
+  - Evaluation & Runtime Workflow: Stage-1/Stage-2 retrieval step
+  - Governance: compliance wording updated for seven Core Principles
 - Follow-up TODOs: none
 -->
 
@@ -72,6 +67,16 @@ and tool execution MUST be recorded in MLflow traces.
 Rationale: Agentic evaluation is only trustworthy when every routing
 decision and tool side effect is reconstructible from traces.
 
+### VII. Two-Stage Agentic Retrieval Paradigm
+The agent MUST explicitly separate financial information retrieval into
+Stage 1 (Document-Type Level Ranking across `10-K`, `10-Q`, `8-K`,
+`Earnings`, `DEF14A`) and Stage 2 (Chunk-Level Ranking over
+paragraph-level passages) as defined in FinAgentBench.
+
+Rationale: Collapsing document-type selection and passage ranking into
+a single step violates the FinAgentBench retrieval contract and makes
+Stage-1 vs Stage-2 decisions unmeasurable.
+
 ## Technology Stack Constraints
 
 - Orchestration MUST use LangGraph for agent state machines.
@@ -93,11 +98,14 @@ decision and tool side effect is reconstructible from traces.
    transition in the evaluation ledger.
 2. Route each request through local System-1 policy and tool-choice
    models; escalate to System-2 only when System-1 authorizes it.
-3. Dispatch all financial numerics to MCP Python tool servers; never
+3. Perform retrieval as two explicit stages: Stage 1 document-type
+   ranking (`10-K`, `10-Q`, `8-K`, `Earnings`, `DEF14A`), then Stage 2
+   chunk-level ranking over paragraph passages.
+4. Dispatch all financial numerics to MCP Python tool servers; never
    accept model-generated numbers as evaluation results.
-4. Emit MLflow traces for LangGraph transitions, System-1 probability
+5. Emit MLflow traces for LangGraph transitions, System-1 probability
    distributions, and every MCP tool invocation.
-5. On harness restart, resume from the first incomplete ledger entry and
+6. On harness restart, resume from the first incomplete ledger entry and
    skip tasks already marked complete.
 
 ## Governance
@@ -118,10 +126,11 @@ and ad-hoc implementation choices. Amendments MUST:
 Compliance review expectations:
 
 - Every PR and Spec Kit plan/implement cycle MUST verify alignment with
-  all six Core Principles and the Technology Stack Constraints.
+  all seven Core Principles and the Technology Stack Constraints.
 - Exceptions MUST be recorded in the relevant spec with explicit
   rationale and an expiration or removal condition.
-- Complexity that bypasses MCP, AgentGateway, local System-1, or MLflow
-  tracing is forbidden unless this constitution is first amended.
+- Complexity that bypasses MCP, AgentGateway, local System-1, two-stage
+  FinAgentBench retrieval, or MLflow tracing is forbidden unless this
+  constitution is first amended.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-04 | **Last Amended**: 2026-10-04
+**Version**: 1.1.0 | **Ratified**: 2026-10-04 | **Last Amended**: 2026-10-04
