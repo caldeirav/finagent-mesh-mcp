@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Minimal System-1 sidecar implementing /healthz + /v1/systemone.
+"""System-1 HTTP server: /healthz + /v1/systemone.
 
-Used for local/dev and as the Container CMD until operator-provided GPU weights
-replace the scoring backend. Engine identity and family bias differentiate matrix rows.
+Backends:
+- lexical (default): deterministic scoring for wiring tests only
+- real: HuggingFace Decision-2.0 / embedding / AR / CLM inference
 """
 
 from __future__ import annotations
@@ -10,16 +11,24 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src"))
 
 ENGINE_ID = os.getenv("SYSTEMONE_ENGINE_ID", "anyjev-l0")
 MODEL_REVISION = os.getenv("SYSTEMONE_MODEL_REVISION", ENGINE_ID)
 FAMILY = os.getenv("SYSTEMONE_FAMILY", "anyjev")
 PORT = int(os.getenv("SYSTEMONE_PORT", "8000"))
 HOST = os.getenv("SYSTEMONE_HOST", "0.0.0.0")
+BACKEND = os.getenv("SYSTEMONE_BACKEND", "lexical")  # lexical | real
+MODEL_ID = os.getenv("SYSTEMONE_MODEL_ID", "").strip()
+CLM_EMB_URL = os.getenv("CLM_EMB_URL")
 
 
 def _stable_rank(ids: list[str], scores: list[float]) -> list[tuple[str, float, int]]:
@@ -27,7 +36,7 @@ def _stable_rank(ids: list[str], scores: list[float]) -> list[tuple[str, float, 
     return [(i, s, r + 1) for r, (i, s) in enumerate(pairs)]
 
 
-def _score_candidates(
+def _lexical_score(
     query: str,
     candidates: list[dict[str, str]],
     *,
@@ -36,7 +45,6 @@ def _score_candidates(
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
     q_tokens = set(re.findall(r"[a-z0-9]+", query.lower()))
-    # Family-specific bias so matrix rows are distinguishable without GPU weights.
     family_bias = {
         "anyjev": 0.15 if "l1" in engine_id else 0.10,
         "clm": 0.05,
@@ -50,17 +58,13 @@ def _score_candidates(
         text = (c.get("text") or "").lower()
         tokens = set(re.findall(r"[a-z0-9]+", text))
         overlap = float(len(q_tokens & tokens))
-        # Cyclic-shift style perturbation for AnyJev L0
         shift = ((idx + hash(engine_id)) % max(len(candidates), 1)) * 0.01
-        temp = 1.0
-        if metadata.get("anyjev_mode") == "l1":
-            temp = 0.7  # temperature scaling stand-in
+        temp = 0.7 if metadata.get("anyjev_mode") == "l1" else 1.0
         score = (overlap + family_bias + shift + 0.001 * len(text)) / temp
         if family == "clm" or metadata.get("action_cache"):
             score += 0.02 * (1.0 / (1 + idx))
         scored.append((cid, score))
 
-    # Optional AR JSON generation path with injectable parse failure
     if metadata.get("json_choice") or family == "ar-baseline":
         if metadata.get("force_parse_failure"):
             return {
@@ -99,8 +103,34 @@ def _score_candidates(
     }
 
 
+def _real_score(
+    query: str,
+    candidates: list[dict[str, str]],
+    *,
+    primitive: str,
+) -> dict[str, Any]:
+    if not MODEL_ID:
+        raise RuntimeError(
+            "SYSTEMONE_BACKEND=real requires SYSTEMONE_MODEL_ID (HF id or local path)"
+        )
+    from finagent_mesh.clients.engines.real_infer import infer_for_family
+
+    data = infer_for_family(
+        family=FAMILY,
+        model_id=MODEL_ID,
+        query=query,
+        candidates=candidates,
+        primitive=primitive,
+        emb_url=CLM_EMB_URL,
+    )
+    data["engine"] = ENGINE_ID
+    data["model_revision"] = MODEL_REVISION
+    data["model_id"] = MODEL_ID
+    return data
+
+
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, fmt: str, *args: Any) -> None:  # quieter default
+    def log_message(self, fmt: str, *args: Any) -> None:
         return
 
     def _send(self, code: int, body: dict[str, Any]) -> None:
@@ -114,7 +144,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path == "/healthz":
-            self._send(200, {"status": "ok", "engine": ENGINE_ID})
+            self._send(
+                200,
+                {
+                    "status": "ok",
+                    "engine": ENGINE_ID,
+                    "backend": BACKEND,
+                    "model_id": MODEL_ID or None,
+                },
+            )
             return
         self._send(404, {"error": "not_found"})
 
@@ -129,27 +167,41 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:  # noqa: BLE001
             self._send(400, {"error": "invalid_json"})
             return
-        primitive = payload.get("primitive")
+        primitive = str(payload.get("primitive") or "choice")
         query = str(payload.get("query") or "")
         candidates = list(payload.get("candidates") or [])
         metadata = dict(payload.get("metadata") or {})
         if not candidates:
             self._send(400, {"error": "candidates_required"})
             return
-        if FAMILY == "clm" and primitive not in {"score", "action_cache", "choice"}:
-            self._send(400, {"error": f"unsupported_primitive:{primitive}"})
-            return
-        result = _score_candidates(
-            query, candidates, family=FAMILY, engine_id=ENGINE_ID, metadata=metadata
-        )
-        if primitive:
-            result["primitive"] = primitive
-        self._send(200, result)
+        try:
+            if BACKEND == "real":
+                result = _real_score(query, candidates, primitive=primitive)
+            else:
+                result = _lexical_score(
+                    query,
+                    candidates,
+                    family=FAMILY,
+                    engine_id=ENGINE_ID,
+                    metadata=metadata,
+                )
+                if primitive:
+                    result["primitive"] = primitive
+            self._send(200, result)
+        except Exception as exc:  # noqa: BLE001
+            self._send(503, {"error": str(exc), "engine": ENGINE_ID, "backend": BACKEND})
 
 
 def main() -> None:
+    if BACKEND == "real" and not MODEL_ID:
+        print("ERROR: SYSTEMONE_BACKEND=real requires SYSTEMONE_MODEL_ID", flush=True)
+        sys.exit(2)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"systemone_sidecar engine={ENGINE_ID} family={FAMILY} on {HOST}:{PORT}", flush=True)
+    print(
+        f"systemone engine={ENGINE_ID} family={FAMILY} backend={BACKEND} "
+        f"model_id={MODEL_ID or '-'} on {HOST}:{PORT}",
+        flush=True,
+    )
     server.serve_forever()
 
 

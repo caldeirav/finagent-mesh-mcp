@@ -9,7 +9,7 @@ Contracts: [contracts/](./contracts/) · Data model: [data-model.md](./data-mode
 ## Prerequisites
 
 - uv + Python 3.12; Podman + `nvidia-container-toolkit`
-- FinAgentBench dataset locally (`FINAGENTBENCH_PATH`)
+- FinAgentBench: `run_benchmark.py --real` downloads from Kaggle and converts if `data/finagentbench` is missing (`KAGGLE_USERNAME` / `KAGGLE_KEY` in `.env`)
 - `GOOGLE_API_KEY` for Gemini Flash synthesis (default)
 - Engine weights paths set in `.env` / registry (`ANYJEV_WEIGHTS`, `CLM8B_WEIGHTS`, …)
 - `SYSTEMONE_MOCK=0` for any official claim

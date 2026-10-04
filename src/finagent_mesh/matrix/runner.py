@@ -100,10 +100,14 @@ class MatrixRunner:
         if not self.manage_servers:
             return
         script = self.repo_root / "scripts" / "serve_engine.sh"
+        env = {**dict(__import__("os").environ)}
+        # Preserve caller SYSTEMONE_BACKEND (real|lexical)
+        env.setdefault("SYSTEMONE_BACKEND", "lexical")
         subprocess.run(
             ["bash", str(script), action, config_id],
             check=True,
             cwd=str(self.repo_root),
+            env=env,
         )
 
     def _ensure_partner(self, partner_id: str) -> None:

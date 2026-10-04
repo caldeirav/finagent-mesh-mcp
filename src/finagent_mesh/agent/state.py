@@ -14,7 +14,8 @@ class BenchmarkExample(BaseModel):
     firm_id: str
     query_text: str
     query_category: str = ""
-    stage1_labels: list[str] = Field(default_factory=list)
+    # Strings (binary relevance) or {id|doc_type, relevance} graded labels
+    stage1_labels: list[Any] = Field(default_factory=list)
     stage2_labels: list[dict[str, Any]] = Field(default_factory=list)
     answer_label: Optional[str] = None
     chunks: list["PassageChunk"] = Field(default_factory=list)

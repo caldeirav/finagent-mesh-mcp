@@ -1,64 +1,98 @@
 # finagent-mesh-mcp
 
-Hybrid financial agent architecture and benchmark harness using LangGraph, open System-1 decision models (CLM-8B, AnyJev, vLLM-sr, Laya, AR baseline), Gemini System-2 reasoning, AgentGateway, MCP tooling, and MLflow agentic tracing against FinAgentBench.
+Hybrid financial agent architecture and benchmark harness: LangGraph agentic pipeline, open System-1 decision models, Gemini System-2, MCP tools, MLflow traces, FinAgentBench.
 
-**Active feature**: [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) — serve real System-1 engines, sequential benchmark matrix, fail-closed Gemini Flash.
+**Target**: HP ZGX Nano / NVIDIA DGX Spark (Grace Blackwell ARM64, ~128GB unified memory).
 
-Prior harness: [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/).
+## Production: real models × FinAgentBench
 
-**Target hardware**: HP ZGX Nano / NVIDIA DGX Spark (Grace Blackwell ARM64, 128GB unified memory). Containers build via Podman + `nvidia-container-toolkit` (`scripts/build_containers.sh`).
+`scripts/run_benchmark.py --real` is the single command for a **publishable** multi-engine run.
+
+### What it does
+
+1. Loads HF model ids from `configs/engines.yaml` (Decision-2.0 Kai/Lux, CLM-8B, Laya, Qwen3-8B-Instruct, AnyJev slot).
+2. Starts each engine with **`SYSTEMONE_BACKEND=real`** (loads real weights via `torch`/`transformers` — not the lexical sidecar).
+3. Runs FinAgentBench end-to-end: Stage 1 → Stage 2 → Gemini Flash synthesis (unless `--skip-synthesis`).
+4. Evaluates engines **one variable at a time** with fixed partners (Stage-2=`clm-8b`, Stage-1=`anyjev-l0`).
+5. Writes `artifacts/benchmarks/<run-id>.{json,csv,md}` — metrics + interpretation.
+
+`--real` **refuses** to start if:
+
+- `SYSTEMONE_MOCK=1`
+- FinAgentBench cannot be fetched or converted (Kaggle credentials / competition rules)
+
+If `data/finagentbench/finagentbench_*.jsonl` is missing, `--real` **downloads from Kaggle and converts** automatically (same as `scripts/download_finagentbench_kaggle.py`). Existing files are skipped. Pass `--no-fetch-data` to disable auto-fetch.
+
+### Prerequisites
+
+```bash
+# 1) Real Python stack
+./scripts/prepare_real_stack.sh
+# Optional: prefetch all HF weights (large)
+./scripts/prepare_real_stack.sh --prefetch
+
+# 2) Kaggle credentials in .env (one-time; required the first time data is not local)
+#    https://www.kaggle.com/competitions/acm-icaif-25-ai-agentic-retrieval-grand-challenge/data
+#    Accept rules, then API token: https://www.kaggle.com/settings
+# KAGGLE_USERNAME=...
+# KAGGLE_KEY=...          # KGAT_ access token is supported
+
+# Optional: prefetch dataset only (idempotent — skips files already on disk)
+uv run python scripts/download_finagentbench_kaggle.py
+
+# 3) Configure .env
+cp .env.example .env
+# FINAGENTBENCH_PATH=./data/finagentbench
+# SYSTEMONE_MOCK=0
+# SYSTEMONE_BACKEND=real
+# GOOGLE_API_KEY=...          # required for Gemini answer scoring
+```
+
+### Run (full dataset)
+
+```bash
+uv run python scripts/run_benchmark.py --real --run-id prod-full
+```
+
+### Run (reproducible subset of the real dump)
+
+Still real models + real labels; only fewer examples:
+
+```bash
+uv run python scripts/run_benchmark.py --real --records 200 --seed 42 --run-id prod-200
+```
+
+### Engine subset
+
+```bash
+uv run python scripts/run_benchmark.py --real \
+  --engines decision20-kai,decision20-lux,clm-8b \
+  --run-id prod-decision20
+```
+
+### Reports
+
+```bash
+less artifacts/benchmarks/prod-full.md
+```
+
+---
 
 ## Python tooling
 
-This repository uses **[uv](https://docs.astral.sh/uv/)** as the single tool for Python versioning, virtualenvs, and dependencies.
-
 ```bash
-uv sync --group dev
+uv sync --extra real --group dev
 ```
-
-Optional edge/GPU extras: `uv sync --extra engines` (Transformers for Laya).
-
-## Quick start
-
-```bash
-cp .env.example .env
-# Set FINAGENTBENCH_PATH, GOOGLE_API_KEY; keep SYSTEMONE_MOCK=0 for official runs
-
-# Local System-1 sidecars (wiring / smoke without GPU weights)
-./scripts/serve_engine.sh start anyjev-l0
-./scripts/serve_engine.sh start clm-8b
-./scripts/serve_engine.sh health anyjev-l0
-
-# Pipeline with per-stage binding + Gemini Flash (fail-closed)
-uv run python scripts/run_harness.py run \
-  --run-id e2e-20 \
-  --stage1-engine anyjev-l0 \
-  --stage2-engine clm-8b \
-  --sample-size 20 --sample-seed 7 \
-  --skip-synthesis   # omit to attempt Gemini synthesis
-
-# Sequential matrix (fixed partners; one variable engine at a time)
-uv run python scripts/run_matrix.py run \
-  --matrix-run-id matrix-smoke \
-  --engines anyjev-l0,clm-8b,laya-modernbert \
-  --sample-size 10 --sample-seed 42 \
-  --skip-synthesis
-
-uv run python scripts/run_matrix.py export \
-  --matrix-run-id matrix-smoke \
-  --out ./artifacts/matrix-smoke.json
-```
-
-Operator validation: [`specs/002-decision-model-bench/quickstart.md`](specs/002-decision-model-bench/quickstart.md).
-
-AnyJev L1 requires `configs/calibration/anyjev_l1_heldout.json` with **exactly 200** example IDs before `serve_engine.sh start anyjev-l1`.
 
 ## Layout
 
-- `src/finagent_mesh/` — harness, LangGraph agent, ledger, metrics, engine adapters, matrix runner
-- `configs/engines.yaml` — seven matrix engine configurations + fixed partners
-- `containers/` — ARM64 Containerfiles (AnyJev, CLM-8B, vLLM-sr, Laya, AR)
-- `scripts/run_harness.py` — pipeline CLI (`--stage1-engine`, `--stage2-engine`, sample flags)
-- `scripts/run_matrix.py` — matrix CLI (`run`, `export`, `status`)
-- `scripts/serve_engine.sh` — start/stop/health one registry config
-- `scripts/build_containers.sh` — Podman/docker buildx ARM64 builds
+- `scripts/run_benchmark.py` — production multi-engine benchmark + reports (`--real`)
+- `scripts/download_finagentbench_kaggle.py` — fetch + convert ICAIF’25 Kaggle FinAgentBench
+- `scripts/convert_kaggle_finagentbench.py` — convert already-downloaded Kaggle JSONL
+- `scripts/prepare_real_stack.sh` — install torch/transformers; optional HF prefetch
+- `scripts/serve_engine.sh` — start/stop/health (`SYSTEMONE_BACKEND=real|lexical`)
+- `configs/engines.yaml` — engine ports, partners, HF model ids
+- `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM inference
+- `artifacts/benchmarks/` — JSON / CSV / Markdown outputs
+
+Spec & design: [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/).

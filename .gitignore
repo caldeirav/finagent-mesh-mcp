@@ -203,3 +203,8 @@ mlruns/
 # Runtime artifacts (keep directory)
 artifacts/*
 !artifacts/.gitkeep
+
+# Large FinAgentBench dumps (download via scripts/download_finagentbench_kaggle.py)
+data/finagentbench_kaggle/
+data/finagentbench/finagentbench_*.jsonl
+data/finagentbench/sample.jsonl.wiring-only

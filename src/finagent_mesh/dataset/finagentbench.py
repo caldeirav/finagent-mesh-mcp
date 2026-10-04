@@ -28,9 +28,11 @@ def load_examples(path: Path, *, limit: int | None = None) -> list[BenchmarkExam
         examples.extend(_load_file(path))
     else:
         for fp in sorted(path.rglob("*.jsonl")):
+            if fp.name.startswith("sample"):
+                continue
             examples.extend(_load_file(fp))
         for fp in sorted(path.rglob("*.json")):
-            if fp.name.endswith(".jsonl"):
+            if fp.name.endswith(".jsonl") or fp.name.startswith("sample"):
                 continue
             examples.extend(_load_file(fp))
     if not examples:
@@ -45,11 +47,17 @@ def iter_examples(path: Path, *, limit: int | None = None) -> Iterator[Benchmark
 
 
 def _load_file(path: Path) -> list[BenchmarkExample]:
-    text = path.read_text(encoding="utf-8")
+    # File iteration splits on LF only. str.splitlines() also splits on U+2028/U+2029,
+    # which appear in SEC filings and would bisect JSON strings.
     if path.suffix == ".jsonl":
-        rows = [json.loads(line) for line in text.splitlines() if line.strip()]
+        rows: list[dict] = []
+        with path.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip("\n\r")
+                if line.strip():
+                    rows.append(json.loads(line))
     else:
-        data = json.loads(text)
+        data = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(data, list):
             rows = data
         elif isinstance(data, dict) and "examples" in data:
@@ -59,11 +67,25 @@ def _load_file(path: Path) -> list[BenchmarkExample]:
     out: list[BenchmarkExample] = []
     for row in rows:
         stage1 = list(row.get("stage1_labels") or row.get("doc_type_labels") or [])
-        norm_stage1 = [
+        # Preserve graded dict labels; validate underlying doc-type ids
+        type_ids = [
             str(x) if not isinstance(x, dict) else str(x.get("doc_type", x.get("id")))
             for x in stage1
         ]
-        _validate_labels(norm_stage1)
+        _validate_labels(type_ids)
+        norm_stage1: list = []
+        for x in stage1:
+            if isinstance(x, dict):
+                cid = str(x.get("doc_type", x.get("id")))
+                norm_stage1.append(
+                    {
+                        "id": cid,
+                        "doc_type": cid,
+                        "relevance": float(x.get("relevance", x.get("label", 1.0))),
+                    }
+                )
+            else:
+                norm_stage1.append(str(x))
         chunks_raw = row.get("chunks") or []
         chunks = [
             PassageChunk(

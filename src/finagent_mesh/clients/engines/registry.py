@@ -11,12 +11,19 @@ from typing import Any, Protocol
 import yaml
 
 
-_ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_ENV_PATTERN = re.compile(
+    r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}"
+)
 
 
 def _expand_env(value: str) -> str:
     def repl(match: re.Match[str]) -> str:
-        return os.getenv(match.group(1), "")
+        name = match.group(1)
+        default = match.group(2) if match.group(2) is not None else ""
+        env_val = os.getenv(name)
+        if env_val is None or env_val.strip() == "":
+            return default
+        return env_val
 
     return _ENV_PATTERN.sub(repl, value)
 
@@ -37,6 +44,7 @@ class EngineConfiguration:
     is_heavy_gpu: bool = True
     is_light_edge: bool = False
     model_revision: str = ""
+    backend: str = "sidecar"
 
     def decide_url(self) -> str:
         return f"{self.base_url.rstrip('/')}{self.decide_path}"
@@ -85,6 +93,7 @@ def load_registry(path: Path | str | None = None) -> EngineRegistry:
             is_heavy_gpu=bool(row.get("is_heavy_gpu", True)),
             is_light_edge=bool(row.get("is_light_edge", False)),
             model_revision=str(row.get("model_revision") or row["config_id"]),
+            backend=str(row.get("backend") or "sidecar"),
         )
         if cfg.config_id in engines:
             raise ValueError(f"Duplicate config_id={cfg.config_id}")
