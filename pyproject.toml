@@ -1,0 +1,16 @@
+[project]
+name = "finagent-mesh-mcp"
+version = "0.1.0"
+description = "Hybrid financial agent architecture and benchmark harness using LangGraph, MCP tooling, and FinAgentBench."
+authors = [
+    { name = "Vincent Caldeira", email = "vincent.caldeira@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[tool.uv]
+# Use only uv-managed CPython from `.python-version` (no conda/system interpreters).
+python-preference = "only-managed"
+# Application project: not installed as a buildable package yet.
+package = false
