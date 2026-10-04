@@ -87,6 +87,7 @@ def main(
     ),
 ) -> None:
     """Run FinAgentBench across open decision models; write JSON/CSV/Markdown reports."""
+    os.environ.setdefault("PYTHONUNBUFFERED", "1")
     os.chdir(ROOT)
     settings = get_settings()
 

@@ -131,7 +131,8 @@ def _real_score(
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: Any) -> None:
-        return
+        sys.stderr.write("%s - %s\n" % (ENGINE_ID, fmt % args))
+        sys.stderr.flush()
 
     def _send(self, code: int, body: dict[str, Any]) -> None:
         raw = json.dumps(body).encode("utf-8")
@@ -176,6 +177,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             if BACKEND == "real":
+                print(
+                    f"{ENGINE_ID} infer primitive={primitive} n_cand={len(candidates)} "
+                    f"model={MODEL_ID}",
+                    flush=True,
+                )
                 result = _real_score(query, candidates, primitive=primitive)
             else:
                 result = _lexical_score(

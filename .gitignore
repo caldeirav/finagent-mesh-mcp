@@ -129,7 +129,11 @@ activemq-data/
 
 # Harness runtime artifacts
 eval_ledger.db
+eval_ledger.db-*
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 mlruns/
 env/
 venv/
@@ -195,7 +199,11 @@ __marimo__/
 
 # Project local artifacts
 eval_ledger.db
+eval_ledger.db-*
 *.db
+*.db-shm
+*.db-wal
+*.db-journal
 mlruns/
 .env.local
 !artifacts/.gitkeep
@@ -208,3 +216,11 @@ artifacts/*
 data/finagentbench_kaggle/
 data/finagentbench/finagentbench_*.jsonl
 data/finagentbench/sample.jsonl.wiring-only
+
+# Hugging Face / torch local caches if created in-repo
+.cache/
+huggingface/
+*.safetensors
+*.bin
+*.pt
+*.ckpt

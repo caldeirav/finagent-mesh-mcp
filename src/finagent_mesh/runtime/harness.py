@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from finagent_mesh.dataset.finagentbench import load_examples
 from finagent_mesh.ledger.sqlite_ledger import TERMINAL_NO_RERANK, SqliteLedger
 from finagent_mesh.matrix.sampling import select_example_ids
 from finagent_mesh.runtime.health import require_engines_healthy, require_systemone_healthy
+from finagent_mesh.runtime.progress import log as progress_log
 from finagent_mesh.runtime import tracing
 from finagent_mesh.scoring.run_aggregator import RunAggregator
 
@@ -87,6 +89,7 @@ class Harness:
                 mock=settings.systemone_mock,
             )
 
+        progress_log(f"Harness {run_id}: loading FinAgentBench from {path}…")
         all_examples = load_examples(Path(path), limit=None if sample_size or example_ids else limit)
         if example_ids is not None:
             id_set = set(example_ids)
@@ -112,6 +115,12 @@ class Harness:
             examples = all_examples[:limit] if limit is not None else all_examples
             selected_ids = [e.example_id for e in examples]
             capped = False
+
+        progress_log(
+            f"Harness {run_id}: {len(examples)} example(s)  "
+            f"S1={self.stage1_engine} S2={self.stage2_engine}  "
+            f"synthesis={'off' if skip_synthesis else 'on'}"
+        )
 
         k = synthesis_k if synthesis_k is not None else settings.synthesis_k
         ledger = SqliteLedger(settings.eval_ledger_path)
@@ -149,10 +158,13 @@ class Harness:
                         "systemone_mock": str(settings.systemone_mock),
                     }
                 )
-                for example in examples:
+                n_ex = len(examples)
+                for idx, example in enumerate(examples, 1):
                     entry = ledger.get_entry(run_id, example.example_id)
                     assert entry is not None
+                    short_id = example.example_id
                     if entry.state == "completed":
+                        progress_log(f"  [{idx}/{n_ex}] {short_id} skip (already completed)")
                         if entry.ranking_payload_json:
                             agg.add_payload(
                                 example.example_id,
@@ -160,22 +172,38 @@ class Harness:
                                 entry.synthesis_payload_json,
                             )
                         continue
+                    t0 = time.perf_counter()
+                    progress_log(f"  [{idx}/{n_ex}] {short_id} {entry.state} → ranking…")
                     if entry.state == "synthesis_retriable" and entry.ranking_payload_json:
                         self._resume_synthesis(
                             ledger, run_id, example.example_id, entry, skip_synthesis, k, agg
+                        )
+                        progress_log(
+                            f"  [{idx}/{n_ex}] {short_id} synthesis resume "
+                            f"{time.perf_counter() - t0:.1f}s"
                         )
                         continue
                     if entry.state in TERMINAL_NO_RERANK and entry.state == "ranking_complete":
                         if skip_synthesis:
                             ledger.transition(run_id, example.example_id, "completed")
                             agg.add_payload(example.example_id, entry.ranking_payload_json, None)
+                            progress_log(f"  [{idx}/{n_ex}] {short_id} ranking already complete")
                             continue
                         self._resume_synthesis(
                             ledger, run_id, example.example_id, entry, skip_synthesis, k, agg
                         )
+                        progress_log(
+                            f"  [{idx}/{n_ex}] {short_id} synthesis resume "
+                            f"{time.perf_counter() - t0:.1f}s"
+                        )
                         continue
                     self._process_full(
                         ledger, run_id, example, skip_synthesis=skip_synthesis, k=k, agg=agg
+                    )
+                    done = ledger.get_entry(run_id, example.example_id)
+                    st = done.state if done else "?"
+                    progress_log(
+                        f"  [{idx}/{n_ex}] {short_id} → {st} ({time.perf_counter() - t0:.1f}s)"
                     )
             return {
                 "status": ledger.status_counts(run_id),

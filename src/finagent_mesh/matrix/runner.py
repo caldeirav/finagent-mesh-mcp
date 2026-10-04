@@ -16,6 +16,7 @@ from finagent_mesh.matrix.partners import FixedStagePartners, resolve_matrix_pai
 from finagent_mesh.matrix.report import write_report
 from finagent_mesh.matrix.sampling import select_example_ids
 from finagent_mesh.runtime.harness import Harness
+from finagent_mesh.runtime.progress import log as progress_log
 from finagent_mesh.scoring.run_aggregator import RunAggregator
 
 
@@ -148,6 +149,7 @@ class MatrixRunner:
                 "or pass --pairs / --engines."
             )
         config_ids = [p.pair_id for p in pairs]
+        progress_log(f"Loading FinAgentBench from {path} (full dump, then sample)…")
         all_examples = load_examples(Path(path))
         selection = select_example_ids(
             [e.example_id for e in all_examples],
@@ -173,8 +175,20 @@ class MatrixRunner:
         )
         self.save(matrix)
 
+        progress_log(
+            f"Matrix {matrix_run_id}: {len(pairs)} pair(s), "
+            f"{len(matrix.selected_example_ids)} example(s), "
+            f"synthesis={'off' if skip_synthesis else 'on'}"
+        )
+        for i, p in enumerate(pairs, 1):
+            progress_log(
+                f"  planned {i}/{len(pairs)} {p.pair_id}: "
+                f"S1={p.stage1_config_id} S2={p.stage2_config_id}"
+            )
+
         prev_engines: set[str] = set()
-        for pair in pairs:
+        n_pairs = len(pairs)
+        for pair_i, pair in enumerate(pairs, 1):
             binding = pair.as_binding()
             needed = pair.unique_engines()
             row = MatrixRowResult(
@@ -186,11 +200,20 @@ class MatrixRunner:
             )
             matrix.rows.append(row)
             self.save(matrix)
+            pair_t0 = time.perf_counter()
+            progress_log(
+                f"=== Pair {pair_i}/{n_pairs} {pair.pair_id} "
+                f"S1={pair.stage1_config_id} S2={pair.stage2_config_id} ==="
+            )
+            if pair.rationale.strip():
+                progress_log(pair.rationale.strip().split("\n")[0][:200])
             try:
                 for old in prev_engines:
                     if old not in needed:
+                        progress_log(f"stopping {old}")
                         self._serve("stop", old)
                 for eid in needed:
+                    progress_log(f"starting {eid} (real weights load on first request)")
                     self._serve("start", eid)
                     time.sleep(0.3)
                     self._serve("health", eid)
@@ -203,6 +226,9 @@ class MatrixRunner:
                     stage2_engine=binding.stage2_config_id,
                     gemini_model=matrix.gemini_model,
                     allow_mock=self.allow_mock,
+                )
+                progress_log(
+                    f"{pair.pair_id}: ranking {len(matrix.selected_example_ids)} example(s)…"
                 )
                 harness.run(
                     row.eval_run_id,
@@ -218,9 +244,17 @@ class MatrixRunner:
                     synthesis_enabled=matrix.synthesis_enabled,
                 )
                 row.status = "completed"
+                elapsed = time.perf_counter() - pair_t0
+                m = row.metrics
+                progress_log(
+                    f"{pair.pair_id} done in {elapsed:.1f}s  "
+                    f"S1 nDCG@5={m.stage1_ndcg_at_5}  S2 nDCG@5={m.stage2_ndcg_at_5}  "
+                    f"n={m.n_examples}"
+                )
             except Exception as exc:  # noqa: BLE001
                 row.status = "failed"
                 row.error = str(exc)
+                progress_log(f"{pair.pair_id} FAILED after {time.perf_counter() - pair_t0:.1f}s: {exc}")
             self.save(matrix)
 
         matrix.status = (

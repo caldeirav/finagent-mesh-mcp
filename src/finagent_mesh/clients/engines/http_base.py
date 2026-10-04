@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
@@ -11,8 +12,16 @@ from finagent_mesh.clients.engines.registry import EngineConfiguration
 from finagent_mesh.clients.open_decision import OpenDecisionError
 
 
+def _http_timeout() -> float:
+    return float(os.getenv("SYSTEMONE_HTTP_TIMEOUT", "900"))
+
+
 class HttpSystemOneAdapter:
-    def __init__(self, cfg: EngineConfiguration, *, timeout: float = 60.0) -> None:
+    def __init__(self, cfg: EngineConfiguration, *, timeout: float | None = None) -> None:
+        self.cfg = cfg
+        self.engine_id = cfg.config_id
+        self.model_revision = cfg.model_revision
+        self.timeout = timeout if timeout is not None else _http_timeout()
         self.cfg = cfg
         self.engine_id = cfg.config_id
         self.model_revision = cfg.model_revision

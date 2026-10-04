@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Literal, Protocol
 
 import httpx
@@ -38,7 +39,7 @@ class OpenDecisionClient:
         stage2_url: str,
         *,
         mock: bool = False,
-        timeout: float = 60.0,
+        timeout: float | None = None,
         stage1_client: StageClient | None = None,
         stage2_client: StageClient | None = None,
         stage1_engine_id: str | None = None,
@@ -47,7 +48,9 @@ class OpenDecisionClient:
         self.stage1_url = stage1_url.rstrip("/")
         self.stage2_url = stage2_url.rstrip("/")
         self.mock = mock
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else float(
+            os.getenv("SYSTEMONE_HTTP_TIMEOUT", "900")
+        )
         self.stage1_client = stage1_client
         self.stage2_client = stage2_client
         self.stage1_engine_id = stage1_engine_id or getattr(stage1_client, "engine_id", "stage1")

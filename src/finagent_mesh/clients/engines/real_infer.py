@@ -17,6 +17,7 @@ from functools import lru_cache
 from typing import Any
 
 from finagent_mesh.metrics.ranking import stable_rank
+from finagent_mesh.runtime.progress import log
 
 
 class RealInferError(RuntimeError):
@@ -39,7 +40,10 @@ def _load_decision20(model_id: str):
     _require_torch()
     from transformers import AutoModel
 
-    return AutoModel.from_pretrained(model_id, trust_remote_code=True)
+    log(f"Loading Decision-2.0 weights {model_id} (first call downloads from Hugging Face)…")
+    model = AutoModel.from_pretrained(model_id, trust_remote_code=True)
+    log(f"Loaded Decision-2.0 {model_id}")
+    return model
 
 
 @lru_cache(maxsize=2)
@@ -47,8 +51,10 @@ def _load_ar(model_id: str):
     _require_torch()
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    log(f"Loading AR causal LM {model_id} (first call may download)…")
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True)
+    log(f"Loaded AR {model_id}")
     return tok, model
 
 
@@ -57,9 +63,11 @@ def _load_embedder(model_id: str):
     _require_torch()
     from transformers import AutoModel, AutoTokenizer
 
+    log(f"Loading embedder {model_id} (first call may download)…")
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModel.from_pretrained(model_id, trust_remote_code=True)
     model.eval()
+    log(f"Loaded embedder {model_id}")
     return tok, model
 
 

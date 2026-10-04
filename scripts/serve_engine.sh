@@ -103,6 +103,9 @@ start_local() {
     sleep 0.5
   done
   echo "started local $CONFIG_ID backend=$EFFECTIVE_BACKEND model=$WEIGHTS port=$PORT pid=$(cat "$PID_FILE")"
+  if [[ "$EFFECTIVE_BACKEND" == "real" ]]; then
+    echo "note: real weights load on first /v1/systemone (Hugging Face download can take several minutes; logs: $PID_DIR/${CONFIG_ID}.log)"
+  fi
 }
 
 stop_local() {
