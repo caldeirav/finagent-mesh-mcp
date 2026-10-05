@@ -190,9 +190,10 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             "model; Stage-2 nDCG judges the chunk scorer (and is bounded by Stage-1 recall)."
         )
         lines.append(
-            "- `lux-clm` is the intended production pair (Lux Choice + CLM Action Cache). "
-            "`lux-lux` tests long-context Score when chunks exceed CLM's 2,048-token window. "
-            "`kai-clm` / `laya-clm` are latency/edge Stage-1 routers with a real Stage-2 scorer."
+            "- Paper matrix: **Block A** (`*-lux`) varies Stage-1 Choice with Lux Score fixed; "
+            "**Block B** (`lux-*`) varies Stage-2 scorers with Lux Choice fixed. "
+            "`lux-lux` is the shared long-context control; `lux-bm25` / `lux-e5` / `lux-clm` "
+            "are Score ablations; `kai-lux` / `laya-lux` are latency/edge Choice routers."
         )
         if matrix.partner_ids.get("binding") == "legacy-engines":
             lines.append(
@@ -202,8 +203,8 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             )
         if not matrix.synthesis_enabled:
             lines.append(
-                "- **Synthesis was disabled** (`--skip-synthesis`). Answer EM/F1 are empty. "
-                "Omit that flag (and set `GOOGLE_API_KEY`) for full pipeline scoring with Gemini."
+                "- **Synthesis was disabled** (paper default / ranking-only). Answer EM/F1 are empty. "
+                "Pass `--with-synthesis` (and set `GOOGLE_API_KEY`) for Gemini answer scoring."
             )
         else:
             lines.append(

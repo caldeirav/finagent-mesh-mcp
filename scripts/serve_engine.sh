@@ -110,6 +110,11 @@ PORT="$(uv run python -c 'import json,sys; print(json.loads(sys.argv[1])["port"]
 FAMILY="$(uv run python -c 'import json,sys; print(json.loads(sys.argv[1])["family"])' "$META")"
 REVISION="$(uv run python -c 'import json,sys; print(json.loads(sys.argv[1])["model_revision"])' "$META")"
 HEALTH_URL="$(uv run python -c 'import json,sys; print(json.loads(sys.argv[1])["health_url"])' "$META")"
+# Matrix runner may rebind Stage-1/:8000 vs Stage-2/:8001 at start time.
+if [[ -n "${SYSTEMONE_PORT_OVERRIDE:-}" ]]; then
+  PORT="$SYSTEMONE_PORT_OVERRIDE"
+  HEALTH_URL="http://localhost:${PORT}/healthz"
+fi
 IMAGE="$(uv run python -c 'import json,sys; print(json.loads(sys.argv[1])["image"])' "$META")"
 WEIGHTS="$(uv run python -c 'import json,sys; print(json.loads(sys.argv[1])["weights_ref"])' "$META")"
 CFG_BACKEND="$(uv run python -c 'import json,sys; print(json.loads(sys.argv[1])["backend"])' "$META")"

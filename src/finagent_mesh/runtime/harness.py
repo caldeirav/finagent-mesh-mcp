@@ -96,11 +96,13 @@ class Harness:
         stage2_engine: str | None = None,
         gemini_model: str | None = None,
         allow_mock: bool = False,
+        port_overrides: dict[str, int] | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.allow_mock = allow_mock
         self.stage1_engine = stage1_engine
         self.stage2_engine = stage2_engine
+        self.port_overrides = dict(port_overrides or {})
         self.gemini_model = gemini_model or self.settings.gemini_model
         require_official_mock_policy(
             systemone_mock=self.settings.systemone_mock, allow_mock=allow_mock
@@ -111,6 +113,7 @@ class Harness:
                 stage2_engine,
                 mock=False,
                 registry_path=str(self.settings.engines_registry_path),
+                port_overrides=self.port_overrides,
             )
         else:
             self.decision = OpenDecisionClient(
@@ -141,13 +144,20 @@ class Harness:
         if self.stage1_engine and self.stage2_engine and not settings.systemone_mock:
             from finagent_mesh.clients.engines.registry import load_registry
 
+            from finagent_mesh.matrix.ports import base_url_for_port
+
             reg = load_registry(settings.engines_registry_path)
             targets: list[tuple[str, str]] = []
             for eid in (self.stage1_engine, self.stage2_engine):
                 if is_inprocess_engine(reg, eid):
                     continue
                 cfg = reg.get(eid)
-                targets.append((cfg.base_url, cfg.health_path))
+                url = (
+                    base_url_for_port(self.port_overrides[eid])
+                    if eid in self.port_overrides
+                    else cfg.base_url
+                )
+                targets.append((url, cfg.health_path))
             if targets:
                 require_engines_healthy(targets, mock=False)
         else:

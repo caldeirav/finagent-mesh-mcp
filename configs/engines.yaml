@@ -1,4 +1,6 @@
 # Engine registry — paper Block A/B Choice×Score matrix (see specs/003-choice-score-paper/)
+# Ports: registry defaults are templates. Matrix runner rebinds S1→:8000 / S2→:8001
+# when a pair needs two different sidecars (Block A Choice×Lux Score).
 version: 1
 partners:
   # Legacy ablation defaults (when --engines is used)

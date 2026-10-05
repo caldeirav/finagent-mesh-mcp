@@ -92,18 +92,18 @@ uv run python scripts/run_matrix.py run \
 
 **Expected**: Identical `selected_example_ids` in both matrix configs/reports.
 
-## 6. Architecture-true pairs (default production matrix)
+## 6. Paper Block A/B pairs (default production matrix)
 
-See [README.md](../../README.md) for the Choice vs Score rationale.
+The default matrix is no longer a CLM cross-product. See [003 quickstart](../003-choice-score-paper/quickstart.md) and [README.md](../../README.md).
 
 ```bash
 uv run python scripts/run_benchmark.py --list-pairs
-uv run python scripts/run_benchmark.py --real --records 50 --seed 42 --run-id matrix-smoke-50
-# Highest-value pair only:
-uv run python scripts/run_benchmark.py --real --pairs lux-clm --records 20 --seed 42 --run-id smoke-lux-clm
+uv run python scripts/run_benchmark.py --real --records 50 --seed 42 --run-id paper-smoke-50
+# Highest-value pairs:
+uv run python scripts/run_benchmark.py --real --pairs lux-lux,lux-bm25,kai-lux --records 20 --seed 42 --run-id smoke-core
 ```
 
-**Expected**: Rows `lux-clm`, `anyjev-l0-clm`, `kai-clm`, `laya-clm`, `lux-lux` (and `anyjev-l1-clm` if calibrated). Each example still runs Stage 1 → Stage 2 → Gemini in one graph.
+**Expected**: Block A (`*-lux` Choice variants) + Block B (`lux-*` Score variants). `--real` is ranking-only unless `--with-synthesis`. Legacy `--engines` ablation still uses fixed CLM/AnyJev partners.
 
 ## 7. Sample matrix (≥2 engines, SC-002 / SC-007 / SC-009)
 

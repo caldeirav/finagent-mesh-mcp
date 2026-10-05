@@ -14,8 +14,8 @@ from finagent_mesh.clients.engines.real_infer import (
 
 
 def test_kai_default_score_batch_is_small() -> None:
-    assert _score_batch_size("vllm-sr/Decision-2.0-Kai-0.6B") == 8
-    assert _score_batch_size("vllm-sr/Decision-2.0-Lux-9B") == 16
+    assert _score_batch_size("vllm-sr/Decision-2.0-Kai-0.6B") == 4
+    assert _score_batch_size("vllm-sr/Decision-2.0-Lux-9B") == 4
 
 
 def test_probs_from_list_scores() -> None:
@@ -66,3 +66,72 @@ def test_clm_does_not_fall_back_to_kai(monkeypatch: pytest.MonkeyPatch) -> None:
             candidates=[{"id": "c1", "text": "alpha"}],
             primitive="score",
         )
+
+
+def test_ordinal_score_uses_fixed_rubric(monkeypatch: pytest.MonkeyPatch) -> None:
+    from finagent_mesh.clients.engines import real_infer as ri
+
+    seen: list[dict] = []
+
+    class FakeModel:
+        def system_one(self, *, state, questions):
+            seen.append(questions)
+            return {
+                "answers": {
+                    cid: {"type": "score", "score": float(i), "probabilities": {}}
+                    for i, cid in enumerate(questions)
+                }
+            }
+
+    monkeypatch.setattr(ri, "_load_decision20", lambda _mid: (FakeModel(), "cpu"))
+    out = ri.decide_decision20(
+        model_id="vllm-sr/Decision-2.0-Lux-9B",
+        query="revenue growth",
+        candidates=[
+            {"id": "c0", "text": "unrelated"},
+            {"id": "c1", "text": "revenue grew 12%"},
+        ],
+        primitive="score",
+    )
+    assert len(seen) == 1
+    q = seen[0]
+    assert set(q) == {"c0", "c1"}
+    for body in q.values():
+        assert body["type"] == "score"
+        assert body["criteria"] == ri.RELEVANCE_SCORE_CRITERIA
+        assert 2 <= len(body["criteria"]) <= 10
+    assert out["ranking"][0]["id"] == "c1"
+    assert out["backend"].startswith("decision20_ordinal_score")
+
+
+def test_choice_still_uses_id_text_criteria(monkeypatch: pytest.MonkeyPatch) -> None:
+    from finagent_mesh.clients.engines import real_infer as ri
+
+    seen: list[dict] = []
+
+    class FakeModel:
+        def system_one(self, *, state, questions):
+            seen.append(questions)
+            return {
+                "answers": {
+                    "rank": {
+                        "type": "choice",
+                        "choice": "10-K",
+                        "probabilities": {"10-K": 0.7, "10-Q": 0.3},
+                    }
+                }
+            }
+
+    monkeypatch.setattr(ri, "_load_decision20", lambda _mid: (FakeModel(), "cpu"))
+    out = ri.decide_decision20(
+        model_id="vllm-sr/Decision-2.0-Lux-9B",
+        query="annual report",
+        candidates=[
+            {"id": "10-K", "text": "Annual report"},
+            {"id": "10-Q", "text": "Quarterly report"},
+        ],
+        primitive="choice",
+    )
+    assert seen[0]["rank"]["type"] == "choice"
+    assert isinstance(seen[0]["rank"]["criteria"], dict)
+    assert out["ranking"][0]["id"] == "10-K"

@@ -35,7 +35,7 @@ Explicit Stage-1 Choice × Stage-2 Score row (`configs/engines.yaml` `matrix_pai
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `pair_id` | string (PK) | e.g. `lux-clm`, `kai-clm` |
+| `pair_id` | string (PK) | e.g. `lux-lux`, `kai-lux`, `lux-bm25` (see 003 Block A/B) |
 | `stage1` | string | FK EngineConfiguration |
 | `stage2` | string | FK EngineConfiguration |
 | `role` | string | `production`, `calibrated`, `latency`, `long_context`, `baseline` |

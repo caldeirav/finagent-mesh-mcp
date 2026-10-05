@@ -32,8 +32,9 @@ uv run python scripts/run_benchmark.py --real \
 **Expect**:
 - No Gemini calls
 - Artifacts under `artifacts/benchmarks/paper-smoke-10.*` including `.analysis.md` and `.inspect.html`
-- Block A rows share Stage-2 engine `decision20-lux`
+- Block A rows share Stage-2 engine `decision20-lux` (warm on :8001 while Choice engines swap on :8000)
 - Block B rows (except any skipped) share Stage-1 `decision20-lux`
+- Lux Stage-2 Score completes without `invalid_question` (ordinal relevance rubric, not chunk-list criteria)
 - Analysis findings do not claim different S2 models on Block A
 
 ## 3. Optional pairs smoke

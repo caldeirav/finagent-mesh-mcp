@@ -44,7 +44,7 @@ FinAgentBench maps onto that contract almost one-to-one:
 | Pipeline stage | FinAgentBench job | System-1 primitive | Architectural implication |
 |---|---|---|---|
 | **Stage 1** | Rank 5 filing types | **Choice** (small *K*, mutually exclusive) | Calibrated categorical routing. Option-**order bias** is real on list-shaped Choice (AnyJev L0). Compact encoders have enough tokens for five short labels. **Wrong Top-1 is a recall ceiling**: Stage 2 never sees the right chunks ([pre-filtering recall](Architectural%20Foundations%20for%20Open%20Decision%20Models.md)). |
-| **Stage 2** | Rank long enumerated passages | **Score** / metric matching | Dual-encoder **Action Cache** (CLM) matches “many candidates, precomputable embeddings.” 512–1,024 token encoders **truncate SEC chunks**. Lux’s 16k window is the long-context Score control. |
+| **Stage 2** | Rank long enumerated passages | **Score** / metric matching | Dual-encoder **Action Cache** (CLM), BM25/E5 baselines, or Lux **ordinal Score** (2–10 relevance levels, pointwise over passages — Decision-2.0 Score is *not* a list of chunk texts). Lux’s 16k window is the long-context Score control. |
 | **System 2** | Answer from evidence | Gemini Flash | Decision models do **not** write prose; synthesis stays generative and fail-closed. |
 
 We are **not** trying to beat FinAgentBench with a giant instruct model doing both stages in one prompt. We are measuring whether **open decision architectures** — Choice heads, contrastive caches, bidirectional routers, training-free debiasing — actually fit this two-step financial IR loop.
@@ -61,7 +61,7 @@ Figures below are from the survey’s comparison table (JevBench / 54-task Decis
 
 | Model | Architecture | Params / context | Mechanism | Typical p50 | Survey composite | FinAgent Mesh role |
 |---|---|---|---|---|---|---|
-| **Decision-2.0 Lux-9B** | Qwen3.5 + Gated DeltaNet hybrid decoder | ~8B / **16,384** | Prompt candidate vectors + shared Choice/Score heads | ~18 ms | **76.94** (54-task) | Default **Stage-1 Choice**; optional **Stage-2 Score** (`lux-lux`) when chunks exceed CLM’s 2k window. Weights: [`vllm-sr/Decision-2.0-Lux-9B`](https://huggingface.co/vllm-sr/Decision-2.0-Lux-9B). |
+| **Decision-2.0 Lux-9B** | Qwen3.5 + Gated DeltaNet hybrid decoder | ~8B / **16,384** | Prompt candidate vectors + shared Choice/Score heads | ~18 ms | **76.94** (54-task) | Shared **Block A Stage-2 Score** and **Block B Stage-1 Choice** (`decision20-lux`). Stage-2 uses native ordinal Score (pointwise relevance), not chunk lists as criteria. Weights: [`vllm-sr/Decision-2.0-Lux-9B`](https://huggingface.co/vllm-sr/Decision-2.0-Lux-9B). |
 | **Decision-2.0 Kai-0.6B** | Vela bidirectional encoder | 0.6B / **1,024** | Parallel Choice/Noul/Score heads | **~4.9 ms** | 53.52 (54-task) | **Latency Stage-1 only**. Five filing labels fit; long chunks do not. [`vllm-sr/Decision-2.0-Kai-0.6B`](https://huggingface.co/vllm-sr/Decision-2.0-Kai-0.6B). |
 | **CLM-8B** | Frozen Qwen3-8B **dual encoder** + ~40M InfoNCE heads | 8B+heads / **2,048** | Hypersphere match; **Action Cache** of pre-embedded candidates | 15–40 ms cached | Strong on verifier benches (e.g. Terminal-Bench), not JevBench Choice | Default **Stage-2**. Enumerated chunks ≈ cached actions. Not a 5-way taxonomy Choice model. [`Contrastive-LM/CLM-v0.1-8B`](https://huggingface.co/Contrastive-LM/CLM-v0.1-8B), [CLM](https://github.com/Contrastive-LM/CLM). |
 | **AnyJev L0 / L1** | Wrapper on a Choice backbone | inherits base | L0: cyclic permutations + mean scores (kills additive **position bias**). L1: temperature scaling on ~200 labels | 150–400 ms (rotations) | Depends on base; L1 ECE ~0.036 on BANKING77 | **Stage-1 Choice** when *K*=5. Implemented as L0 cyclic permutations on the configured Lux backbone. L1 skipped until `configs/calibration/anyjev_l1_heldout.json`. [GitHub](https://github.com/nokia-applied-research/AnyJev). |
@@ -111,12 +111,13 @@ GPU policy: **sequential exclusive** heavies; keep Lux warm across Block A (shar
 
 ### What it does
 
-1. Resolves architecture-true pairs from `configs/engines.yaml` (not “one engine + dummy partner” unless you pass `--engines`).
-2. Starts each needed engine with **`SYSTEMONE_BACKEND=real`** (HF / Decision-2.0 / CLM / AR weights — not the lexical sidecar).
-3. Runs FinAgentBench end-to-end: Stage 1 → Stage 2 → Gemini Flash synthesis (unless `--skip-synthesis`).
-4. Writes `artifacts/benchmarks/<run-id>.{json,csv,md}` — metrics + interpretation.
+1. Resolves **Block A/B** pairs from `configs/engines.yaml` (not “one engine + dummy partner” unless you pass `--engines`).
+2. Starts each needed engine with **`SYSTEMONE_BACKEND=real`** (HF / Decision-2.0 / CLM / AR / E5 weights — not the lexical sidecar).
+3. Allocates ports so Block A can keep Lux Score warm on **:8001** while Stage-1 Choice variants swap on **:8000** (same-engine pairs stay on one port).
+4. Runs FinAgentBench: Stage 1 → Stage 2; **ranking-only by default** (Gemini only with `--with-synthesis`).
+5. Writes `artifacts/benchmarks/<run-id>.{json,csv,md,analysis.md,inspect.html}`.
 
-`--real` **refuses** to start if `SYSTEMONE_MOCK=1` or FinAgentBench cannot be fetched/converted. Stage 2 CLM is **Qwen3-8B last-token pooling + Contrastive-LM heads** (not Decision-2.0 Kai).
+`--real` **refuses** to start if `SYSTEMONE_MOCK=1` or FinAgentBench cannot be fetched/converted. Stage 2 CLM is **Qwen3-8B last-token pooling + Contrastive-LM heads** (not Decision-2.0 Kai). Lux Stage-2 Score uses Decision-2.0’s **ordinal** Score API (fixed 4-level relevance rubric per passage).
 
 `--real` **force-restarts** System-1 sidecars (kills leftover processes on ports 8000/8001/8002). Pass `--keep-servers` to reuse a warm engine. You can also run `bash scripts/serve_engine.sh stop-all` by hand.
 
@@ -138,24 +139,21 @@ Accept Kaggle competition rules, then create an API token at [Kaggle settings](h
 ### Run
 
 ```bash
-# List engines and pairs
+# List Block A/B pairs
 uv run python scripts/run_benchmark.py --list-pairs
 
-# Default architecture set (lux-clm, anyjev-l0-clm, kai-clm, laya-clm, lux-lux; L1 if calibrated)
-# --real also force-restarts sidecars; add --keep-servers to reuse warm processes
-uv run python scripts/run_benchmark.py --real --run-id prod-full
+# Default paper matrix (Block A Choice×Lux Score + Block B Lux Choice×Score)
+# --real defaults to ranking-only N=min(200); add --with-synthesis for Gemini
+uv run python scripts/run_benchmark.py --real --run-id paper-n200
 
-# Explicit full restart (also the --real default)
-uv run python scripts/run_benchmark.py --real --force-restart --records 10 --seed 42 --skip-synthesis --run-id smoke-10-rank
+# Smoke (10 examples, ranking-only)
+uv run python scripts/run_benchmark.py --real --records 10 --seed 42 --run-id paper-smoke-10
 
-# Reproducible subset
-uv run python scripts/run_benchmark.py --real --records 200 --seed 42 --run-id prod-200
+# Highest-value rows if GPU time is scarce
+uv run python scripts/run_benchmark.py --real --pairs lux-lux,lux-bm25,kai-lux --run-id paper-core
 
-# Two highest-value rows if GPU time is scarce
-uv run python scripts/run_benchmark.py --real --pairs lux-clm,kai-clm --run-id prod-core
-
-# Include AR JSON baseline
-uv run python scripts/run_benchmark.py --real --include-baseline --run-id prod-with-ar
+# Optional shortlist-CLM + one-shot AR stuffing baseline
+uv run python scripts/run_benchmark.py --real --include-optional --run-id paper-opt
 
 # Legacy one-variable ablation (fixed S2=clm-8b / S1=anyjev-l0)
 uv run python scripts/run_benchmark.py --real --engines decision20-kai,clm-8b --run-id ablation
@@ -164,11 +162,12 @@ uv run python scripts/run_benchmark.py --real --engines decision20-kai,clm-8b --
 ### Reports
 
 ```bash
-less artifacts/benchmarks/prod-full.md
-# Open inspect.html in a browser: click a pair, then an example, to compare
-# expected labels vs Stage-1/Stage-2 model I/O (and Gemini if synthesis ran).
-# Rebuild inspect without rerunning:
-#   uv run python scripts/run_benchmark.py --inspect-from prod-full
+less artifacts/benchmarks/paper-n200.analysis.md   # Block A/B tables + findings
+less artifacts/benchmarks/paper-n200.md            # interpret summary
+# Open inspect.html: pair → example → expected labels vs S1/S2 I/O
+# Rebuild without engines:
+#   uv run python scripts/run_benchmark.py --analysis-from paper-n200
+#   uv run python scripts/run_benchmark.py --inspect-from paper-n200
 ```
 
 ---
@@ -190,4 +189,4 @@ uv sync --extra real --group dev
 - `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM inference
 - `artifacts/benchmarks/` — JSON / CSV / Markdown outputs
 - [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md) — System-1 survey used above
-- Spec & design: [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/)
+- Spec & design: [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) (paper Block A/B); [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) (serving matrix)

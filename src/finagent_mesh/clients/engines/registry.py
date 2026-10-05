@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -101,9 +101,12 @@ def load_registry(path: Path | str | None = None) -> EngineRegistry:
             raise ValueError(f"Duplicate config_id={cfg.config_id}")
         engines[cfg.config_id] = cfg
     ports = {k: int(v) for k, v in (raw.get("ports") or {}).items()}
+    raw_partners = raw.get("partners") or {}
     partners = {
-        "stage1_partner_id": str((raw.get("partners") or {}).get("stage1_partner_id", "anyjev-l0")),
-        "stage2_partner_id": str((raw.get("partners") or {}).get("stage2_partner_id", "clm-8b")),
+        "stage1_partner_id": str(raw_partners.get("stage1_partner_id", "anyjev-l0")),
+        "stage2_partner_id": str(raw_partners.get("stage2_partner_id", "clm-8b")),
+        "block_a_stage2": str(raw_partners.get("block_a_stage2", "decision20-lux")),
+        "block_b_stage1": str(raw_partners.get("block_b_stage1", "decision20-lux")),
     }
     matrix_pairs = list(raw.get("matrix_pairs") or [])
     deferred_pairs = list(raw.get("deferred_pairs") or [])
@@ -153,9 +156,16 @@ def validate_calibration(cfg: EngineConfiguration, repo_root: Path | None = None
         )
 
 
-def create_adapter(config_id: str, registry: EngineRegistry | None = None) -> DecisionAdapter:
+def create_adapter(
+    config_id: str,
+    registry: EngineRegistry | None = None,
+    *,
+    base_url: str | None = None,
+) -> DecisionAdapter:
     reg = registry or load_registry()
     cfg = reg.get(config_id)
+    if base_url:
+        cfg = replace(cfg, base_url=base_url.rstrip("/"))
     family = cfg.family
     if family == "anyjev":
         from finagent_mesh.clients.engines.anyjev import AnyJevAdapter

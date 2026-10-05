@@ -56,11 +56,14 @@ def test_architecture_default_pairs_exclude_baseline() -> None:
     reg = load_registry(ROOT / "configs" / "engines.yaml")
     pairs = resolve_matrix_pairs(reg, repo_root=ROOT)
     ids = [p.pair_id for p in pairs]
-    assert "lux-clm" in ids
-    assert "kai-clm" in ids
-    assert "laya-clm" in ids
     assert "lux-lux" in ids
-    assert "anyjev-l0-clm" in ids
-    assert "ar-clm" not in ids
+    assert "kai-lux" in ids
+    assert "laya-lux" in ids
+    assert "anyjev-l0-lux" in ids
+    assert "lux-clm" in ids
+    assert "lux-bm25" in ids
+    assert "lux-e5" in ids
+    assert "ar-lux" in ids
+    assert "kai-clm" not in ids
     lux_lux = next(p for p in pairs if p.pair_id == "lux-lux")
     assert lux_lux.unique_engines() == ["decision20-lux"]

@@ -2,9 +2,10 @@
 
 Backends:
 - decision20: HuggingFace Decision-2.0 `AutoModel.system_one` (Kai / Lux)
+  Choice = listwise id→text; Score = ordinal 2–10 levels (pointwise over passages)
 - laya: ModernBERT-style ranking via transformers Autograd / AutoModel
 - ar: Qwen instruct JSON choice generation
-- clm: contrastive-lm Engine.rank when installed; else Decision-2.0 score fallback
+- clm: contrastive-lm Engine.rank when installed (no Decision-2.0 Score fallback)
 """
 
 from __future__ import annotations
@@ -129,6 +130,17 @@ def _criterion_chars() -> int:
         return 240
 
 
+# Decision-2.0 Score is an ordinal scale (exactly 2–10 level descriptions),
+# not a list of passages. FinAgentBench Stage-2 uses pointwise Score: shared
+# query state + one Score question per passage (passage text in instructions).
+RELEVANCE_SCORE_CRITERIA: list[str] = [
+    "Irrelevant to the query",
+    "Marginally related but does not answer the query",
+    "Partially answers the query",
+    "Directly and fully answers the query",
+]
+
+
 def _score_batch_size(model_id: str) -> int:
     raw = os.getenv("SYSTEMONE_SCORE_BATCH", "").strip()
     if raw:
@@ -138,13 +150,16 @@ def _score_batch_size(model_id: str) -> int:
             pass
     lowered = model_id.lower()
     if "kai" in lowered or "0.6b" in lowered:
-        return 8
-    return 16
+        return 4
+    # Ordinal Score packs passage text into each question; keep batches small.
+    return 4
 
 
 def _probs_from_answer(ans: Any, candidates: list[dict[str, str]]) -> dict[str, float]:
     probs: dict[str, float] = {}
     if not isinstance(ans, dict):
+        return probs
+    if ans.get("error"):
         return probs
     raw_probs = ans.get("probabilities") or ans.get("scores") or ans.get("values")
     if isinstance(raw_probs, dict):
@@ -160,25 +175,49 @@ def _probs_from_answer(ans: Any, candidates: list[dict[str, str]]) -> dict[str, 
     return probs
 
 
-def _system_one_rank(
+def _ranking_payload(
+    *,
+    primitive: str,
+    ids: list[str],
+    scores: list[float],
+    latency_ms: float,
+    backend: str,
+    model_id: str,
+) -> dict[str, Any]:
+    ranked = stable_rank(ids, scores)
+    total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
+    return {
+        "primitive": primitive,
+        "ranking": [{"id": i, "score": s, "rank": r} for i, s, r in ranked],
+        "distribution": {i: max(s, 0.0) / total for i, s, _ in ranked},
+        "latency_ms": latency_ms,
+        "backend": backend,
+        "model_id": model_id,
+    }
+
+
+def _system_one_choice_rank(
     model: Any,
     *,
     query: str,
     candidates: list[dict[str, str]],
-    primitive: str,
     model_id: str,
 ) -> dict[str, Any]:
+    """Listwise Choice: criteria is id → text (2–255 options)."""
+    if len(candidates) < 2:
+        raise RealInferError(
+            f"Decision-2.0 Choice needs ≥2 candidates; got {len(candidates)}"
+        )
     limit = _criterion_chars()
     criteria = {c["id"]: (c.get("text") or c["id"])[:limit] for c in candidates}
-    qtype = "choice" if primitive == "choice" else "score"
     started = time.perf_counter()
     result = model.system_one(
         state=query[:4000],
         questions={
             "rank": {
-                "type": qtype,
+                "type": "choice",
                 "instructions": "Rank which candidate best answers the financial query.",
-                "criteria": criteria if qtype == "choice" else list(criteria.values()),
+                "criteria": criteria,
             }
         },
     )
@@ -192,9 +231,11 @@ def _system_one_rank(
     if answers is None:
         answers = result
     ans = answers.get("rank") if isinstance(answers, dict) else None
+    if isinstance(ans, dict) and ans.get("error"):
+        raise RealInferError(f"Decision-2.0 Choice error: {ans.get('error')}")
     probs = _probs_from_answer(ans, candidates)
     if not probs:
-        raise RealInferError(f"Decision-2.0 returned unusable answers: {ans!r}")
+        raise RealInferError(f"Decision-2.0 returned unusable Choice answers: {ans!r}")
 
     id_by_text = {(c.get("text") or c["id"])[:limit]: c["id"] for c in candidates}
     mapped: dict[str, float] = {}
@@ -209,17 +250,100 @@ def _system_one_rank(
         mapped.setdefault(c["id"], 0.0)
 
     ids = [c["id"] for c in candidates]
-    scores = [float(mapped.get(i, 0.0)) for i in ids]
-    ranked = stable_rank(ids, scores)
-    total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
-    return {
-        "primitive": primitive,
-        "ranking": [{"id": i, "score": s, "rank": r} for i, s, r in ranked],
-        "distribution": {i: max(s, 0.0) / total for i, s, _ in ranked},
-        "latency_ms": latency_ms,
-        "backend": "decision20",
-        "model_id": model_id,
-    }
+    return _ranking_payload(
+        primitive="choice",
+        ids=ids,
+        scores=[float(mapped.get(i, 0.0)) for i in ids],
+        latency_ms=latency_ms,
+        backend="decision20",
+        model_id=model_id,
+    )
+
+
+def _system_one_ordinal_score_batch(
+    model: Any,
+    *,
+    query: str,
+    candidates: list[dict[str, str]],
+) -> tuple[dict[str, float], float]:
+    """Pointwise ordinal Score: 2–10 levels; one question per passage."""
+    if not candidates:
+        return {}, 0.0
+    limit = _criterion_chars()
+    questions: dict[str, dict[str, Any]] = {}
+    for c in candidates:
+        cid = str(c["id"])
+        passage = (c.get("text") or cid)[:limit]
+        questions[cid] = {
+            "type": "score",
+            "instructions": (
+                "Rate how well the following passage answers the financial query.\n\n"
+                f"Passage:\n{passage}"
+            ),
+            "criteria": list(RELEVANCE_SCORE_CRITERIA),
+        }
+    started = time.perf_counter()
+    result = model.system_one(state=query[:4000], questions=questions)
+    latency_ms = (time.perf_counter() - started) * 1000.0
+    if isinstance(result, dict) and result.get("max_length_exceeded"):
+        raise RealInferError(
+            f"Decision-2.0 max_length_exceeded n_cand={len(candidates)} "
+            f"chars={limit}; lower SYSTEMONE_SCORE_BATCH / SYSTEMONE_CRITERION_CHARS"
+        )
+    answers = result.get("answers") if isinstance(result, dict) else None
+    if not isinstance(answers, dict):
+        raise RealInferError(f"Decision-2.0 Score returned no answers: {result!r}")
+    scores: dict[str, float] = {}
+    errors: list[str] = []
+    for c in candidates:
+        cid = str(c["id"])
+        ans = answers.get(cid)
+        if not isinstance(ans, dict):
+            errors.append(f"{cid}: missing")
+            scores[cid] = 0.0
+            continue
+        if ans.get("error"):
+            errors.append(f"{cid}: {ans.get('error')}")
+            scores[cid] = 0.0
+            continue
+        raw = ans.get("score")
+        try:
+            scores[cid] = float(raw)
+        except (TypeError, ValueError):
+            errors.append(f"{cid}: bad score {raw!r}")
+            scores[cid] = 0.0
+    if errors and all(v == 0.0 for v in scores.values()):
+        raise RealInferError(
+            "Decision-2.0 Score failed for all candidates: " + "; ".join(errors[:5])
+        )
+    return scores, latency_ms
+
+
+# Back-compat alias used by older tests / callers
+def _system_one_rank(
+    model: Any,
+    *,
+    query: str,
+    candidates: list[dict[str, str]],
+    primitive: str,
+    model_id: str,
+) -> dict[str, Any]:
+    if primitive == "choice":
+        return _system_one_choice_rank(
+            model, query=query, candidates=candidates, model_id=model_id
+        )
+    scores, latency_ms = _system_one_ordinal_score_batch(
+        model, query=query, candidates=candidates
+    )
+    ids = [c["id"] for c in candidates]
+    return _ranking_payload(
+        primitive="score",
+        ids=ids,
+        scores=[float(scores.get(i, 0.0)) for i in ids],
+        latency_ms=latency_ms,
+        backend="decision20_ordinal_score",
+        model_id=model_id,
+    )
 
 
 def decide_decision20(
@@ -231,49 +355,70 @@ def decide_decision20(
 ) -> dict[str, Any]:
     """Choice/score via Decision-2.0 system_one API.
 
-    Stage-2 Score often has 50–300 filing chunks. Kai is a 1024-token
-    Choice/Score head, so candidates are truncated and scored in batches.
+    - Choice: listwise id→text criteria (filing types / small option sets).
+    - Score: native ordinal Score (2–10 levels) applied pointwise to passages.
+      Passing chunk texts as Score criteria causes ``invalid_question``.
     """
     model, _device = _load_decision20(model_id)
-    if primitive == "choice" or len(candidates) <= _score_batch_size(model_id):
-        return _system_one_rank(
-            model,
-            query=query,
-            candidates=candidates,
-            primitive=primitive,
+    if primitive == "choice":
+        batch = _score_batch_size(model_id)
+        if len(candidates) <= batch:
+            return _system_one_choice_rank(
+                model, query=query, candidates=candidates, model_id=model_id
+            )
+        log(
+            f"Decision-2.0 {model_id}: Choice-ranking {len(candidates)} candidates "
+            f"in batches of {batch}"
+        )
+        merged: dict[str, float] = {}
+        latency_ms = 0.0
+        for i in range(0, len(candidates), batch):
+            part = _system_one_choice_rank(
+                model,
+                query=query,
+                candidates=candidates[i : i + batch],
+                model_id=model_id,
+            )
+            latency_ms += float(part.get("latency_ms") or 0.0)
+            for row in part["ranking"]:
+                merged[str(row["id"])] = float(row["score"])
+        ids = [c["id"] for c in candidates]
+        return _ranking_payload(
+            primitive="choice",
+            ids=ids,
+            scores=[merged.get(i, 0.0) for i in ids],
+            latency_ms=latency_ms,
+            backend="decision20_batched",
             model_id=model_id,
         )
 
     batch = _score_batch_size(model_id)
-    log(
-        f"Decision-2.0 {model_id}: scoring {len(candidates)} candidates "
-        f"in batches of {batch} (truncated to {_criterion_chars()} chars)"
-    )
-    merged: dict[str, float] = {}
+    if len(candidates) > batch:
+        log(
+            f"Decision-2.0 {model_id}: ordinal Score on {len(candidates)} passages "
+            f"in batches of {batch} (truncated to {_criterion_chars()} chars)"
+        )
+    merged_scores: dict[str, float] = {}
     latency_ms = 0.0
     for i in range(0, len(candidates), batch):
-        part = _system_one_rank(
+        part_scores, part_ms = _system_one_ordinal_score_batch(
             model,
             query=query,
             candidates=candidates[i : i + batch],
-            primitive="score",
-            model_id=model_id,
         )
-        latency_ms += float(part.get("latency_ms") or 0.0)
-        for row in part["ranking"]:
-            merged[str(row["id"])] = float(row["score"])
+        latency_ms += part_ms
+        merged_scores.update(part_scores)
     ids = [c["id"] for c in candidates]
-    scores = [merged.get(i, 0.0) for i in ids]
-    ranked = stable_rank(ids, scores)
-    total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
-    return {
-        "primitive": primitive,
-        "ranking": [{"id": i, "score": s, "rank": r} for i, s, r in ranked],
-        "distribution": {i: max(s, 0.0) / total for i, s, _ in ranked},
-        "latency_ms": latency_ms,
-        "backend": "decision20_batched",
-        "model_id": model_id,
-    }
+    return _ranking_payload(
+        primitive="score",
+        ids=ids,
+        scores=[float(merged_scores.get(i, 0.0)) for i in ids],
+        latency_ms=latency_ms,
+        backend="decision20_ordinal_score"
+        if len(candidates) <= batch
+        else "decision20_ordinal_score_batched",
+        model_id=model_id,
+    )
 
 
 def decide_embed_rank(

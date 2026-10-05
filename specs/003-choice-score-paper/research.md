@@ -110,3 +110,20 @@
 **Rationale**: SC-003 / FR-014.
 
 **Alternatives considered**: Full 6k default (too slow for iteration); keep requiring explicit `--records` (easy to publish N=10 by mistake).
+
+## 12. Decision-2.0 Score API vs FinAgentBench Stage-2
+
+**Decision**: Lux Stage-2 uses Decision-2.0 **ordinal Score** (fixed 4-level relevance rubric) **pointwise** over passages. Query is `state`; each passage is a Score question with criteria length in \[2, 10\]. Expected scalar `score` becomes the ranking key.
+
+**Rationale**: Passing chunk texts as Score `criteria` (list of N passages) yields `invalid_question` — Score criteria are ordered level labels, not candidates. Choice (id→text object) remains the Stage-1 / listwise API.
+
+**Alternatives considered**: Listwise Choice over chunks for Stage-2 (works, but mislabels the Score head); true Score only (chosen).
+
+## 13. Block A port handoff
+
+**Decision**: When Stage-1 ≠ Stage-2 sidecars, matrix runner binds Stage-1 → `:8000` and Stage-2 → `:8001` via `SYSTEMONE_PORT_OVERRIDE`, stopping any occupant of a needed port before start. Same-engine pairs (`lux-lux`) stay on one registry port. Warm Lux on `:8001` is reused across Block A Choice swaps.
+
+**Rationale**: Registry defaults put many Choice engines on `:8000`; keeping Lux warm without freeing the port caused “stale sidecar” failures on `anyjev-l0-lux` / `kai-lux` / etc.
+
+**Alternatives considered**: Sequential per-example model swap (too slow); load two copies of Lux (VRAM waste for AnyJev+Lux).
+

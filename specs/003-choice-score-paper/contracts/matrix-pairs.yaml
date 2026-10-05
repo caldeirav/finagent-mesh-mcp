@@ -1,5 +1,7 @@
 # Contract: paper matrix pair catalog (target shape for configs/engines.yaml)
 # Implements FR-001–005, FR-015–016. Deferred rows are documentation-only.
+# Lux Stage-2 Score = Decision-2.0 ordinal (2–10 levels), pointwise over passages.
+# Runtime ports: S1→:8000 / S2→:8001 when pair needs two sidecars (see matrix/ports.py).
 
 shared_partners:
   block_a_stage2: decision20-lux   # long-context Score

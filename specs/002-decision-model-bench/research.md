@@ -32,6 +32,9 @@
 
 ## 3. Architecture-true Stage 1×2 pairs (default matrix)
 
+
+> **Note (003)**: Default publishable pairs are now Block A/B in `specs/003-choice-score-paper/`. The `*-clm` cross-product below remains the legacy ablation shape for `--engines`.
+
 **Decision**: Default production matrix is an explicit `matrix_pairs` list in `configs/engines.yaml`, not a full cross-product and not “every engine × fixed partner”.
 
 | Pair | Stage 1 | Stage 2 | Role |

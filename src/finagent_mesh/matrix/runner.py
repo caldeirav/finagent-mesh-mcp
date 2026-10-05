@@ -19,6 +19,7 @@ from finagent_mesh.matrix.partners import (
     is_inprocess_engine,
     resolve_matrix_pairs,
 )
+from finagent_mesh.matrix.ports import plan_engine_ports
 from finagent_mesh.matrix.report import write_report
 from finagent_mesh.matrix.sampling import select_example_ids
 from finagent_mesh.runtime.harness import Harness
@@ -123,7 +124,14 @@ class MatrixRunner:
             created_at=raw.get("created_at", ""),
         )
 
-    def _serve(self, action: str, config_id: str | None = None, *, force: bool = False) -> None:
+    def _serve(
+        self,
+        action: str,
+        config_id: str | None = None,
+        *,
+        force: bool = False,
+        port: int | None = None,
+    ) -> None:
         if not self.manage_servers:
             return
         script = self.repo_root / "scripts" / "serve_engine.sh"
@@ -131,6 +139,10 @@ class MatrixRunner:
         env.setdefault("SYSTEMONE_BACKEND", "lexical")
         if force:
             env["SYSTEMONE_FORCE_RESTART"] = "1"
+        if port is not None:
+            env["SYSTEMONE_PORT_OVERRIDE"] = str(port)
+        elif "SYSTEMONE_PORT_OVERRIDE" in env:
+            del env["SYSTEMONE_PORT_OVERRIDE"]
         cmd = ["bash", str(script), action]
         if config_id:
             cmd.append(config_id)
@@ -238,11 +250,13 @@ class MatrixRunner:
                 f"S1={p.stage1_config_id} S2={p.stage2_config_id}"
             )
 
-        prev_engines: set[str] = set()
+        active_ports: dict[str, int] = {}
         n_pairs = len(pairs)
         for pair_i, pair in enumerate(pairs, 1):
             binding = pair.as_binding()
-            needed = pair.unique_engines()
+            port_plan = plan_engine_ports(
+                self.registry, pair.stage1_config_id, pair.stage2_config_id
+            )
             row = MatrixRowResult(
                 variable_config_id=pair.pair_id,
                 eval_run_id=f"{matrix_run_id}:{pair.pair_id}",
@@ -264,23 +278,40 @@ class MatrixRunner:
             if pair.rationale.strip():
                 progress_log(pair.rationale.strip().split("\n")[0][:200])
             try:
-                for old in prev_engines:
-                    if old not in needed and not is_inprocess_engine(self.registry, old):
-                        progress_log(f"stopping {old}")
-                        self._serve("stop", old)
-                active_needed: set[str] = set()
-                for eid in needed:
+                # Stop engines that are no longer needed or must move ports.
+                for eid, port in list(active_ports.items()):
+                    if eid not in port_plan or port_plan[eid] != port:
+                        progress_log(f"stopping {eid} (port {port})")
+                        self._serve("stop", eid, port=port)
+                        del active_ports[eid]
+                # Free ports occupied by a different config_id.
+                occupied = {p: e for e, p in active_ports.items()}
+                for eid, port in port_plan.items():
+                    holder = occupied.get(port)
+                    if holder is not None and holder != eid:
+                        progress_log(
+                            f"stopping {holder} to free port {port} for {eid}"
+                        )
+                        self._serve("stop", holder, port=port)
+                        del active_ports[holder]
+                        occupied.pop(port, None)
+                for eid, port in port_plan.items():
+                    if eid in active_ports:
+                        progress_log(f"reusing warm {eid} on port {port}")
+                        continue
+                    progress_log(
+                        f"starting {eid} on port {port} "
+                        f"(real weights load on first request)"
+                    )
+                    self._serve("start", eid, port=port, force=True)
+                    time.sleep(0.3)
+                    self._serve("health", eid, port=port)
+                    active_ports[eid] = port
+                # In-process engines need no sidecar.
+                for eid in pair.unique_engines():
                     if is_inprocess_engine(self.registry, eid):
                         progress_log(f"in-process engine {eid} (no sidecar)")
-                        active_needed.add(eid)
-                        continue
-                    progress_log(f"starting {eid} (real weights load on first request)")
-                    self._serve("start", eid)
-                    time.sleep(0.3)
-                    self._serve("health", eid)
-                    active_needed.add(eid)
                 self._active_variable = pair.pair_id
-                prev_engines = active_needed
 
                 harness = Harness(
                     self.settings,
@@ -288,6 +319,7 @@ class MatrixRunner:
                     stage2_engine=binding.stage2_config_id,
                     gemini_model=matrix.gemini_model,
                     allow_mock=self.allow_mock,
+                    port_overrides=port_plan,
                 )
                 progress_log(
                     f"{pair.pair_id}: ranking {len(matrix.selected_example_ids)} example(s)…"

@@ -189,17 +189,30 @@ def bind_from_registry(
     *,
     mock: bool = False,
     registry_path: str | None = None,
+    port_overrides: dict[str, int] | None = None,
 ) -> OpenDecisionClient:
     from pathlib import Path
 
     from finagent_mesh.clients.engines.registry import create_adapter, load_registry
+    from finagent_mesh.matrix.ports import base_url_for_port
 
     reg = load_registry(Path(registry_path) if registry_path else None)
-    s1 = create_adapter(stage1_config_id, reg)
-    s2 = create_adapter(stage2_config_id, reg)
+    ports = port_overrides or {}
+    s1_url = (
+        base_url_for_port(ports[stage1_config_id])
+        if stage1_config_id in ports
+        else reg.get(stage1_config_id).base_url
+    )
+    s2_url = (
+        base_url_for_port(ports[stage2_config_id])
+        if stage2_config_id in ports
+        else reg.get(stage2_config_id).base_url
+    )
+    s1 = create_adapter(stage1_config_id, reg, base_url=s1_url)
+    s2 = create_adapter(stage2_config_id, reg, base_url=s2_url)
     return OpenDecisionClient(
-        reg.get(stage1_config_id).base_url,
-        reg.get(stage2_config_id).base_url,
+        s1_url,
+        s2_url,
         mock=mock,
         stage1_client=s1,
         stage2_client=s2,
