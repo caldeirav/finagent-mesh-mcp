@@ -1,0 +1,133 @@
+# Contract: paper matrix pair catalog (target shape for configs/engines.yaml)
+# Implements FR-001–005, FR-015–016. Deferred rows are documentation-only.
+
+shared_partners:
+  block_a_stage2: decision20-lux   # long-context Score
+  block_b_stage1: decision20-lux   # open Choice
+
+engines_to_add:
+  - config_id: bm25-stage2
+    family: lexical-ir
+    primitives: [score]
+    primary_stages: [stage2]
+    backend: bm25_inprocess
+    is_light_edge: true
+
+  - config_id: e5-base
+    family: dense-ir
+    primitives: [score]
+    primary_stages: [stage2]
+    backend: e5_inprocess
+    weights_ref: ${E5_WEIGHTS:-intfloat/e5-base-v2}
+    is_light_edge: false
+
+  - config_id: clm-shortlist-32
+    family: hybrid-ir
+    primitives: [score]
+    primary_stages: [stage2]
+    backend: clm_shortlist
+    shortlist_k: 32
+    shortlist_method: bm25
+    scorer: clm-8b
+
+matrix_pairs:
+  # --- Block A (Choice varies; Lux Score fixed) ---
+  - pair_id: lux-lux
+    stage1: decision20-lux
+    stage2: decision20-lux
+    blocks: [A, B]
+    role: long_context
+    optional: false
+    rationale: Primary System-1 pipeline; shared physical run for both blocks.
+
+  - pair_id: anyjev-l0-lux
+    stage1: anyjev-l0
+    stage2: decision20-lux
+    blocks: [A]
+    role: calibrated
+    optional: false
+    rationale: Order-debiased Choice; report OFR.
+
+  - pair_id: kai-lux
+    stage1: decision20-kai
+    stage2: decision20-lux
+    blocks: [A]
+    role: latency
+    optional: false
+    rationale: Sub-5 ms Choice router × long-context Score.
+
+  - pair_id: laya-lux
+    stage1: laya-modernbert
+    stage2: decision20-lux
+    blocks: [A]
+    role: latency
+    optional: false
+    rationale: Edge Choice × long-context Score.
+
+  - pair_id: ar-lux
+    stage1: ar-qwen3-8b-instruct
+    stage2: decision20-lux
+    blocks: [A]
+    role: baseline
+    optional: false
+    rationale: Generative JSON Choice baseline; parse failures counted.
+
+  # --- Block B (Score varies; Lux Choice fixed) ---
+  - pair_id: lux-clm
+    stage1: decision20-lux
+    stage2: clm-8b
+    blocks: [B]
+    role: production
+    optional: false
+    rationale: Dual-encoder Action Cache zero-shot Score.
+
+  - pair_id: lux-bm25
+    stage1: decision20-lux
+    stage2: bm25-stage2
+    blocks: [B]
+    role: ir_floor
+    optional: false
+    rationale: Lexical BM25 passage floor.
+
+  - pair_id: lux-e5
+    stage1: decision20-lux
+    stage2: e5-base
+    blocks: [B]
+    role: ir_dense
+    optional: false
+    rationale: General-domain E5 bi-encoder dense Score.
+
+  # --- Optional Block B (opt-in) ---
+  - pair_id: lux-clm-shortlist
+    stage1: decision20-lux
+    stage2: clm-shortlist-32
+    blocks: [B]
+    role: optional
+    optional: true
+    rationale: BM25 top-32 then CLM Score.
+
+  - pair_id: one-shot-ar
+    stage1: null
+    stage2: ar-qwen3-8b-instruct
+    blocks: [B]
+    role: baseline_collapsed
+    optional: true
+    collapsed_stages: true
+    rationale: >
+      One-shot generative ranking of all chunks; violates two-stage contract;
+      labeled baseline only.
+
+# Deferred (do not implement; list in analysis skip/deferred)
+deferred_pairs:
+  - pair_id: lux-clm-ft
+    issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/1
+    rationale: Trained dual-encoder heads on held-out split.
+  - pair_id: lux-e5-ce
+    issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/2
+    rationale: Dense shortlist then cross-encoder ceiling.
+
+resolver_rules:
+  default_real: all optional=false pairs; dedupe lux-lux once
+  include_optional: also lux-clm-shortlist, one-shot-ar
+  never_auto: deferred_pairs
+  anyjev_l1: still optional/calibration-gated; not required for Block A
