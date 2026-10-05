@@ -4,6 +4,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# Export .env so HF_TOKEN / weight overrides reach local sidecars.
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env"
+  set +a
+fi
 REGISTRY="${ENGINES_REGISTRY_PATH:-$ROOT/configs/engines.yaml}"
 RUNTIME="${PODMAN_OR_DOCKER:-podman}"
 # local = process on host; podman = container

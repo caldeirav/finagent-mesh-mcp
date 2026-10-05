@@ -168,3 +168,67 @@ def test_choice_five_filing_types_not_batched(monkeypatch: pytest.MonkeyPatch) -
     )
     assert calls == [5]
     assert len(out["ranking"]) == 5
+
+
+def test_strip_think_and_extract_first_json() -> None:
+    from finagent_mesh.clients.engines.real_infer import (
+        _extract_first_json_object,
+        _strip_think_blocks,
+    )
+
+    raw = (
+        "<think>\nreasoning here\n</think>\n"
+        '{"ordered_ids":["10-K","10-Q"],"scores":[0.9,0.1]}\n'
+        "The JSON above shows Earnings is best."
+    )
+    cleaned = _strip_think_blocks(raw)
+    assert "<think>" not in cleaned.lower()
+    obj = _extract_first_json_object(cleaned)
+    assert obj is not None
+    assert '"ordered_ids"' in obj
+    assert "The JSON above" not in obj
+
+
+def test_decide_ar_json_uses_thinking_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    from finagent_mesh.clients.engines import real_infer as ri
+
+    seen: dict = {}
+
+    class FakeTok:
+        def apply_chat_template(self, messages, **kwargs):
+            seen["kwargs"] = kwargs
+            seen["messages"] = messages
+            return "PROMPT"
+
+        def __call__(self, prompt, return_tensors="pt"):
+            import torch
+
+            return {"input_ids": torch.tensor([[1, 2, 3]])}
+
+        @property
+        def eos_token_id(self):
+            return 0
+
+        def decode(self, ids, skip_special_tokens=True):
+            return (
+                '{"ordered_ids":["10-K","10-Q","8-K","DEF14A","Earnings"],'
+                '"scores":[1,0.8,0.6,0.4,0.2]}\nMore prose'
+            )
+
+    class FakeModel:
+        def generate(self, **kwargs):
+            import torch
+
+            # prompt length 3 + generated
+            return torch.tensor([[1, 2, 3, 9, 9, 9]])
+
+    monkeypatch.setattr(ri, "_load_ar", lambda _mid: (FakeTok(), FakeModel(), "cpu"))
+    out = ri.decide_ar_json(
+        model_id="Qwen/Qwen3-8B",
+        query="q",
+        candidates=[{"id": t, "text": t} for t in ("10-K", "10-Q", "8-K", "DEF14A", "Earnings")],
+        primitive="choice",
+    )
+    assert seen["kwargs"].get("enable_thinking") is False
+    assert out["ranking"][0]["id"] == "10-K"
+    assert out["backend"] == "ar_json"

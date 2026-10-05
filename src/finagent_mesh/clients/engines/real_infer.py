@@ -83,8 +83,13 @@ def _load_decision20(model_id: str):
     _require_torch()
     from transformers import AutoModel
 
+    from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+    token = ensure_hf_hub_auth()
     log(f"Loading Decision-2.0 weights {model_id} (first call downloads from Hugging Face)…")
-    model = AutoModel.from_pretrained(model_id, trust_remote_code=True)
+    model = AutoModel.from_pretrained(
+        model_id, trust_remote_code=True, token=token
+    )
     model, device = _place_model(model, label=f"Decision-2.0 {model_id}", cast_dtype=False)
     return model, device
 
@@ -94,9 +99,16 @@ def _load_ar(model_id: str):
     _require_torch()
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+    token = ensure_hf_hub_auth()
     log(f"Loading AR causal LM {model_id} (first call may download)…")
-    tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True)
+    tok = AutoTokenizer.from_pretrained(
+        model_id, trust_remote_code=True, token=token
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id, trust_remote_code=True, token=token
+    )
     model, device = _place_model(model, label=f"AR {model_id}")
     return tok, model, device
 
@@ -106,9 +118,16 @@ def _load_embedder(model_id: str):
     _require_torch()
     from transformers import AutoModel, AutoTokenizer
 
+    from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+    token = ensure_hf_hub_auth()
     log(f"Loading embedder {model_id} (first call may download)…")
-    tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    model = AutoModel.from_pretrained(model_id, trust_remote_code=True)
+    tok = AutoTokenizer.from_pretrained(
+        model_id, trust_remote_code=True, token=token
+    )
+    model = AutoModel.from_pretrained(
+        model_id, trust_remote_code=True, token=token
+    )
     model, device = _place_model(model, label=f"embedder {model_id}")
     return tok, model, device
 
@@ -478,6 +497,39 @@ def decide_embed_rank(
     }
 
 
+def _strip_think_blocks(text: str) -> str:
+    """Remove Qwen3 / DeepSeek-style <think>…</think> blocks."""
+    return re.sub(r"<think>\s*.*?\s*</think>", "", text, flags=re.S | re.I).strip()
+
+
+def _extract_first_json_object(text: str) -> str | None:
+    """Return the first top-level JSON object, ignoring trailing prose."""
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_str = False
+    escape = False
+    for i, ch in enumerate(text[start:], start):
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
+
+
 def decide_ar_json(
     *,
     model_id: str,
@@ -485,39 +537,66 @@ def decide_ar_json(
     candidates: list[dict[str, str]],
     primitive: str,
 ) -> dict[str, Any]:
-    """Autoregressive JSON ordered_ids baseline."""
+    """Autoregressive JSON ordered_ids baseline (thinking disabled for Qwen3)."""
     import torch
 
     tok, model, device = _load_ar(model_id)
     cand_blob = json.dumps(
         [{"id": c["id"], "text": (c.get("text") or "")[:300]} for c in candidates]
     )
-    prompt = (
-        "You rank financial retrieval candidates. Reply with ONLY JSON: "
+    user = (
+        "Rank these financial retrieval candidates for the query.\n"
+        "Reply with ONLY a JSON object (no prose): "
         '{"ordered_ids":["id1","id2",...],"scores":[1.0,0.9,...]}\n'
-        f"Query: {query}\nCandidates: {cand_blob}\nJSON:"
+        f"Query: {query}\n"
+        f"Candidates: {cand_blob}"
     )
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a ranking function. Output a single JSON object only. "
+                "No markdown fences, no explanation."
+            ),
+        },
+        {"role": "user", "content": user},
+    ]
     started = time.perf_counter()
+    try:
+        prompt = tok.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
+    except TypeError:
+        # Templates without enable_thinking still get a plain chat prompt.
+        prompt = tok.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
     inputs = tok(prompt, return_tensors="pt")
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
         out = model.generate(
             **inputs,
-            max_new_tokens=256,
+            max_new_tokens=384,
             do_sample=False,
             pad_token_id=tok.eos_token_id,
         )
     text = tok.decode(out[0][inputs["input_ids"].shape[-1] :], skip_special_tokens=True)
     latency_ms = (time.perf_counter() - started) * 1000.0
-    match = re.search(r"\{.*\}", text, flags=re.S)
-    if not match:
+    cleaned = _strip_think_blocks(text)
+    raw = _extract_first_json_object(cleaned)
+    if not raw:
         raise RealInferError(f"AR JSON parse failure; raw={text[:200]!r}")
     try:
-        parsed = json.loads(match.group(0))
+        parsed = json.loads(raw)
         ordered = list(parsed.get("ordered_ids") or [])
         scores = [float(x) for x in (parsed.get("scores") or [])]
     except Exception as exc:  # noqa: BLE001
-        raise RealInferError(f"AR JSON parse failure: {exc}; raw={text[:200]!r}") from exc
+        raise RealInferError(f"AR JSON parse failure: {exc}; raw={raw[:200]!r}") from exc
     if not ordered:
         raise RealInferError("AR JSON missing ordered_ids")
     if len(scores) != len(ordered):
@@ -528,7 +607,7 @@ def decide_ar_json(
         "primitive": primitive,
         "ranking": [{"id": i, "score": s, "rank": r} for i, s, r in ranked],
         "distribution": {i: max(s, 0.0) / total for i, s, _ in ranked},
-        "raw_json": match.group(0),
+        "raw_json": raw,
         "latency_ms": latency_ms,
         "backend": "ar_json",
         "model_id": model_id,

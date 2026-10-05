@@ -122,6 +122,13 @@ def main(
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
     os.chdir(ROOT)
     settings = get_settings()
+    # Prefer authenticated Hub downloads during --real (sidecars also load .env).
+    try:
+        from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+        ensure_hf_hub_auth()
+    except Exception:  # noqa: BLE001
+        pass
 
     if analysis_from or inspect_from:
         rid = analysis_from or inspect_from

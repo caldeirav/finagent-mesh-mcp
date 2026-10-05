@@ -89,8 +89,11 @@ def download_clm_heads() -> str:
         return dest
     from huggingface_hub import hf_hub_download
 
+    from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+    token = ensure_hf_hub_auth()
     log(f"Downloading CLM heads {HF_REPO}/{HF_FILE}…")
-    return hf_hub_download(HF_REPO, HF_FILE, local_dir=dest_dir)
+    return hf_hub_download(HF_REPO, HF_FILE, local_dir=dest_dir, token=token)
 
 
 def _make_head(*, width: int, depth: int, proj: int, activation: str, layernorm: bool, residual: bool, hidden: int):

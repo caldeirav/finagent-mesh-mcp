@@ -24,7 +24,10 @@ def _get_model(model_id: str):
         raise OpenDecisionError(
             "sentence-transformers is required for e5-base; install with uv sync --extra real"
         ) from exc
-    _MODEL = SentenceTransformer(model_id)
+    from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+    token = ensure_hf_hub_auth()
+    _MODEL = SentenceTransformer(model_id, token=token)
     _MODEL_ID = model_id
     return _MODEL
 

@@ -127,14 +127,16 @@ If `data/finagentbench/finagentbench_*.jsonl` is missing, `--real` **downloads f
 
 ```bash
 ./scripts/prepare_real_stack.sh
-# Optional: prefetch HF weights
+# Optional: prefetch HF weights (uses HF_TOKEN from .env when set)
 ./scripts/prepare_real_stack.sh --prefetch
 
-# .env: SYSTEMONE_MOCK=0, SYSTEMONE_BACKEND=real, GOOGLE_API_KEY,
-# KAGGLE_USERNAME / KAGGLE_KEY (first download only)
+# .env: SYSTEMONE_MOCK=0, SYSTEMONE_BACKEND=real,
+# HF_TOKEN (recommended — avoids Hub rate limits mid-run),
+# GOOGLE_API_KEY (only if --with-synthesis),
+# KAGGLE_USERNAME / KAGGLE_KEY (first FinAgentBench download only)
 ```
 
-Accept Kaggle competition rules, then create an API token at [Kaggle settings](https://www.kaggle.com/settings).
+Create a Hugging Face **read** token at [HF settings/tokens](https://huggingface.co/settings/tokens) and set `HF_TOKEN=…` in `.env` (see `.env.example`). Accept Kaggle competition rules, then create an API token at [Kaggle settings](https://www.kaggle.com/settings).
 
 ### Run
 

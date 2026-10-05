@@ -6,7 +6,8 @@ Validate Block A/B matrix + analysis report without claiming a full paper run.
 
 ```bash
 ./scripts/prepare_real_stack.sh
-# .env: SYSTEMONE_MOCK=0, SYSTEMONE_BACKEND=real, HF access for Lux/Kai/Laya/CLM/E5
+# .env: SYSTEMONE_MOCK=0, SYSTEMONE_BACKEND=real, HF_TOKEN=… (Hub rate limits),
+#       weights for Lux/Kai/Laya/CLM/E5/AR
 # Kaggle creds only if FinAgentBench not already under data/finagentbench/
 ```
 

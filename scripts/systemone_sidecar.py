@@ -21,6 +21,20 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT / ".env")
+except ImportError:
+    pass
+
+try:
+    from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+    ensure_hf_hub_auth()
+except Exception:  # noqa: BLE001
+    pass
+
 ENGINE_ID = os.getenv("SYSTEMONE_ENGINE_ID", "anyjev-l0")
 MODEL_REVISION = os.getenv("SYSTEMONE_MODEL_REVISION", ENGINE_ID)
 FAMILY = os.getenv("SYSTEMONE_FAMILY", "anyjev")
