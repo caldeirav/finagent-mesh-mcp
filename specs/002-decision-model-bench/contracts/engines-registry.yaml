@@ -117,6 +117,10 @@ engines:
 # Port collision rule when variable engine is clm-8b:
 # stage1 partner anyjev-l0 → :8000; clm-8b → :8001
 # Optional alternate Choice partner port: :8002
+#
+# Paper IR engines (bm25-stage2, e5-base, clm-shortlist-32, noop-choice) and
+# Block A/B matrix_pairs live in configs/engines.yaml; see
+# specs/003-choice-score-paper/contracts/matrix-pairs.yaml.
 ports:
   stage1_default: 8000
   stage2_default: 8001

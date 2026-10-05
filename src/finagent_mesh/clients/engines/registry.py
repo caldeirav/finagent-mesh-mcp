@@ -60,6 +60,7 @@ class EngineRegistry:
     engines: dict[str, EngineConfiguration]
     ports: dict[str, int] = field(default_factory=dict)
     matrix_pairs: list[dict[str, Any]] = field(default_factory=list)
+    deferred_pairs: list[dict[str, Any]] = field(default_factory=list)
 
     def get(self, config_id: str) -> EngineConfiguration:
         if config_id not in self.engines:
@@ -105,12 +106,14 @@ def load_registry(path: Path | str | None = None) -> EngineRegistry:
         "stage2_partner_id": str((raw.get("partners") or {}).get("stage2_partner_id", "clm-8b")),
     }
     matrix_pairs = list(raw.get("matrix_pairs") or [])
+    deferred_pairs = list(raw.get("deferred_pairs") or [])
     return EngineRegistry(
         version=int(raw.get("version") or 1),
         partners=partners,
         engines=engines,
         ports=ports,
         matrix_pairs=matrix_pairs,
+        deferred_pairs=deferred_pairs,
     )
 
 
@@ -174,4 +177,20 @@ def create_adapter(config_id: str, registry: EngineRegistry | None = None) -> De
         from finagent_mesh.clients.engines.ar_baseline import ArBaselineAdapter
 
         return ArBaselineAdapter(cfg)
+    if family == "lexical-ir" or cfg.backend == "bm25_inprocess":
+        from finagent_mesh.clients.engines.bm25_score import Bm25ScoreAdapter
+
+        return Bm25ScoreAdapter(cfg)
+    if family == "dense-ir" or cfg.backend == "e5_inprocess":
+        from finagent_mesh.clients.engines.e5_score import E5ScoreAdapter
+
+        return E5ScoreAdapter(cfg)
+    if family == "hybrid-ir" or cfg.backend == "clm_shortlist":
+        from finagent_mesh.clients.engines.clm_shortlist import ClmShortlistAdapter
+
+        return ClmShortlistAdapter(cfg)
+    if family == "noop" or cfg.backend == "noop_inprocess":
+        from finagent_mesh.clients.engines.noop_choice import NoopChoiceAdapter
+
+        return NoopChoiceAdapter(cfg)
     raise ValueError(f"No adapter for family={family}")

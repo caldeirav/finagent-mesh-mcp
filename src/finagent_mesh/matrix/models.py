@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-Status = Literal["pending", "running", "completed", "failed"]
+Status = Literal["pending", "running", "completed", "failed", "skipped"]
 
 
 @dataclass
@@ -29,13 +29,27 @@ class EngineMetricsRecord:
     stage2_ndcg_at_5: float | None = None
     stage2_map_at_5: float | None = None
     stage2_mrr_at_5: float | None = None
+    stage2_ndcg_at_5_given_top1: float | None = None
+    stage2_map_at_5_given_top1: float | None = None
+    stage2_mrr_at_5_given_top1: float | None = None
+    stage1_top1_recall: float | None = None
+    stage1_top5_recall: float | None = None
+    empty_top1_chunk_rate: float | None = None
+    option_flip_rate: float | None = None
+    parse_failure_rate: float | None = None
     latency_ms_p50: float | None = None
     latency_ms_p95: float | None = None
-    parse_failure_rate: float | None = None
+    latency_stage1_p50_ms: float | None = None
+    latency_stage1_p95_ms: float | None = None
+    latency_stage2_p50_ms: float | None = None
+    latency_stage2_p95_ms: float | None = None
+    gpu_mem_high_water_mb: float | None = None
     answer_normalized_em: float | None = None
     answer_token_f1: float | None = None
     n_synthesis_attempted: int = 0
     n_synthesis_failed: int = 0
+    n_empty_top1: int = 0
+    blocks: list[str] = field(default_factory=list)
     stage1_unsupported_reason: str | None = None
     stage2_unsupported_reason: str | None = None
 
@@ -48,13 +62,27 @@ class EngineMetricsRecord:
             "stage2_ndcg_at_5": self.stage2_ndcg_at_5,
             "stage2_map_at_5": self.stage2_map_at_5,
             "stage2_mrr_at_5": self.stage2_mrr_at_5,
+            "stage2_ndcg_at_5_given_top1": self.stage2_ndcg_at_5_given_top1,
+            "stage2_map_at_5_given_top1": self.stage2_map_at_5_given_top1,
+            "stage2_mrr_at_5_given_top1": self.stage2_mrr_at_5_given_top1,
+            "stage1_top1_recall": self.stage1_top1_recall,
+            "stage1_top5_recall": self.stage1_top5_recall,
+            "empty_top1_chunk_rate": self.empty_top1_chunk_rate,
+            "option_flip_rate": self.option_flip_rate,
+            "parse_failure_rate": self.parse_failure_rate,
             "latency_ms_p50": self.latency_ms_p50,
             "latency_ms_p95": self.latency_ms_p95,
-            "parse_failure_rate": self.parse_failure_rate,
+            "latency_stage1_p50_ms": self.latency_stage1_p50_ms,
+            "latency_stage1_p95_ms": self.latency_stage1_p95_ms,
+            "latency_stage2_p50_ms": self.latency_stage2_p50_ms,
+            "latency_stage2_p95_ms": self.latency_stage2_p95_ms,
+            "gpu_mem_high_water_mb": self.gpu_mem_high_water_mb,
             "answer_normalized_em": self.answer_normalized_em,
             "answer_token_f1": self.answer_token_f1,
             "n_synthesis_attempted": self.n_synthesis_attempted,
             "n_synthesis_failed": self.n_synthesis_failed,
+            "n_empty_top1": self.n_empty_top1,
+            "blocks": list(self.blocks),
             "stage1_unsupported_reason": self.stage1_unsupported_reason,
             "stage2_unsupported_reason": self.stage2_unsupported_reason,
         }
@@ -69,6 +97,9 @@ class MatrixRowResult:
     status: Status = "pending"
     error: str | None = None
     metrics: EngineMetricsRecord = field(default_factory=EngineMetricsRecord)
+    blocks: list[str] = field(default_factory=list)
+    collapsed_stages: bool = False
+    role: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -79,6 +110,9 @@ class MatrixRowResult:
             "status": self.status,
             "error": self.error,
             "metrics": self.metrics.to_dict(),
+            "blocks": list(self.blocks),
+            "collapsed_stages": self.collapsed_stages,
+            "role": self.role,
         }
 
 
@@ -96,6 +130,7 @@ class MatrixRun:
     systemone_mock: bool = False
     synthesis_enabled: bool = True
     rows: list[MatrixRowResult] = field(default_factory=list)
+    skip_records: list[dict[str, Any]] = field(default_factory=list)
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -115,4 +150,5 @@ class MatrixRun:
             "systemone_mock": self.systemone_mock,
             "synthesis_enabled": self.synthesis_enabled,
             "rows": [r.to_dict() for r in self.rows],
+            "skip_records": list(self.skip_records),
         }

@@ -128,6 +128,11 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             f"- **Best Stage-2 ranking (nDCG@5)**: {_best_label(s2_ranked)}",
             f"- **Best answer quality (token-F1)**: {_best_label(ans_ranked) if matrix.synthesis_enabled else 'n/a (synthesis disabled)'}",
             "",
+            "**Paper note (Block A):** When Stage-2 is held fixed (e.g. all `*-lux` Score), "
+            "do **not** treat Stage-2 nDCG differences across Choice ablations as a scorer "
+            "bake-off — prefer Stage-1 metrics and Top-1 recall for those rows. "
+            "See `*.analysis.md` for Block A/B tables.",
+            "",
             "### Stage-1 ranking order",
             "",
         ]
@@ -261,7 +266,10 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             "",
             "## Artifacts",
             "",
-            f"- Interactive inspect (click pair → example: labels vs S1/S2/synthesis I/O): "
+            f"- Paper analysis (Block A/B tables, findings, record index): "
+            f"`artifacts/benchmarks/{matrix.matrix_run_id}.analysis.md`",
+            f"- Analysis JSON: `artifacts/benchmarks/{matrix.matrix_run_id}.analysis.json`",
+            f"- Interactive inspect (pair → example labels vs S1/S2 I/O): "
             f"`artifacts/benchmarks/{matrix.matrix_run_id}.inspect.html`",
             f"- Inspect JSON: `artifacts/benchmarks/{matrix.matrix_run_id}.inspect.json`",
             f"- Matrix JSON / CSV: `artifacts/benchmarks/{matrix.matrix_run_id}.json`, "

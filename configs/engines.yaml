@@ -1,8 +1,12 @@
-# Engine registry — production HF model ids for real System-1 serving
+# Engine registry — paper Block A/B Choice×Score matrix (see specs/003-choice-score-paper/)
 version: 1
 partners:
+  # Legacy ablation defaults (when --engines is used)
   stage2_partner_id: clm-8b
   stage1_partner_id: anyjev-l0
+  # Paper shared partners
+  block_a_stage2: decision20-lux
+  block_b_stage1: decision20-lux
 
 engines:
   - config_id: anyjev-l0
@@ -17,7 +21,6 @@ engines:
     is_light_edge: false
     calibration_ref: null
     container_ref: containers/anyjev
-    # AnyJev L0 = cyclic option permutations on this Choice backbone (Lux).
     weights_ref: ${ANYJEV_WEIGHTS:-vllm-sr/Decision-2.0-Lux-9B}
     model_revision: anyjev-l0
     backend: decision20
@@ -50,8 +53,6 @@ engines:
     is_light_edge: false
     calibration_ref: null
     container_ref: containers/clm-8b
-    # Heads: Contrastive-LM/CLM-v0.1-8B. Encoder is always Qwen/Qwen3-8B
-    # (CLM_ENCODER_ID). Optional CLM_EMB_URL for a vLLM pooling server.
     weights_ref: ${CLM8B_WEIGHTS:-Contrastive-LM/CLM-v0.1-8B}
     model_revision: clm-8b
     backend: clm
@@ -75,8 +76,8 @@ engines:
   - config_id: decision20-lux
     family: vllm-sr
     display_name: Decision-2.0 Lux-9B
-    primitives: [choice]
-    primary_stages: [stage1]
+    primitives: [choice, score]
+    primary_stages: [stage1, stage2]
     base_url: http://localhost:8000
     health_path: /healthz
     decide_path: /v1/systemone
@@ -107,8 +108,8 @@ engines:
   - config_id: ar-qwen3-8b-instruct
     family: ar-baseline
     display_name: AR Qwen3-8B (instruct-tuned Hub id)
-    primitives: [json_choice]
-    primary_stages: [stage1]
+    primitives: [json_choice, choice, score]
+    primary_stages: [stage1, stage2]
     base_url: http://localhost:8000
     health_path: /healthz
     decide_path: /v1/systemone
@@ -120,68 +121,175 @@ engines:
     model_revision: qwen3-8b-instruct
     backend: ar_json
 
-# Architecture-true Stage-1 Choice × Stage-2 Score pairs (see README).
-# Default `run_benchmark.py --real` runs required rows; L1 is added when
-# configs/calibration/anyjev_l1_heldout.json exists; AR needs --include-baseline.
+  - config_id: bm25-stage2
+    family: lexical-ir
+    display_name: BM25 lexical Score (in-process)
+    primitives: [score]
+    primary_stages: [stage2]
+    base_url: http://localhost:8701
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: false
+    is_light_edge: true
+    calibration_ref: null
+    container_ref: ""
+    weights_ref: ""
+    model_revision: bm25-okapi
+    backend: bm25_inprocess
+
+  - config_id: e5-base
+    family: dense-ir
+    display_name: E5-base-v2 dense Score (in-process)
+    primitives: [score]
+    primary_stages: [stage2]
+    base_url: http://localhost:8702
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: false
+    is_light_edge: false
+    calibration_ref: null
+    container_ref: ""
+    weights_ref: ${E5_WEIGHTS:-intfloat/e5-base-v2}
+    model_revision: e5-base-v2
+    backend: e5_inprocess
+
+  - config_id: clm-shortlist-32
+    family: hybrid-ir
+    display_name: BM25 top-32 then CLM Score
+    primitives: [score]
+    primary_stages: [stage2]
+    base_url: http://localhost:8001
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: true
+    is_light_edge: false
+    calibration_ref: null
+    container_ref: containers/clm-8b
+    weights_ref: ${CLM8B_WEIGHTS:-Contrastive-LM/CLM-v0.1-8B}
+    model_revision: clm-shortlist-32
+    backend: clm_shortlist
+
+  - config_id: noop-choice
+    family: noop
+    display_name: No-op Choice (collapsed-stage placeholder)
+    primitives: [choice]
+    primary_stages: [stage1]
+    base_url: http://localhost:8700
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: false
+    is_light_edge: true
+    calibration_ref: null
+    container_ref: ""
+    weights_ref: ""
+    model_revision: noop
+    backend: noop_inprocess
+
+# Paper matrix: Block A (Choice×Lux Score) + Block B (Lux Choice×Score).
+# Default --real runs optional=false only; --include-optional adds shortlist + one-shot.
+# Deferred (not runnable): lux-clm-ft (#1), lux-e5-ce (#2)
 matrix_pairs:
-  - pair_id: lux-clm
-    stage1: decision20-lux
-    stage2: clm-8b
-    role: production
-    rationale: >
-      Strongest open Choice head (Lux, 16k context) with CLM Action Cache for
-      enumerated chunk scoring. Primary FinAgentBench production pair.
-
-  - pair_id: anyjev-l0-clm
-    stage1: anyjev-l0
-    stage2: clm-8b
-    role: calibrated
-    rationale: >
-      AnyJev L0 cyclic permutation cancels option-order bias on the K=5 filing-type
-      Choice. CLM remains the Stage-2 scorer.
-
-  - pair_id: anyjev-l1-clm
-    stage1: anyjev-l1
-    stage2: clm-8b
-    role: calibrated
-    optional: true
-    requires_calibration: true
-    rationale: >
-      AnyJev L1 temperature scaling over 200 held-out ids. Skipped until
-      configs/calibration/anyjev_l1_heldout.json is present.
-
-  - pair_id: kai-clm
-    stage1: decision20-kai
-    stage2: clm-8b
-    role: latency
-    rationale: >
-      Kai-0.6B bidirectional encoder is a sub-5 ms S1 router; 1,024-token budget
-      is enough for five doc-type labels. Do not use Kai as Stage 2.
-
-  - pair_id: laya-clm
-    stage1: laya-modernbert
-    stage2: clm-8b
-    role: latency
-    rationale: >
-      Laya ModernBERT is the edge/CPU Choice baseline (512-token cap). Pair with
-      CLM so Stage 2 is not truncated.
-
   - pair_id: lux-lux
     stage1: decision20-lux
     stage2: decision20-lux
+    blocks: [A, B]
     role: long_context
+    optional: false
     rationale: >
-      Same Lux Score heads on both stages so Stage-2 chunks can use the 16k
-      window (CLM is capped at 2,048 tokens). One process serves both stages.
+      Primary System-1 pipeline; shared physical run for both Block A and Block B.
 
-  - pair_id: ar-clm
+  - pair_id: anyjev-l0-lux
+    stage1: anyjev-l0
+    stage2: decision20-lux
+    blocks: [A]
+    role: calibrated
+    optional: false
+    rationale: Order-debiased Choice on Lux backbone; report option-flip rate (OFR).
+
+  - pair_id: kai-lux
+    stage1: decision20-kai
+    stage2: decision20-lux
+    blocks: [A]
+    role: latency
+    optional: false
+    rationale: Sub-5 ms Kai Choice router × long-context Lux Score.
+
+  - pair_id: laya-lux
+    stage1: laya-modernbert
+    stage2: decision20-lux
+    blocks: [A]
+    role: latency
+    optional: false
+    rationale: Edge Choice × long-context Lux Score.
+
+  - pair_id: ar-lux
     stage1: ar-qwen3-8b-instruct
-    stage2: clm-8b
+    stage2: decision20-lux
+    blocks: [A]
     role: baseline
+    optional: false
+    rationale: Generative JSON Choice baseline; parse failures counted.
+
+  - pair_id: lux-clm
+    stage1: decision20-lux
+    stage2: clm-8b
+    blocks: [B]
+    role: production
+    optional: false
+    rationale: Dual-encoder Action Cache zero-shot Score.
+
+  - pair_id: lux-bm25
+    stage1: decision20-lux
+    stage2: bm25-stage2
+    blocks: [B]
+    role: ir_floor
+    optional: false
+    rationale: Lexical BM25 passage floor.
+
+  - pair_id: lux-e5
+    stage1: decision20-lux
+    stage2: e5-base
+    blocks: [B]
+    role: ir_dense
+    optional: false
+    rationale: General-domain E5 bi-encoder dense Score.
+
+  - pair_id: lux-clm-shortlist
+    stage1: decision20-lux
+    stage2: clm-shortlist-32
+    blocks: [B]
+    role: optional
     optional: true
+    rationale: BM25 top-32 then CLM Score.
+
+  - pair_id: one-shot-ar
+    stage1: noop-choice
+    stage2: ar-qwen3-8b-instruct
+    blocks: [B]
+    role: baseline_collapsed
+    optional: true
+    collapsed_stages: true
     rationale: >
-      Autoregressive JSON Choice anti-pattern (parse failures, uncalibrated
-      verbal confidence). Off by default; enable with --include-baseline.
+      One-shot generative ranking of all chunks; collapses two-stage contract;
+      labeled baseline only.
+
+  # Calibration-gated (not required for Block A); kept for compatibility
+  - pair_id: anyjev-l1-lux
+    stage1: anyjev-l1
+    stage2: decision20-lux
+    blocks: [A]
+    role: calibrated
+    optional: true
+    requires_calibration: true
+    rationale: AnyJev L1 temperature scaling; skipped until 200-id calibration file is ready.
+
+deferred_pairs:
+  - pair_id: lux-clm-ft
+    issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/1
+    rationale: Trained dual-encoder heads on held-out FinAgentBench split.
+  - pair_id: lux-e5-ce
+    issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/2
+    rationale: Dense shortlist then cross-encoder Stage-2 ceiling.
 
 ports:
   stage1_default: 8000

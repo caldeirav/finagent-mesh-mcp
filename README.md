@@ -88,19 +88,20 @@ Figures below are from the survey’s comparison table (JevBench / 54-task Decis
 
 ### Default pairs (`configs/engines.yaml` → `matrix_pairs`)
 
-Not a cross-product: each row assigns the primitive to the architecture that owns it.
+Paper matrix: **Block A** (Choice varies, Lux Score fixed) and **Block B** (Score varies, Lux Choice fixed). Not a CLM cross-product.
 
-| Pair id | Stage 1 | Stage 2 | Role |
-|---|---|---|---|
-| `lux-clm` | Lux | CLM-8B | **Production** — best open Choice × cached chunk scorer |
-| `anyjev-l0-clm` | AnyJev L0 | CLM-8B | Order-debiased Choice × CLM |
-| `anyjev-l1-clm` | AnyJev L1 | CLM-8B | + 200-id calibration (skipped until the cal file exists) |
-| `kai-clm` | Kai | CLM-8B | Latency Stage-1 × real Stage-2 |
-| `laya-clm` | Laya | CLM-8B | Edge Stage-1 × real Stage-2 |
-| `lux-lux` | Lux | Lux | Long-context Score control (vs CLM 2k); one GPU process |
-| `ar-clm` | Qwen3-Instruct | CLM-8B | Baseline (`--include-baseline`) |
+| Pair id | Block | Stage 1 | Stage 2 | Default |
+|---|---|---|---|---|
+| `lux-lux` | A+B | Lux | Lux | Required — shared physical run |
+| `anyjev-l0-lux` | A | AnyJev L0 | Lux | Required — OFR reported |
+| `kai-lux` / `laya-lux` | A | Kai / Laya | Lux | Required — latency/edge Choice |
+| `ar-lux` | A | Qwen3-8B JSON | Lux | Required — generative Choice baseline |
+| `lux-clm` / `lux-bm25` / `lux-e5` | B | Lux | CLM / BM25 / E5 | Required Score ablation |
+| `lux-clm-shortlist` / `one-shot-ar` | B | Lux / noop | shortlist-CLM / AR | Optional (`--include-optional`) |
 
-GPU policy: **sequential exclusive** heavies; keep CLM warm across Choice-variable rows when it is the Stage-2 partner.
+`--real` defaults: seeded **N=min(200, dataset)**, **ranking-only** (use `--with-synthesis` for Gemini). Artifacts include `*.analysis.md` (Block A/B + inspect links). Deferred train/CE: issues [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1), [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2).
+
+GPU policy: **sequential exclusive** heavies; keep Lux warm across Block A (shared Score) and Block B (shared Choice).
 
 ---
 

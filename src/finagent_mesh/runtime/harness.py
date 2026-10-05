@@ -14,6 +14,8 @@ from finagent_mesh.clients.open_decision import OpenDecisionClient, OpenDecision
 from finagent_mesh.config import Settings, get_settings, require_official_mock_policy
 from finagent_mesh.dataset.finagentbench import load_examples
 from finagent_mesh.ledger.sqlite_ledger import TERMINAL_NO_RERANK, SqliteLedger
+from finagent_mesh.matrix.metrics import top1_correct as _top1_correct
+from finagent_mesh.matrix.partners import is_inprocess_engine
 from finagent_mesh.matrix.sampling import select_example_ids
 from finagent_mesh.runtime.health import require_engines_healthy, require_systemone_healthy
 from finagent_mesh.runtime.progress import log as progress_log
@@ -55,16 +57,33 @@ def _ranking_payload(
             d = c.model_dump()
             d["text"] = (d.get("text") or "")[:500]
             chunks.append(d)
+    expected = expected_snapshot(example)
+    top1 = state.top1_doc_type if state else None
+    empty = bool(
+        (error or (state.error if state else None)) == "empty_top1_chunks"
+        or (state and state.error == "empty_top1_chunks")
+    )
+    correct = _top1_correct(top1, expected.get("stage1_labels") or [])
+    # Collapsed one-shot: Top-1 sentinel is not a filing-type routing success
+    if top1 == "__all__":
+        correct = False
     return {
         "stage1": s1,
         "stage2": s2,
-        "top1_doc_type": state.top1_doc_type if state else None,
+        "top1_doc_type": top1,
         "stage2_chunks": chunks,
         "stage1_engine": stage1_engine or decision.stage1_engine_id,
         "stage2_engine": stage2_engine or decision.stage2_engine_id,
-        "expected": expected_snapshot(example),
+        "expected": expected,
         "io_traces": list(decision.io_traces),
         "error": error or (state.error if state else None),
+        "top1_correct": correct,
+        "empty_top1_chunks": empty,
+        "eligible_for_conditional_s2": bool(correct) and not empty,
+        "collapsed_stages": top1 == "__all__",
+        "parse_failure": bool(
+            error and "parse" in str(error).lower()
+        ),
     }
 
 
@@ -123,12 +142,14 @@ class Harness:
             from finagent_mesh.clients.engines.registry import load_registry
 
             reg = load_registry(settings.engines_registry_path)
-            s1 = reg.get(self.stage1_engine)
-            s2 = reg.get(self.stage2_engine)
-            require_engines_healthy(
-                [(s1.base_url, s1.health_path), (s2.base_url, s2.health_path)],
-                mock=False,
-            )
+            targets: list[tuple[str, str]] = []
+            for eid in (self.stage1_engine, self.stage2_engine):
+                if is_inprocess_engine(reg, eid):
+                    continue
+                cfg = reg.get(eid)
+                targets.append((cfg.base_url, cfg.health_path))
+            if targets:
+                require_engines_healthy(targets, mock=False)
         else:
             require_systemone_healthy(
                 settings.systemone_stage1_url,
@@ -271,6 +292,35 @@ class Harness:
             ledger.release_lease(run_id, owner)
             ledger.close()
 
+    def _maybe_attach_ofr(self, example, state: AgentState | None, ranking_payload: dict[str, Any]) -> None:
+        """Option-flip rate: AnyJev L0 Top-1 change under reversed type order."""
+        if not state or self.stage1_engine != "anyjev-l0":
+            return
+        if state.top1_doc_type in (None, "__all__"):
+            return
+        try:
+            from finagent_mesh.agent.types import DOC_TYPES
+
+            candidates = [
+                {"id": dt, "text": f"Document type {dt} for firm {example.firm_id}"}
+                for dt in DOC_TYPES
+            ]
+            flipped = list(reversed(candidates))
+            resp = self.decision.decide(
+                "choice",
+                example.query_text,
+                flipped,
+                {"firm_id": example.firm_id, "ofr_probe": True},
+            )
+            ranking = sorted(resp.get("ranking") or [], key=lambda r: r["rank"])
+            top_rev = ranking[0]["id"] if ranking else None
+            ranking_payload["option_flipped"] = bool(
+                top_rev is not None and top_rev != state.top1_doc_type
+            )
+            ranking_payload["ofr_top1_reversed"] = top_rev
+        except Exception:  # noqa: BLE001
+            ranking_payload["option_flipped"] = None
+
     def _process_full(
         self,
         ledger: SqliteLedger,
@@ -306,6 +356,7 @@ class Harness:
                 ranking_payload = _ranking_payload(
                     example, state, self.decision, self.stage1_engine, self.stage2_engine
                 )
+                self._maybe_attach_ofr(example, state, ranking_payload)
                 if state.error == "empty_top1_chunks":
                     ledger.transition(
                         run_id,

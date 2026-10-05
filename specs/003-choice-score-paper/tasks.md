@@ -28,10 +28,10 @@ description: "Task list for paper-ready Choice/Score matrix and analysis report"
 
 **Purpose**: Catalog shape, deps, env for Block A/B + IR adapters
 
-- [ ] T001 Rewrite `matrix_pairs` in `configs/engines.yaml` to match `specs/003-choice-score-paper/contracts/matrix-pairs.yaml` (Block A `*-lux`, Block B `lux-*`, optional `lux-clm-shortlist` / `one-shot-ar`, `blocks` / `optional` / `role` fields; remove old `*-clm` cross-product defaults except required `lux-clm`)
-- [ ] T002 [P] Add engine entries `bm25-stage2`, `e5-base`, `clm-shortlist-32` to `configs/engines.yaml` and mirror in `specs/002-decision-model-bench/contracts/engines-registry.yaml` or feature contract sync note in README
-- [ ] T003 [P] Add deps to `pyproject.toml` extras (`real` or new): `rank-bm25`, `sentence-transformers`; document `E5_WEIGHTS=intfloat/e5-base-v2` and `CLM_SHORTLIST_K=32` in `.env.example`
-- [ ] T004 [P] Document deferred pairs `lux-clm-ft` / `lux-e5-ce` with issue URLs in `configs/engines.yaml` comments (or `deferred_pairs` key) linking [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) and [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)
+- [x] T001 Rewrite `matrix_pairs` in `configs/engines.yaml` to match `specs/003-choice-score-paper/contracts/matrix-pairs.yaml` (Block A `*-lux`, Block B `lux-*`, optional `lux-clm-shortlist` / `one-shot-ar`, `blocks` / `optional` / `role` fields; remove old `*-clm` cross-product defaults except required `lux-clm`)
+- [x] T002 [P] Add engine entries `bm25-stage2`, `e5-base`, `clm-shortlist-32` to `configs/engines.yaml` and mirror in `specs/002-decision-model-bench/contracts/engines-registry.yaml` or feature contract sync note in README
+- [x] T003 [P] Add deps to `pyproject.toml` extras (`real` or new): `rank-bm25`, `sentence-transformers`; document `E5_WEIGHTS=intfloat/e5-base-v2` and `CLM_SHORTLIST_K=32` in `.env.example`
+- [x] T004 [P] Document deferred pairs `lux-clm-ft` / `lux-e5-ce` with issue URLs in `configs/engines.yaml` comments (or `deferred_pairs` key) linking [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) and [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)
 
 ---
 
@@ -41,14 +41,14 @@ description: "Task list for paper-ready Choice/Score matrix and analysis report"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Extend `MatrixPair` in `src/finagent_mesh/matrix/partners.py` with fields `blocks: list[str]` (values `A`\|`B`), `collapsed_stages: bool = False`, `deferred: bool = False`, `deferred_issue: str | null = None` per `data-model.md`
-- [ ] T006 Update `pairs_from_registry` / `resolve_matrix_pairs` in `src/finagent_mesh/matrix/partners.py`: default = all `optional=false`; `--include-optional` adds optional; never auto-select `deferred=true`; dedupe physical run when `lux-lux` appears in both blocks
-- [ ] T007 [P] Extend `PairResult` / matrix models in `src/finagent_mesh/matrix/models.py` with reviewer fields: `stage2_*_given_top1`, `stage1_top1_recall`, `stage1_top5_recall`, `empty_top1_chunk_rate`, `option_flip_rate`, `parse_failure_rate`, latency p50/p95, `gpu_mem_high_water_mb`, `blocks`, `skip` support per `data-model.md`
-- [ ] T008 [P] Add `SkipRecord` handling in `src/finagent_mesh/matrix/models.py` (`pair_id`, `reason` in `optional_not_requested|deferred_issue|missing_weights|missing_calibration|…`, `issue_url` nullable)
-- [ ] T009 Implement paper metric helpers in `src/finagent_mesh/matrix/metrics.py`: Top-1/Top-5 type recall, empty-top1 rate, Stage-2 nDCG/MAP/MRR conditional on `top1_correct`, aggregate latency percentiles from example traces
-- [ ] T010 Wire `ranking_payload` routing flags in `src/finagent_mesh/runtime/harness.py` (`top1_correct`, `empty_top1_chunks`, `eligible_for_conditional_s2`) into ledger payloads for metric aggregation
-- [ ] T011 Change `--real` paper defaults in `scripts/run_benchmark.py`: without `--records` use `min(200, dataset_n)` seeded sample; default `skip_synthesis=True`; add `--with-synthesis` to enable Gemini; keep `--skip-synthesis` explicit
-- [ ] T012 Extend `--list-pairs` in `scripts/run_benchmark.py` to print `pair_id`, `blocks`, `optional`, `role`, `collapsed_stages` from registry
+- [x] T005 Extend `MatrixPair` in `src/finagent_mesh/matrix/partners.py` with fields `blocks: list[str]` (values `A`\|`B`), `collapsed_stages: bool = False`, `deferred: bool = False`, `deferred_issue: str | null = None` per `data-model.md`
+- [x] T006 Update `pairs_from_registry` / `resolve_matrix_pairs` in `src/finagent_mesh/matrix/partners.py`: default = all `optional=false`; `--include-optional` adds optional; never auto-select `deferred=true`; dedupe physical run when `lux-lux` appears in both blocks
+- [x] T007 [P] Extend `PairResult` / matrix models in `src/finagent_mesh/matrix/models.py` with reviewer fields: `stage2_*_given_top1`, `stage1_top1_recall`, `stage1_top5_recall`, `empty_top1_chunk_rate`, `option_flip_rate`, `parse_failure_rate`, latency p50/p95, `gpu_mem_high_water_mb`, `blocks`, `skip` support per `data-model.md`
+- [x] T008 [P] Add `SkipRecord` handling in `src/finagent_mesh/matrix/models.py` (`pair_id`, `reason` in `optional_not_requested|deferred_issue|missing_weights|missing_calibration|…`, `issue_url` nullable)
+- [x] T009 Implement paper metric helpers in `src/finagent_mesh/matrix/metrics.py`: Top-1/Top-5 type recall, empty-top1 rate, Stage-2 nDCG/MAP/MRR conditional on `top1_correct`, aggregate latency percentiles from example traces
+- [x] T010 Wire `ranking_payload` routing flags in `src/finagent_mesh/runtime/harness.py` (`top1_correct`, `empty_top1_chunks`, `eligible_for_conditional_s2`) into ledger payloads for metric aggregation
+- [x] T011 Change `--real` paper defaults in `scripts/run_benchmark.py`: without `--records` use `min(200, dataset_n)` seeded sample; default `skip_synthesis=True`; add `--with-synthesis` to enable Gemini; keep `--skip-synthesis` explicit
+- [x] T012 Extend `--list-pairs` in `scripts/run_benchmark.py` to print `pair_id`, `blocks`, `optional`, `role`, `collapsed_stages` from registry
 
 **Checkpoint**: Foundation ready — catalog resolves Block A/B; metrics helpers exist; paper CLI defaults ranking-only N=200
 
@@ -62,11 +62,11 @@ description: "Task list for paper-ready Choice/Score matrix and analysis report"
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Ensure Block A required pairs resolve and run via `src/finagent_mesh/matrix/runner.py`: `lux-lux`, `anyjev-l0-lux`, `kai-lux`, `laya-lux`, `ar-lux` with Stage-2 `decision20-lux`; keep Lux Score warm across Block A rows when possible
-- [ ] T014 [US1] Implement option-flip rate (OFR) for AnyJev L0 in `src/finagent_mesh/clients/engines/anyjev.py` and/or harness: measure fraction of examples where argmax filing type changes under reversed option order; persist `option_flip_rate` on pair metrics
-- [ ] T015 [US1] Ensure AR Stage-1 parse failures increment `parse_failure_rate` and fail closed (no invented type ranks) in `src/finagent_mesh/clients/engines/ar_baseline.py` and aggregator path
-- [ ] T016 [US1] Populate Block A pair metrics (S1 nDCG/MAP/MRR, Top-1/Top-5 recall, OFR, parse-fail, S1 latency p50/p95, shared `stage2_engine`) in `src/finagent_mesh/matrix/runner.py` using `src/finagent_mesh/matrix/metrics.py`
-- [ ] T017 [US1] Update `src/finagent_mesh/matrix/interpret.py` so Block A narrative never attributes Stage-2 nDCG differences to different scorers when `stage2_engine` is identical across rows
+- [x] T013 [US1] Ensure Block A required pairs resolve and run via `src/finagent_mesh/matrix/runner.py`: `lux-lux`, `anyjev-l0-lux`, `kai-lux`, `laya-lux`, `ar-lux` with Stage-2 `decision20-lux`; keep Lux Score warm across Block A rows when possible
+- [x] T014 [US1] Implement option-flip rate (OFR) for AnyJev L0 in `src/finagent_mesh/clients/engines/anyjev.py` and/or harness: measure fraction of examples where argmax filing type changes under reversed option order; persist `option_flip_rate` on pair metrics
+- [x] T015 [US1] Ensure AR Stage-1 parse failures increment `parse_failure_rate` and fail closed (no invented type ranks) in `src/finagent_mesh/clients/engines/ar_baseline.py` and aggregator path
+- [x] T016 [US1] Populate Block A pair metrics (S1 nDCG/MAP/MRR, Top-1/Top-5 recall, OFR, parse-fail, S1 latency p50/p95, shared `stage2_engine`) in `src/finagent_mesh/matrix/runner.py` using `src/finagent_mesh/matrix/metrics.py`
+- [x] T017 [US1] Update `src/finagent_mesh/matrix/interpret.py` so Block A narrative never attributes Stage-2 nDCG differences to different scorers when `stage2_engine` is identical across rows
 
 **Checkpoint**: Block A ablation runnable and interpretable as Choice-only
 
@@ -80,15 +80,15 @@ description: "Task list for paper-ready Choice/Score matrix and analysis report"
 
 ### Implementation for User Story 2
 
-- [ ] T018 [P] [US2] Implement in-process BM25 Stage-2 Score adapter in `src/finagent_mesh/clients/engines/bm25_score.py` (`config_id` `bm25-stage2`, `BM25Okapi` over Top-1-type chunks, no GPU, fail closed on empty candidate list)
-- [ ] T019 [P] [US2] Implement E5 Stage-2 Score adapter in `src/finagent_mesh/clients/engines/e5_score.py` (`config_id` `e5-base`, Hub `intfloat/e5-base-v2` via `E5_WEIGHTS`, prefixes `query: ` / `passage: `, cosine rank descending)
-- [ ] T020 [P] [US2] Implement shortlist hybrid adapter in `src/finagent_mesh/clients/engines/clm_shortlist.py` (`clm-shortlist-32`: BM25 top-`CLM_SHORTLIST_K` default 32 then existing CLM Score)
-- [ ] T021 [US2] Register BM25/E5/shortlist backends in `src/finagent_mesh/clients/engines/registry.py` (and `__init__.py`) so OpenDecision Score routes without silent substitution
-- [ ] T022 [US2] Extend `src/finagent_mesh/clients/engines/ar_baseline.py` for one-shot chunk ranking mode used by pair `one-shot-ar` (`collapsed_stages=true`, no Stage-1 Choice, parse/coverage failure recording, no invented remaining ranks)
-- [ ] T023 [US2] Special-case `one-shot-ar` in `src/finagent_mesh/runtime/harness.py` / `src/finagent_mesh/matrix/runner.py`: skip Stage-1 type filter; set `collapsed_stages=true` on ranking_payload; Stage-1 metrics null/N/A; label `role: baseline_collapsed`
-- [ ] T024 [US2] Ensure Block B required pairs run: `lux-lux` (shared), `lux-clm`, `lux-bm25`, `lux-e5`; optional `lux-clm-shortlist`, `one-shot-ar` only with `--include-optional` in `scripts/run_benchmark.py` + `partners.py`
-- [ ] T025 [US2] Aggregate Block B metrics including `stage2_*_given_top1`, `empty_top1_chunk_rate`, S2 latency p50/p95, shared `stage1_engine` (except one-shot) in `src/finagent_mesh/matrix/runner.py`
-- [ ] T026 [US2] Best-effort GPU memory high-water (`torch.cuda.max_memory_allocated`) into pair metrics when CUDA available in `src/finagent_mesh/matrix/runner.py` or engine adapters
+- [x] T018 [P] [US2] Implement in-process BM25 Stage-2 Score adapter in `src/finagent_mesh/clients/engines/bm25_score.py` (`config_id` `bm25-stage2`, `BM25Okapi` over Top-1-type chunks, no GPU, fail closed on empty candidate list)
+- [x] T019 [P] [US2] Implement E5 Stage-2 Score adapter in `src/finagent_mesh/clients/engines/e5_score.py` (`config_id` `e5-base`, Hub `intfloat/e5-base-v2` via `E5_WEIGHTS`, prefixes `query: ` / `passage: `, cosine rank descending)
+- [x] T020 [P] [US2] Implement shortlist hybrid adapter in `src/finagent_mesh/clients/engines/clm_shortlist.py` (`clm-shortlist-32`: BM25 top-`CLM_SHORTLIST_K` default 32 then existing CLM Score)
+- [x] T021 [US2] Register BM25/E5/shortlist backends in `src/finagent_mesh/clients/engines/registry.py` (and `__init__.py`) so OpenDecision Score routes without silent substitution
+- [x] T022 [US2] Extend `src/finagent_mesh/clients/engines/ar_baseline.py` for one-shot chunk ranking mode used by pair `one-shot-ar` (`collapsed_stages=true`, no Stage-1 Choice, parse/coverage failure recording, no invented remaining ranks)
+- [x] T023 [US2] Special-case `one-shot-ar` in `src/finagent_mesh/runtime/harness.py` / `src/finagent_mesh/matrix/runner.py`: skip Stage-1 type filter; set `collapsed_stages=true` on ranking_payload; Stage-1 metrics null/N/A; label `role: baseline_collapsed`
+- [x] T024 [US2] Ensure Block B required pairs run: `lux-lux` (shared), `lux-clm`, `lux-bm25`, `lux-e5`; optional `lux-clm-shortlist`, `one-shot-ar` only with `--include-optional` in `scripts/run_benchmark.py` + `partners.py`
+- [x] T025 [US2] Aggregate Block B metrics including `stage2_*_given_top1`, `empty_top1_chunk_rate`, S2 latency p50/p95, shared `stage1_engine` (except one-shot) in `src/finagent_mesh/matrix/runner.py`
+- [x] T026 [US2] Best-effort GPU memory high-water (`torch.cuda.max_memory_allocated`) into pair metrics when CUDA available in `src/finagent_mesh/matrix/runner.py` or engine adapters
 
 **Checkpoint**: Block B Score ablation + optional shortlist/one-shot independently testable
 
@@ -102,12 +102,12 @@ description: "Task list for paper-ready Choice/Score matrix and analysis report"
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Add stable inspect HTML anchors `#pair-<pair_id>-ex-<example_id>` in `src/finagent_mesh/matrix/inspect.py` per `contracts/analysis-report.md`
-- [ ] T028 [US3] Implement `src/finagent_mesh/matrix/analysis.py` writing `<run-id>.analysis.md` and `<run-id>.analysis.json` with sections: run facts, research questions, Block A table, Block B table, routing-vs-scoring, latency/resources, findings, limitations (incl. deferred #1/#2), skip/deferred, artifact index
-- [ ] T029 [US3] Implement findings guardrails in `src/finagent_mesh/matrix/analysis.py`: assert Block A completed pairs share identical `stage2_engine`; Block B (excl. one-shot) share `stage1_engine`; never claim Block A S2 model bake-off; synthesis “not run” when disabled; label one-shot collapsed
-- [ ] T030 [US3] Index every pair×example (completed, failed, empty_top1) with relative `href` into inspect HTML; use `trace_missing` when ledger/inspect lacks I/O — never fabricate — in `src/finagent_mesh/matrix/analysis.py`
-- [ ] T031 [US3] Call analysis writer at end of matrix run in `scripts/run_benchmark.py`; add `--analysis-from <run-id>` rebuild path (no engines, manage_servers=false)
-- [ ] T032 [US3] Point interpret MD artifacts section at analysis + inspect paths in `src/finagent_mesh/matrix/interpret.py`
+- [x] T027 [US3] Add stable inspect HTML anchors `#pair-<pair_id>-ex-<example_id>` in `src/finagent_mesh/matrix/inspect.py` per `contracts/analysis-report.md`
+- [x] T028 [US3] Implement `src/finagent_mesh/matrix/analysis.py` writing `<run-id>.analysis.md` and `<run-id>.analysis.json` with sections: run facts, research questions, Block A table, Block B table, routing-vs-scoring, latency/resources, findings, limitations (incl. deferred #1/#2), skip/deferred, artifact index
+- [x] T029 [US3] Implement findings guardrails in `src/finagent_mesh/matrix/analysis.py`: assert Block A completed pairs share identical `stage2_engine`; Block B (excl. one-shot) share `stage1_engine`; never claim Block A S2 model bake-off; synthesis “not run” when disabled; label one-shot collapsed
+- [x] T030 [US3] Index every pair×example (completed, failed, empty_top1) with relative `href` into inspect HTML; use `trace_missing` when ledger/inspect lacks I/O — never fabricate — in `src/finagent_mesh/matrix/analysis.py`
+- [x] T031 [US3] Call analysis writer at end of matrix run in `scripts/run_benchmark.py`; add `--analysis-from <run-id>` rebuild path (no engines, manage_servers=false)
+- [x] T032 [US3] Point interpret MD artifacts section at analysis + inspect paths in `src/finagent_mesh/matrix/interpret.py`
 
 **Checkpoint**: Analysis report is paper-usable and links to inspect records
 
@@ -121,10 +121,10 @@ description: "Task list for paper-ready Choice/Score matrix and analysis report"
 
 ### Implementation for User Story 4
 
-- [ ] T033 [US4] Enforce resolver rules in `src/finagent_mesh/matrix/partners.py`: default excludes `optional=true`; `--include-optional` adds them; `deferred=true` never selected; emit `SkipRecord` for deferred with `issue_url` for analysis
-- [ ] T034 [US4] Add `--include-optional` flag to `scripts/run_benchmark.py` and pass through `MatrixRunner` / `resolve_matrix_pairs`
-- [ ] T035 [US4] On missing weights for optional IR engines, skip that pair with SkipRecord `missing_weights` without substituting another engine; required pair failures still fail the matrix run — in `src/finagent_mesh/matrix/runner.py`
-- [ ] T036 [US4] Ensure `lux-lux` executes once per matrix run and appears in both Block A and Block B analysis tables in `src/finagent_mesh/matrix/runner.py` + `analysis.py`
+- [x] T033 [US4] Enforce resolver rules in `src/finagent_mesh/matrix/partners.py`: default excludes `optional=true`; `--include-optional` adds them; `deferred=true` never selected; emit `SkipRecord` for deferred with `issue_url` for analysis
+- [x] T034 [US4] Add `--include-optional` flag to `scripts/run_benchmark.py` and pass through `MatrixRunner` / `resolve_matrix_pairs`
+- [x] T035 [US4] On missing weights for optional IR engines, skip that pair with SkipRecord `missing_weights` without substituting another engine; required pair failures still fail the matrix run — in `src/finagent_mesh/matrix/runner.py`
+- [x] T036 [US4] Ensure `lux-lux` executes once per matrix run and appears in both Block A and Block B analysis tables in `src/finagent_mesh/matrix/runner.py` + `analysis.py`
 
 **Checkpoint**: Default paper set frozen; optional/deferred correctly gated
 
@@ -134,14 +134,14 @@ description: "Task list for paper-ready Choice/Score matrix and analysis report"
 
 **Purpose**: Docs, tests, quickstart validation
 
-- [ ] T037 [P] Update `README.md` Default pairs table to Block A/B catalog, ranking-only `--real` default, `--with-synthesis`, `--include-optional`, analysis/inspect artifacts
-- [ ] T038 [P] Unit tests for block resolver + dedupe in `tests/unit/test_matrix_blocks.py`
-- [ ] T039 [P] Unit tests for conditional S2 / Top-1 recall helpers in `tests/unit/test_paper_metrics.py`
-- [ ] T040 [P] Unit tests for BM25/E5 adapters (tiny synthetic docs) in `tests/unit/test_bm25_e5_adapters.py`
-- [ ] T041 [P] Unit tests for analysis guardrails + anchor index in `tests/unit/test_analysis_report.py`
-- [ ] T042 Integration smoke `tests/integration/test_paper_matrix_smoke.py` (mock-allowed or tiny fake adapters) verifying default pair set excludes optional
-- [ ] T043 Run `specs/003-choice-score-paper/quickstart.md` smoke path (`--real --records 10 --skip-synthesis`) and confirm analysis + inspect artifacts
-- [ ] T044 [P] Sync `uv.lock` after dependency adds; verify `.gitignore` still excludes eval artifacts/secrets
+- [x] T037 [P] Update `README.md` Default pairs table to Block A/B catalog, ranking-only `--real` default, `--with-synthesis`, `--include-optional`, analysis/inspect artifacts
+- [x] T038 [P] Unit tests for block resolver + dedupe in `tests/unit/test_matrix_blocks.py`
+- [x] T039 [P] Unit tests for conditional S2 / Top-1 recall helpers in `tests/unit/test_paper_metrics.py`
+- [x] T040 [P] Unit tests for BM25/E5 adapters (tiny synthetic docs) in `tests/unit/test_bm25_e5_adapters.py`
+- [x] T041 [P] Unit tests for analysis guardrails + anchor index in `tests/unit/test_analysis_report.py`
+- [x] T042 Integration smoke `tests/integration/test_paper_matrix_smoke.py` (mock-allowed or tiny fake adapters) verifying default pair set excludes optional
+- [x] T043 Run `specs/003-choice-score-paper/quickstart.md` smoke path (`--real --records 10 --skip-synthesis`) and confirm analysis + inspect artifacts
+- [x] T044 [P] Sync `uv.lock` after dependency adds; verify `.gitignore` still excludes eval artifacts/secrets
 
 ---
 

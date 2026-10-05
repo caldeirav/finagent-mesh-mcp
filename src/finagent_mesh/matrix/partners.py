@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from finagent_mesh.clients.engines.registry import EngineConfiguration, EngineRegistry
+
+
+INPROCESS_BACKENDS = frozenset(
+    {"bm25_inprocess", "e5_inprocess", "noop_inprocess", "clm_shortlist"}
+)
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,10 @@ class MatrixPair:
     optional: bool = False
     requires_calibration: bool = False
     rationale: str = ""
+    blocks: tuple[str, ...] = ()
+    collapsed_stages: bool = False
+    deferred: bool = False
+    deferred_issue: str | None = None
 
     def as_binding(self) -> StageBinding:
         return StageBinding(
@@ -48,9 +58,28 @@ class MatrixPair:
         )
 
     def unique_engines(self) -> list[str]:
-        if self.stage1_config_id == self.stage2_config_id:
-            return [self.stage1_config_id]
-        return [self.stage1_config_id, self.stage2_config_id]
+        ids: list[str] = []
+        for eid in (self.stage1_config_id, self.stage2_config_id):
+            if eid and eid not in ids:
+                ids.append(eid)
+        # Shortlist adapter needs the CLM sidecar, not a separate shortlist process
+        if self.stage2_config_id == "clm-shortlist-32" and "clm-8b" not in ids:
+            ids.append("clm-8b")
+        return ids
+
+
+@dataclass(frozen=True)
+class SkipRecord:
+    pair_id: str
+    reason: str
+    issue_url: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "pair_id": self.pair_id,
+            "reason": self.reason,
+            "issue_url": self.issue_url,
+        }
 
 
 def bind_matrix_row(
@@ -79,25 +108,45 @@ def bind_matrix_row(
     )
 
 
+def _parse_pair(raw: dict[str, Any], registry: EngineRegistry) -> MatrixPair:
+    s1_raw = raw.get("stage1")
+    s2_raw = raw.get("stage2")
+    s1 = "noop-choice" if s1_raw in (None, "", "null") else str(s1_raw)
+    s2 = str(s2_raw)
+    registry.get(s1)
+    registry.get(s2)
+    blocks_raw = raw.get("blocks") or []
+    blocks = tuple(str(b) for b in blocks_raw)
+    return MatrixPair(
+        pair_id=str(raw["pair_id"]),
+        stage1_config_id=s1,
+        stage2_config_id=s2,
+        role=str(raw.get("role") or "production"),
+        optional=bool(raw.get("optional", False)),
+        requires_calibration=bool(raw.get("requires_calibration", False)),
+        rationale=str(raw.get("rationale") or ""),
+        blocks=blocks,
+        collapsed_stages=bool(raw.get("collapsed_stages", False)),
+        deferred=bool(raw.get("deferred", False)),
+        deferred_issue=str(raw["deferred_issue"]) if raw.get("deferred_issue") else None,
+    )
+
+
 def pairs_from_registry(registry: EngineRegistry) -> list[MatrixPair]:
-    rows: list[MatrixPair] = []
-    for raw in registry.matrix_pairs:
-        s1 = str(raw["stage1"])
-        s2 = str(raw["stage2"])
-        registry.get(s1)
-        registry.get(s2)
-        rows.append(
-            MatrixPair(
+    return [_parse_pair(raw, registry) for raw in registry.matrix_pairs]
+
+
+def deferred_skip_records(registry: EngineRegistry) -> list[SkipRecord]:
+    out: list[SkipRecord] = []
+    for raw in registry.deferred_pairs:
+        out.append(
+            SkipRecord(
                 pair_id=str(raw["pair_id"]),
-                stage1_config_id=s1,
-                stage2_config_id=s2,
-                role=str(raw.get("role") or "production"),
-                optional=bool(raw.get("optional", False)),
-                requires_calibration=bool(raw.get("requires_calibration", False)),
-                rationale=str(raw.get("rationale") or ""),
+                reason="deferred_issue",
+                issue_url=str(raw.get("issue") or "") or None,
             )
         )
-    return rows
+    return out
 
 
 def _calibration_ready(cfg: EngineConfiguration, repo_root: Path) -> bool:
@@ -117,6 +166,20 @@ def _calibration_ready(cfg: EngineConfiguration, repo_root: Path) -> bool:
     return len(ids) == 200
 
 
+def is_inprocess_engine(registry: EngineRegistry, config_id: str) -> bool:
+    if not config_id:
+        return True
+    cfg = registry.get(config_id)
+    # clm_shortlist is hybrid: decide() is in-process orchestration but needs CLM sidecar
+    if cfg.backend == "clm_shortlist" or cfg.family == "hybrid-ir":
+        return True
+    return cfg.backend in INPROCESS_BACKENDS or cfg.family in {
+        "lexical-ir",
+        "dense-ir",
+        "noop",
+    }
+
+
 def resolve_matrix_pairs(
     registry: EngineRegistry,
     *,
@@ -128,9 +191,8 @@ def resolve_matrix_pairs(
 ) -> list[MatrixPair]:
     """Select architecture-true pairs, or fall back to one-variable partner binding.
 
-    Default: required pairs from ``matrix_pairs`` in the registry. Optional L1 is
-    included when its 200-id calibration file is present. AR baseline is off
-    unless ``include_baseline``. ``--engines`` keeps the legacy ablation matrix.
+    Default: required (`optional=false`) pairs. Optional rows need ``include_optional``.
+    Deferred catalog entries are never selected. ``lux-lux`` appears once even if in A+B.
     """
     root = repo_root or Path.cwd()
     partners = FixedStagePartners.from_registry(registry)
@@ -148,12 +210,12 @@ def resolve_matrix_pairs(
                     stage2_config_id=binding.stage2_config_id,
                     role="ablation",
                     rationale="Legacy one-variable row with fixed stage partner.",
+                    blocks=(),
                 )
             )
         return out
 
     if not catalog:
-        # Registry without matrix_pairs: previous default engine list
         return resolve_matrix_pairs(
             registry,
             engines=list(registry.all_ids()),
@@ -167,6 +229,11 @@ def resolve_matrix_pairs(
             raise KeyError(f"Unknown matrix pair_id(s): {missing}")
         selected = [by_id[p] for p in pair_ids]
         for pair in selected:
+            if pair.deferred:
+                raise RuntimeError(
+                    f"Pair {pair.pair_id} is deferred"
+                    + (f" ({pair.deferred_issue})" if pair.deferred_issue else "")
+                )
             if pair.requires_calibration:
                 cfg = registry.get(pair.stage1_config_id)
                 if not _calibration_ready(cfg, root):
@@ -176,17 +243,16 @@ def resolve_matrix_pairs(
                     )
         return selected
 
-    selected = []
+    selected: list[MatrixPair] = []
     for pair in catalog:
-        if pair.role == "baseline" and not include_baseline:
+        if pair.deferred:
             continue
-        if (
-            pair.optional
-            and not include_optional
-            and not pair.requires_calibration
-            and pair.role != "baseline"
-        ):
-            continue
+        if pair.optional and not include_optional:
+            # Legacy: include_baseline used to unlock AR baseline rows
+            if include_baseline and pair.role in {"baseline", "baseline_collapsed"}:
+                pass
+            else:
+                continue
         if pair.requires_calibration:
             cfg = registry.get(pair.stage1_config_id)
             if not _calibration_ready(cfg, root):

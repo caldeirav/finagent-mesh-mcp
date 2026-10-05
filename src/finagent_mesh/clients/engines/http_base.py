@@ -22,10 +22,6 @@ class HttpSystemOneAdapter:
         self.engine_id = cfg.config_id
         self.model_revision = cfg.model_revision
         self.timeout = timeout if timeout is not None else _http_timeout()
-        self.cfg = cfg
-        self.engine_id = cfg.config_id
-        self.model_revision = cfg.model_revision
-        self.timeout = timeout
         self.last_latency_ms: float | None = None
         self.parse_failures = 0
         self.decide_attempts = 0

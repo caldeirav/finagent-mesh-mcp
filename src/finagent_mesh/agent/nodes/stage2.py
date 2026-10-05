@@ -22,7 +22,11 @@ def run_stage2(state: AgentState, client: OpenDecisionClient) -> dict[str, Any]:
             "error": "missing_top1_doc_type",
         }
 
-    chunks = [c for c in state.example.chunks if c.doc_type == top1]
+    # Collapsed one-shot baseline: rank all chunks (noop-choice Top-1 = __all__)
+    if top1 == "__all__":
+        chunks = list(state.example.chunks)
+    else:
+        chunks = [c for c in state.example.chunks if c.doc_type == top1]
     if not chunks:
         return {
             "stage2": StageRankingResult(
@@ -36,11 +40,15 @@ def run_stage2(state: AgentState, client: OpenDecisionClient) -> dict[str, Any]:
         }
 
     candidates = [{"id": c.chunk_id, "text": c.text} for c in chunks]
+    meta: dict[str, Any] = {"doc_type": top1, "firm_id": state.example.firm_id}
+    if top1 == "__all__":
+        meta["one_shot_chunks"] = True
+        meta["collapsed_stages"] = True
     resp = client.decide(
         "score",
         state.example.query_text,
         candidates,
-        {"doc_type": top1, "firm_id": state.example.firm_id},
+        meta,
     )
     ranking = sorted(resp["ranking"], key=lambda r: r["rank"])
     ordered = [r["id"] for r in ranking]

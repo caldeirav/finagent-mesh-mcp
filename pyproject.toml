@@ -29,7 +29,9 @@ engines = [
 real = [
     "accelerate>=1.15.0",
     "huggingface-hub>=1.33.0",
+    "rank-bm25>=0.2.2",
     "safetensors>=0.8.0",
+    "sentence-transformers>=5.0.0",
     "torch>=2.14.1",
     "transformers>=5.17",
 ]

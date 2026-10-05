@@ -1,4 +1,4 @@
-"""Autoregressive Qwen3-8B-Instruct JSON choice baseline adapter."""
+"""Autoregressive Qwen3 JSON choice / one-shot chunk ranking baseline adapter."""
 
 from __future__ import annotations
 
@@ -22,12 +22,15 @@ class ArBaselineAdapter(HttpSystemOneAdapter):
         candidates: list[dict[str, str]],
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        # Accept choice or json_choice; always request JSON structured output from sidecar.
-        if primitive not in {"choice", "json_choice"}:
-            raise ValueError(f"AR baseline supports json_choice/choice; got {primitive}")
+        # choice/json_choice for Stage-1 types; score for one-shot chunk ranking
+        if primitive not in {"choice", "json_choice", "score"}:
+            raise ValueError(f"AR baseline supports json_choice/choice/score; got {primitive}")
         meta = dict(metadata or {})
         meta["json_choice"] = True
         meta["candidate_ids"] = [c["id"] for c in candidates]
+        if primitive == "score" or meta.get("one_shot_chunks"):
+            meta["one_shot_chunks"] = True
+            meta["rank_all_chunks"] = True
         try:
             data = super().decide("choice", query, candidates, meta)
         except OpenDecisionError:
@@ -41,12 +44,18 @@ class ArBaselineAdapter(HttpSystemOneAdapter):
                 scores = list(parsed.get("scores") or [])
                 if not ordered:
                     raise ValueError("empty ordered_ids")
+                # Do not invent missing ranks — only return what the model emitted
+                cand_set = {c["id"] for c in candidates}
+                ordered = [i for i in ordered if i in cand_set]
+                if not ordered:
+                    raise ValueError("no valid ordered_ids in candidate set")
                 if len(scores) != len(ordered):
                     scores = [float(len(ordered) - i) for i in range(len(ordered))]
                 ranked = stable_rank(ordered, [float(s) for s in scores])
                 total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
                 data["ranking"] = [{"id": i, "score": s, "rank": r} for i, s, r in ranked]
                 data["distribution"] = {i: max(s, 0.0) / total for i, s, _ in ranked}
+                data["coverage"] = len(ordered) / max(len(candidates), 1)
             except Exception as exc:  # noqa: BLE001
                 self.parse_failures += 1
                 raise OpenDecisionError(

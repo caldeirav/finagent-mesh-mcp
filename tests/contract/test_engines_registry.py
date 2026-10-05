@@ -14,9 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 REGISTRY = ROOT / "configs" / "engines.yaml"
 
 
-def test_registry_loads_seven_engines() -> None:
+def test_registry_loads_core_and_paper_ir_engines() -> None:
     reg = load_registry(REGISTRY)
-    assert len(reg.engines) == 7
+    assert len(reg.engines) >= 11
     assert reg.partners["stage1_partner_id"] == "anyjev-l0"
     assert reg.partners["stage2_partner_id"] == "clm-8b"
     for eid in [
@@ -27,6 +27,10 @@ def test_registry_loads_seven_engines() -> None:
         "decision20-lux",
         "laya-modernbert",
         "ar-qwen3-8b-instruct",
+        "bm25-stage2",
+        "e5-base",
+        "clm-shortlist-32",
+        "noop-choice",
     ]:
         assert eid in reg.engines
 

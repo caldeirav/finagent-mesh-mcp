@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """One-command FinAgentBench multi-engine decision-model benchmark.
 
-Production (real models + real dataset):
+Paper / production (real models + ranking-only default):
   SYSTEMONE_MOCK=0 SYSTEMONE_BACKEND=real \\
-    uv run python scripts/run_benchmark.py --real --run-id prod-full
+    uv run python scripts/run_benchmark.py --real --run-id paper-n200
 
-Integration sample (still real models, subset of records):
-  ... run_benchmark.py --real --records 50 --seed 42 --run-id prod-50
+Smoke:
+  ... run_benchmark.py --real --records 10 --seed 42 --run-id paper-smoke-10
 """
 
 from __future__ import annotations
@@ -26,7 +26,8 @@ if str(ROOT / "src") not in sys.path:
 
 from finagent_mesh.config import get_settings
 from finagent_mesh.dataset.validate_real import RealRunError, assert_real_dataset, assert_real_runtime
-from finagent_mesh.matrix.inspect import write_inspect_reports
+from finagent_mesh.matrix.analysis import write_analysis_reports
+from finagent_mesh.matrix.inspect import build_inspect_payload, write_inspect_reports
 from finagent_mesh.matrix.interpret import report_summary_dict, write_interpretation_report
 from finagent_mesh.matrix.partners import pairs_from_registry, resolve_matrix_pairs
 from finagent_mesh.matrix.report import write_report
@@ -38,25 +39,30 @@ def main(
         None,
         "--records",
         "-n",
-        help="Sample N examples (omit = full FinAgentBench set).",
+        help="Sample N examples. With --real and omit: default min(200, dataset size).",
     ),
     seed: int = typer.Option(42, "--seed", "-s", help="RNG seed for reproducible sampling."),
     engines: Optional[str] = typer.Option(
         None,
         "--engines",
         "-e",
-        help="Legacy ablation: comma-separated engine ids with fixed partners (S2=clm-8b, S1=anyjev-l0).",
+        help="Legacy ablation: comma-separated engine ids with fixed partners.",
     ),
     pairs: Optional[str] = typer.Option(
         None,
         "--pairs",
         "-p",
-        help="Comma-separated matrix pair_ids from configs/engines.yaml (default: architecture-true set).",
+        help="Comma-separated matrix pair_ids from configs/engines.yaml.",
     ),
     include_baseline: bool = typer.Option(
         False,
         "--include-baseline",
-        help="Also run ar-clm (autoregressive JSON Choice × CLM).",
+        help="Legacy: also unlock baseline-role optional pairs when not using --include-optional.",
+    ),
+    include_optional: bool = typer.Option(
+        False,
+        "--include-optional",
+        help="Include optional Block B rows (lux-clm-shortlist, one-shot-ar).",
     ),
     list_pairs: bool = typer.Option(False, "--list-pairs"),
     run_id: Optional[str] = typer.Option(None, "--run-id"),
@@ -65,7 +71,12 @@ def main(
     skip_synthesis: bool = typer.Option(
         False,
         "--skip-synthesis",
-        help="Ranking-only (skip Gemini). Omit for full pipeline with answer scores.",
+        help="Ranking-only (skip Gemini). Default under --real.",
+    ),
+    with_synthesis: bool = typer.Option(
+        False,
+        "--with-synthesis",
+        help="Enable Gemini synthesis + answer scoring (overrides ranking-only default for --real).",
     ),
     gemini_model: Optional[str] = typer.Option(None, "--gemini-model"),
     allow_mock: bool = typer.Option(False, "--allow-mock", help="Debug only."),
@@ -86,10 +97,15 @@ def main(
         "--inspect-from",
         help="Rebuild inspect HTML/JSON from an existing matrix --run-id (no re-run).",
     ),
+    analysis_from: Optional[str] = typer.Option(
+        None,
+        "--analysis-from",
+        help="Rebuild analysis MD/JSON from an existing matrix --run-id (no engines).",
+    ),
     real: bool = typer.Option(
         False,
         "--real",
-        help="Production mode: require real HF models + real FinAgentBench dump (refuse mock/sidecar/sample).",
+        help="Production mode: require real HF models + real FinAgentBench dump.",
     ),
     min_examples: int = typer.Option(
         100,
@@ -107,23 +123,40 @@ def main(
     os.chdir(ROOT)
     settings = get_settings()
 
-    if inspect_from:
+    if analysis_from or inspect_from:
+        rid = analysis_from or inspect_from
+        assert rid is not None
         runner = MatrixRunner(settings, allow_mock=True, manage_servers=False, repo_root=ROOT)
         try:
-            matrix = runner.load(inspect_from)
+            matrix = runner.load(rid)
         except FileNotFoundError as exc:
-            typer.secho(f"No saved matrix run {inspect_from}: {exc}", fg=typer.colors.RED, err=True)
+            typer.secho(f"No saved matrix run {rid}: {exc}", fg=typer.colors.RED, err=True)
             raise typer.Exit(2) from exc
         out_dir.mkdir(parents=True, exist_ok=True)
-        ins_json, ins_html = write_inspect_reports(
-            matrix,
-            ledger_path=settings.eval_ledger_path,
-            out_json=out_dir / f"{inspect_from}.inspect.json",
-            out_html=out_dir / f"{inspect_from}.inspect.html",
-            dataset_path=Path(matrix.dataset_path),
-        )
-        typer.secho(f"Inspect HTML : {ins_html}", fg=typer.colors.GREEN)
-        typer.secho(f"Inspect JSON : {ins_json}", fg=typer.colors.GREEN)
+        if inspect_from or analysis_from:
+            ins_json, ins_html = write_inspect_reports(
+                matrix,
+                ledger_path=settings.eval_ledger_path,
+                out_json=out_dir / f"{rid}.inspect.json",
+                out_html=out_dir / f"{rid}.inspect.html",
+                dataset_path=Path(matrix.dataset_path),
+            )
+            typer.secho(f"Inspect HTML : {ins_html}", fg=typer.colors.GREEN)
+            typer.secho(f"Inspect JSON : {ins_json}", fg=typer.colors.GREEN)
+        if analysis_from:
+            inspect_payload = build_inspect_payload(
+                matrix,
+                ledger_path=settings.eval_ledger_path,
+                dataset_path=Path(matrix.dataset_path),
+            )
+            md_a, js_a = write_analysis_reports(
+                matrix,
+                out_md=out_dir / f"{rid}.analysis.md",
+                out_json=out_dir / f"{rid}.analysis.json",
+                inspect_payload=inspect_payload,
+            )
+            typer.secho(f"Analysis MD  : {md_a}", fg=typer.colors.GREEN)
+            typer.secho(f"Analysis JSON: {js_a}", fg=typer.colors.GREEN)
         raise typer.Exit(0)
 
     if list_engines or list_pairs:
@@ -137,21 +170,28 @@ def main(
                     f"{eid:28} family={cfg.family:12} backend={cfg.backend:12} "
                     f"model={cfg.weights_ref}"
                 )
-        resolved = resolve_matrix_pairs(
-            reg,
-            include_baseline=True,
-            include_optional=True,
-            repo_root=ROOT,
-        )
-        catalog = {p.pair_id: p for p in pairs_from_registry(reg)}
+        default_ids = {
+            p.pair_id
+            for p in resolve_matrix_pairs(reg, include_optional=False, repo_root=ROOT)
+        }
+        catalog = pairs_from_registry(reg)
         typer.echo("")
-        typer.echo("Matrix pairs (default omits baseline; L1 only if calibrated):")
-        for pair in catalog.values():
-            flag = "default" if pair.pair_id in {p.pair_id for p in resolved} and pair.role != "baseline" else pair.role
-            typer.echo(
-                f"  {pair.pair_id:18} S1={pair.stage1_config_id:24} "
-                f"S2={pair.stage2_config_id:24} [{flag}]"
+        typer.echo("Matrix pairs (default = optional=false Block A/B):")
+        for pair in catalog:
+            flag = "default" if pair.pair_id in default_ids else (
+                "optional" if pair.optional else pair.role
             )
+            blocks = ",".join(pair.blocks) if pair.blocks else "-"
+            typer.echo(
+                f"  {pair.pair_id:22} blocks=[{blocks:5}] "
+                f"S1={pair.stage1_config_id:24} S2={pair.stage2_config_id:24} "
+                f"opt={pair.optional} collapsed={pair.collapsed_stages} [{flag}]"
+            )
+        if reg.deferred_pairs:
+            typer.echo("")
+            typer.echo("Deferred (not runnable):")
+            for d in reg.deferred_pairs:
+                typer.echo(f"  {d.get('pair_id'):22} {d.get('issue')}")
         raise typer.Exit(0)
 
     if real:
@@ -169,6 +209,13 @@ def main(
             typer.secho(str(exc), fg=typer.colors.RED, err=True)
             raise typer.Exit(2) from exc
 
+    # Paper defaults: --real → ranking-only unless --with-synthesis
+    effective_skip_synthesis = skip_synthesis
+    if real and not with_synthesis:
+        effective_skip_synthesis = True
+    if with_synthesis:
+        effective_skip_synthesis = False
+
     pair_list = [p.strip() for p in (pairs or "").split(",") if p.strip()] or None
     engine_list = [e.strip() for e in (engines or "").split(",") if e.strip()] or None
     if pair_list and engine_list:
@@ -180,6 +227,7 @@ def main(
         typer.secho("FINAGENTBENCH_PATH is required.", fg=typer.colors.RED, err=True)
         raise typer.Exit(2)
 
+    sample_n = records
     if real:
         path = Path(path)
         if fetch_data:
@@ -206,6 +254,8 @@ def main(
             except RealRunError as exc:
                 typer.secho(str(exc), fg=typer.colors.RED, err=True)
                 raise typer.Exit(2) from exc
+        if sample_n is None:
+            sample_n = min(200, n)
 
     backend = os.getenv("SYSTEMONE_BACKEND", "lexical")
     do_force = bool(force_restart) or (bool(real) and not keep_servers)
@@ -216,13 +266,16 @@ def main(
     typer.echo(f"mode       : {'REAL (HF models)' if real or backend == 'real' else 'lexical/wiring'}")
     typer.echo(f"run_id     : {matrix_run_id}")
     typer.echo(f"dataset    : {path}")
-    typer.echo(f"records    : {records if records is not None else 'ALL (full dataset)'}")
-    typer.echo(f"seed       : {seed if records is not None else 'n/a'}")
-    typer.echo(f"pairs      : {', '.join(pair_list) if pair_list else ('legacy engines' if engine_list else 'architecture default')}")
+    typer.echo(f"records    : {sample_n if sample_n is not None else 'ALL (full dataset)'}")
+    typer.echo(f"seed       : {seed if sample_n is not None else 'n/a'}")
+    typer.echo(
+        f"pairs      : {', '.join(pair_list) if pair_list else ('legacy engines' if engine_list else 'Block A/B default')}"
+    )
     if engine_list:
         typer.echo(f"engines    : {', '.join(engine_list)}")
+    typer.echo(f"optional   : {'on' if include_optional else 'off'}")
     model = gemini_model or settings.gemini_model
-    typer.echo(f"synthesis  : {'off' if skip_synthesis else f'on ({model})'}")
+    typer.echo(f"synthesis  : {'off' if effective_skip_synthesis else f'on ({model})'}")
     typer.echo(f"backend    : {backend}")
     typer.echo(f"servers    : {'force-restart' if do_force else 'reuse-if-running'}")
     typer.echo("")
@@ -241,10 +294,11 @@ def main(
             engines=engine_list,
             pair_ids=pair_list,
             include_baseline=include_baseline,
-            sample_size=records,
-            sample_seed=seed if records is not None else None,
+            include_optional=include_optional,
+            sample_size=sample_n,
+            sample_seed=seed if sample_n is not None else None,
             gemini_model=gemini_model,
-            skip_synthesis=skip_synthesis,
+            skip_synthesis=effective_skip_synthesis,
             dataset_path=Path(path),
         )
     except Exception as exc:  # noqa: BLE001
@@ -265,6 +319,17 @@ def main(
         out_html=out_dir / f"{matrix_run_id}.inspect.html",
         dataset_path=Path(path),
     )
+    inspect_payload = build_inspect_payload(
+        matrix,
+        ledger_path=settings.eval_ledger_path,
+        dataset_path=Path(path),
+    )
+    an_md, an_json = write_analysis_reports(
+        matrix,
+        out_md=out_dir / f"{matrix_run_id}.analysis.md",
+        out_json=out_dir / f"{matrix_run_id}.analysis.json",
+        inspect_payload=inspect_payload,
+    )
 
     summary = report_summary_dict(matrix)
     typer.echo("")
@@ -274,6 +339,8 @@ def main(
     typer.secho(f"JSON report : {json_path}", fg=typer.colors.GREEN)
     typer.secho(f"CSV report  : {csv_path}", fg=typer.colors.GREEN)
     typer.secho(f"MD report   : {md_path}", fg=typer.colors.GREEN)
+    typer.secho(f"Analysis MD : {an_md}", fg=typer.colors.GREEN)
+    typer.secho(f"Analysis JSON: {an_json}", fg=typer.colors.GREEN)
     typer.secho(f"Inspect HTML: {ins_html}", fg=typer.colors.GREEN)
     typer.secho(f"Inspect JSON: {ins_json}", fg=typer.colors.GREEN)
 

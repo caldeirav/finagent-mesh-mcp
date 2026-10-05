@@ -240,9 +240,11 @@ def render_inspect_html(payload: dict[str, Any]) -> str:
             exp = ex.get("expected") or {}
             s1 = ex.get("stage1") or {}
             s2 = ex.get("stage2") or {}
-            parts.append("<details>")
+            anchor = f"pair-{p['pair_id']}-ex-{eid}"
+            parts.append(f"<details id='{_esc(anchor)}'>")
             parts.append(
-                f"<summary><span class='{cls}'>{_esc(st)}</span> · {_esc(eid)} · "
+                f"<summary><span class='{cls}'>{_esc(st)}</span> · "
+                f"<a href='#{_esc(anchor)}'>{_esc(eid)}</a> · "
                 f"S1 nDCG={_esc(s1.get('ndcg_at_5'))} · S2 nDCG={_esc(s2.get('ndcg_at_5'))}"
                 f"{' · ' + _esc(ex.get('error')) if ex.get('error') else ''}</summary>"
             )

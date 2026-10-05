@@ -11,8 +11,14 @@ from typing import Any
 from finagent_mesh.clients.engines.registry import EngineRegistry, load_registry
 from finagent_mesh.config import Settings, get_settings, require_official_mock_policy
 from finagent_mesh.dataset.finagentbench import load_examples
+from finagent_mesh.matrix.metrics import aggregate_paper_metrics
 from finagent_mesh.matrix.models import EngineMetricsRecord, MatrixRun, MatrixRowResult
-from finagent_mesh.matrix.partners import FixedStagePartners, resolve_matrix_pairs
+from finagent_mesh.matrix.partners import (
+    FixedStagePartners,
+    deferred_skip_records,
+    is_inprocess_engine,
+    resolve_matrix_pairs,
+)
 from finagent_mesh.matrix.report import write_report
 from finagent_mesh.matrix.sampling import select_example_ids
 from finagent_mesh.runtime.harness import Harness
@@ -62,13 +68,27 @@ class MatrixRunner:
                 stage2_ndcg_at_5=m.get("stage2_ndcg_at_5"),
                 stage2_map_at_5=m.get("stage2_map_at_5"),
                 stage2_mrr_at_5=m.get("stage2_mrr_at_5"),
+                stage2_ndcg_at_5_given_top1=m.get("stage2_ndcg_at_5_given_top1"),
+                stage2_map_at_5_given_top1=m.get("stage2_map_at_5_given_top1"),
+                stage2_mrr_at_5_given_top1=m.get("stage2_mrr_at_5_given_top1"),
+                stage1_top1_recall=m.get("stage1_top1_recall"),
+                stage1_top5_recall=m.get("stage1_top5_recall"),
+                empty_top1_chunk_rate=m.get("empty_top1_chunk_rate"),
+                option_flip_rate=m.get("option_flip_rate"),
+                parse_failure_rate=m.get("parse_failure_rate"),
                 latency_ms_p50=m.get("latency_ms_p50"),
                 latency_ms_p95=m.get("latency_ms_p95"),
-                parse_failure_rate=m.get("parse_failure_rate"),
+                latency_stage1_p50_ms=m.get("latency_stage1_p50_ms"),
+                latency_stage1_p95_ms=m.get("latency_stage1_p95_ms"),
+                latency_stage2_p50_ms=m.get("latency_stage2_p50_ms"),
+                latency_stage2_p95_ms=m.get("latency_stage2_p95_ms"),
+                gpu_mem_high_water_mb=m.get("gpu_mem_high_water_mb"),
                 answer_normalized_em=m.get("answer_normalized_em"),
                 answer_token_f1=m.get("answer_token_f1"),
                 n_synthesis_attempted=int(m.get("n_synthesis_attempted") or 0),
                 n_synthesis_failed=int(m.get("n_synthesis_failed") or 0),
+                n_empty_top1=int(m.get("n_empty_top1") or 0),
+                blocks=list(m.get("blocks") or r.get("blocks") or []),
                 stage1_unsupported_reason=m.get("stage1_unsupported_reason"),
                 stage2_unsupported_reason=m.get("stage2_unsupported_reason"),
             )
@@ -81,6 +101,9 @@ class MatrixRunner:
                     status=r.get("status", "pending"),
                     error=r.get("error"),
                     metrics=metrics,
+                    blocks=list(r.get("blocks") or []),
+                    collapsed_stages=bool(r.get("collapsed_stages")),
+                    role=str(r.get("role") or ""),
                 )
             )
         return MatrixRun(
@@ -96,6 +119,7 @@ class MatrixRunner:
             systemone_mock=bool(raw.get("systemone_mock")),
             synthesis_enabled=bool(raw.get("synthesis_enabled", True)),
             rows=rows,
+            skip_records=list(raw.get("skip_records") or []),
             created_at=raw.get("created_at", ""),
         )
 
@@ -130,6 +154,7 @@ class MatrixRunner:
         engines: list[str] | None = None,
         pair_ids: list[str] | None = None,
         include_baseline: bool = False,
+        include_optional: bool = False,
         sample_size: int | None = None,
         sample_seed: int | None = None,
         gemini_model: str | None = None,
@@ -147,6 +172,7 @@ class MatrixRunner:
             pair_ids=pair_ids,
             engines=engines,
             include_baseline=include_baseline,
+            include_optional=include_optional,
             repo_root=self.repo_root,
         )
         if not pairs:
@@ -162,6 +188,19 @@ class MatrixRunner:
             sample_size=sample_size,
             sample_seed=sample_seed,
         )
+        skips = [s.to_dict() for s in deferred_skip_records(self.registry)]
+        if not include_optional:
+            from finagent_mesh.matrix.partners import pairs_from_registry
+
+            for p in pairs_from_registry(self.registry):
+                if p.optional and p.pair_id not in config_ids:
+                    skips.append(
+                        {
+                            "pair_id": p.pair_id,
+                            "reason": "optional_not_requested",
+                            "issue_url": None,
+                        }
+                    )
         matrix = MatrixRun(
             matrix_run_id=matrix_run_id,
             dataset_path=str(path),
@@ -173,11 +212,14 @@ class MatrixRunner:
             partner_ids={
                 "stage1_partner_id": self.partners.stage1_partner_id,
                 "stage2_partner_id": self.partners.stage2_partner_id,
+                "block_a_stage2": self.registry.partners.get("block_a_stage2", "decision20-lux"),
+                "block_b_stage1": self.registry.partners.get("block_b_stage1", "decision20-lux"),
                 "binding": "architecture-pairs" if not engines else "legacy-engines",
             },
             gemini_model=gemini_model or self.settings.gemini_model,
             systemone_mock=self.settings.systemone_mock,
             synthesis_enabled=not skip_synthesis,
+            skip_records=skips,
         )
         self.save(matrix)
 
@@ -207,28 +249,38 @@ class MatrixRunner:
                 stage1_engine_id=pair.stage1_config_id,
                 stage2_engine_id=pair.stage2_config_id,
                 status="running",
+                blocks=list(pair.blocks),
+                collapsed_stages=pair.collapsed_stages,
+                role=pair.role,
             )
             matrix.rows.append(row)
             self.save(matrix)
             pair_t0 = time.perf_counter()
             progress_log(
                 f"=== Pair {pair_i}/{n_pairs} {pair.pair_id} "
-                f"S1={pair.stage1_config_id} S2={pair.stage2_config_id} ==="
+                f"S1={pair.stage1_config_id} S2={pair.stage2_config_id} "
+                f"blocks={list(pair.blocks)} ==="
             )
             if pair.rationale.strip():
                 progress_log(pair.rationale.strip().split("\n")[0][:200])
             try:
                 for old in prev_engines:
-                    if old not in needed:
+                    if old not in needed and not is_inprocess_engine(self.registry, old):
                         progress_log(f"stopping {old}")
                         self._serve("stop", old)
+                active_needed: set[str] = set()
                 for eid in needed:
+                    if is_inprocess_engine(self.registry, eid):
+                        progress_log(f"in-process engine {eid} (no sidecar)")
+                        active_needed.add(eid)
+                        continue
                     progress_log(f"starting {eid} (real weights load on first request)")
                     self._serve("start", eid)
                     time.sleep(0.3)
                     self._serve("health", eid)
+                    active_needed.add(eid)
                 self._active_variable = pair.pair_id
-                prev_engines = set(needed)
+                prev_engines = active_needed
 
                 harness = Harness(
                     self.settings,
@@ -252,6 +304,7 @@ class MatrixRunner:
                     stage2_id=binding.stage2_config_id,
                     variable_id=pair.pair_id,
                     synthesis_enabled=matrix.synthesis_enabled,
+                    blocks=list(pair.blocks),
                 )
                 row.status = "completed"
                 elapsed = time.perf_counter() - pair_t0
@@ -283,11 +336,13 @@ class MatrixRunner:
         stage2_id: str,
         variable_id: str,
         synthesis_enabled: bool,
+        blocks: list[str] | None = None,
     ) -> EngineMetricsRecord:
         from finagent_mesh.ledger.sqlite_ledger import SqliteLedger
 
         ledger = SqliteLedger(self.settings.eval_ledger_path)
         agg = RunAggregator(eval_run_id)
+        paper_recs: list[dict[str, Any]] = []
         try:
             rows = ledger._conn.execute(
                 "SELECT example_id, ranking_payload_json, synthesis_payload_json, state "
@@ -302,29 +357,63 @@ class MatrixRunner:
                     json.loads(row["synthesis_payload_json"]) if row["synthesis_payload_json"] else None
                 )
                 agg.add_payload(row["example_id"], ranking, synthesis)
+                if ranking:
+                    paper_recs.append({"ranking": ranking})
                 if synthesis_enabled:
                     if row["state"] in {"completed", "synthesis_retriable"}:
                         n_synth_attempted += 1
                     if row["state"] == "synthesis_retriable":
                         n_synth_failed += 1
             summary = agg.summary()
+            paper = aggregate_paper_metrics(paper_recs)
         finally:
             ledger.close()
 
+        gpu_mb: float | None = None
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                gpu_mb = float(torch.cuda.max_memory_allocated()) / (1024 * 1024)
+        except Exception:  # noqa: BLE001
+            gpu_mb = None
+
         metrics = EngineMetricsRecord(
             n_examples=summary["n_examples"],
-            stage1_ndcg_at_5=(summary.get("stage1") or {}).get("ndcg_at_5"),
-            stage1_map_at_5=(summary.get("stage1") or {}).get("map_at_5"),
-            stage1_mrr_at_5=(summary.get("stage1") or {}).get("mrr_at_5"),
-            stage2_ndcg_at_5=(summary.get("stage2") or {}).get("ndcg_at_5"),
-            stage2_map_at_5=(summary.get("stage2") or {}).get("map_at_5"),
-            stage2_mrr_at_5=(summary.get("stage2") or {}).get("mrr_at_5"),
+            stage1_ndcg_at_5=paper.get("stage1_ndcg_at_5")
+            or (summary.get("stage1") or {}).get("ndcg_at_5"),
+            stage1_map_at_5=paper.get("stage1_map_at_5")
+            or (summary.get("stage1") or {}).get("map_at_5"),
+            stage1_mrr_at_5=paper.get("stage1_mrr_at_5")
+            or (summary.get("stage1") or {}).get("mrr_at_5"),
+            stage2_ndcg_at_5=paper.get("stage2_ndcg_at_5")
+            or (summary.get("stage2") or {}).get("ndcg_at_5"),
+            stage2_map_at_5=paper.get("stage2_map_at_5")
+            or (summary.get("stage2") or {}).get("map_at_5"),
+            stage2_mrr_at_5=paper.get("stage2_mrr_at_5")
+            or (summary.get("stage2") or {}).get("mrr_at_5"),
+            stage2_ndcg_at_5_given_top1=paper.get("stage2_ndcg_at_5_given_top1"),
+            stage2_map_at_5_given_top1=paper.get("stage2_map_at_5_given_top1"),
+            stage2_mrr_at_5_given_top1=paper.get("stage2_mrr_at_5_given_top1"),
+            stage1_top1_recall=paper.get("stage1_top1_recall"),
+            stage1_top5_recall=paper.get("stage1_top5_recall"),
+            empty_top1_chunk_rate=paper.get("empty_top1_chunk_rate"),
+            option_flip_rate=paper.get("option_flip_rate"),
+            parse_failure_rate=paper.get("parse_failure_rate"),
+            latency_ms_p50=paper.get("latency_stage1_p50_ms"),
+            latency_ms_p95=paper.get("latency_stage1_p95_ms"),
+            latency_stage1_p50_ms=paper.get("latency_stage1_p50_ms"),
+            latency_stage1_p95_ms=paper.get("latency_stage1_p95_ms"),
+            latency_stage2_p50_ms=paper.get("latency_stage2_p50_ms"),
+            latency_stage2_p95_ms=paper.get("latency_stage2_p95_ms"),
+            gpu_mem_high_water_mb=gpu_mb,
             answer_normalized_em=(summary.get("answer") or {}).get("normalized_em"),
             answer_token_f1=(summary.get("answer") or {}).get("token_f1"),
             n_synthesis_attempted=n_synth_attempted,
             n_synthesis_failed=n_synth_failed,
+            n_empty_top1=int(paper.get("n_empty_top1") or 0),
+            blocks=list(blocks or []),
         )
-        # Attribution note: stage metrics attributed to producing engine ids (stored on row)
         _ = (stage1_id, stage2_id, variable_id)
         return metrics
 
