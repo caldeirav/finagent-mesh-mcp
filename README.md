@@ -172,6 +172,22 @@ less artifacts/benchmarks/paper-n200.md            # interpret summary
 #   uv run python scripts/run_benchmark.py --inspect-from paper-n200
 ```
 
+### MLflow Runs + Traces
+
+Harness logging writes **both** classic nested Runs and GenAI Traces (same `MLFLOW_TRACKING_URI`, default `./mlruns`):
+
+```bash
+uv run mlflow ui --backend-store-uri ./mlruns
+# Experiments → finagent-mesh → Runs (metrics) or Traces (span tree)
+```
+
+| Surface | What you see |
+|---|---|
+| **Runs** (nested per example) | Metrics: `stage1_top1_correct`, `stage1_ndcg_at_5` / `map_at_5` / `mrr_at_5`, `stage2_*`, `empty_top1_chunks`, `gemini_synthesis_ok`, `gemini_answer_normalized_em`, `gemini_answer_token_f1`. Tags: `stage1_top1`, `gemini_status`, engines. |
+| **Traces** | Root `finagent_example` agent span → LangGraph nodes (`stage1`…`answer_score`) → `systemone_choice` / `systemone_score` retriever spans → `gemini_synthesize` LLM span (when synthesis runs). |
+
+`mlflow.langchain.autolog` (inline tracer) captures LangGraph node spans; System-1 and Gemini add manual child spans. Set `MLFLOW_DISABLE_AUTOLOG=1` to turn autolog off.
+
 ---
 
 ## Python tooling

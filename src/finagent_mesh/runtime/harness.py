@@ -293,12 +293,14 @@ class Harness:
                         f"  [{idx}/{n_ex}] {short_id} → {st} "
                         f"({time.perf_counter() - t0:.1f}s){extra}"
                     )
+            tracing.flush_traces()
             return {
                 "status": ledger.status_counts(run_id),
                 "lease": ledger.lease_info(run_id),
                 "config": config,
             }
         finally:
+            tracing.flush_traces()
             ledger.release_lease(run_id, owner)
             ledger.close()
 
@@ -355,14 +357,24 @@ class Harness:
                         stage2_engine=self.stage2_engine,
                         gemini_model=self.gemini_model,
                     )
-                    self.decision.reset_traces()
-                    state = run_example(
-                        self.graph,
-                        example,
+                    with tracing.example_trace(
+                        run_id=run_id,
+                        example_id=example.example_id,
+                        stage1_engine=self.stage1_engine,
+                        stage2_engine=self.stage2_engine,
+                        gemini_model=self.gemini_model,
                         skip_synthesis=True,
-                        synthesis_k=k,
-                    )
-                    tracing.log_agent_state(state, decision_meta=self.decision.last_response_meta)
+                    ):
+                        self.decision.reset_traces()
+                        state = run_example(
+                            self.graph,
+                            example,
+                            skip_synthesis=True,
+                            synthesis_k=k,
+                        )
+                        tracing.log_agent_state(
+                            state, decision_meta=self.decision.last_response_meta
+                        )
                 ranking_payload = _ranking_payload(
                     example, state, self.decision, self.stage1_engine, self.stage2_engine
                 )
@@ -482,17 +494,25 @@ class Harness:
                         stage2_engine=self.stage2_engine,
                         gemini_model=self.gemini_model,
                     )
-                    state = run_example(
-                        self.graph,
-                        example,
+                    with tracing.example_trace(
+                        run_id=run_id,
+                        example_id=example_id,
+                        stage1_engine=self.stage1_engine,
+                        stage2_engine=self.stage2_engine,
+                        gemini_model=self.gemini_model,
                         skip_synthesis=False,
-                        synthesis_k=k,
-                    )
-                    if ranking.get("stage1"):
-                        state.stage1 = StageRankingResult.model_validate(ranking["stage1"])
-                    if ranking.get("stage2"):
-                        state.stage2 = StageRankingResult.model_validate(ranking["stage2"])
-                    tracing.log_agent_state(state)
+                    ):
+                        state = run_example(
+                            self.graph,
+                            example,
+                            skip_synthesis=False,
+                            synthesis_k=k,
+                        )
+                        if ranking.get("stage1"):
+                            state.stage1 = StageRankingResult.model_validate(ranking["stage1"])
+                        if ranking.get("stage2"):
+                            state.stage2 = StageRankingResult.model_validate(ranking["stage2"])
+                        tracing.log_agent_state(state)
                 synth_payload = {
                     "answer": state.synthesized_answer,
                     "answer_score": state.answer_score.model_dump() if state.answer_score else None,

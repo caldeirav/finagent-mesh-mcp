@@ -90,6 +90,64 @@ class OpenDecisionClient:
             "metadata": dict(metadata or {}),
         }
         try:
+            import mlflow
+            from mlflow.entities import SpanType
+
+            span_cm = mlflow.start_span(
+                name=f"systemone_{primitive}",
+                span_type=SpanType.RETRIEVER,
+                attributes={
+                    "primitive": primitive,
+                    "engine": (
+                        self.stage1_engine_id
+                        if primitive == "choice"
+                        else self.stage2_engine_id
+                    ),
+                    "n_candidates": len(candidates),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            span_cm = None
+
+        def _run() -> dict[str, Any]:
+            return self._decide_inner(primitive, query, candidates, metadata, rec)
+
+        if span_cm is None:
+            return _run()
+        with span_cm as span:
+            span.set_inputs(
+                {
+                    "primitive": primitive,
+                    "query": query,
+                    "n_candidates": len(candidates),
+                    "candidate_ids": [c["id"] for c in candidates[:50]],
+                }
+            )
+            try:
+                data = _run()
+                span.set_outputs(
+                    {
+                        "engine": self.last_response_meta.get("engine"),
+                        "latency_ms": self.last_response_meta.get("latency_ms"),
+                        "top_ids": [
+                            r.get("id") for r in (data.get("ranking") or [])[:5]
+                        ],
+                    }
+                )
+                return data
+            except Exception as exc:
+                span.set_attributes({"error": str(exc)[:500]})
+                raise
+
+    def _decide_inner(
+        self,
+        primitive: Primitive,
+        query: str,
+        candidates: list[dict[str, str]],
+        metadata: dict[str, Any] | None,
+        rec: dict[str, Any],
+    ) -> dict[str, Any]:
+        try:
             if self.mock:
                 data = self._mock_decide(primitive, query, candidates)
                 self.last_response_meta = {

@@ -29,17 +29,60 @@ class GeminiClient:
         )
         self.last_prompt = prompt
         self.last_answer = None
+
         try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
+            import mlflow
+            from mlflow.entities import SpanType
 
-            llm = ChatGoogleGenerativeAI(model=self.model, google_api_key=self.api_key)
-            result = llm.invoke(prompt)
-        except Exception as exc:  # noqa: BLE001
-            raise GeminiError(f"Gemini API error ({self.model}): {exc}") from exc
+            span_cm = mlflow.start_span(
+                name="gemini_synthesize",
+                span_type=SpanType.LLM,
+                attributes={
+                    "gemini_model": self.model,
+                    "n_chunks": len(chunks),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            span_cm = None
 
-        content = getattr(result, "content", str(result))
-        if isinstance(content, list):
-            content = " ".join(str(part) for part in content)
-        text = str(content)
-        self.last_answer = text
-        return text
+        def _invoke() -> str:
+            try:
+                from langchain_google_genai import ChatGoogleGenerativeAI
+
+                llm = ChatGoogleGenerativeAI(model=self.model, google_api_key=self.api_key)
+                result = llm.invoke(prompt)
+            except Exception as exc:  # noqa: BLE001
+                raise GeminiError(f"Gemini API error ({self.model}): {exc}") from exc
+
+            content = getattr(result, "content", str(result))
+            if isinstance(content, list):
+                content = " ".join(str(part) for part in content)
+            return str(content)
+
+        if span_cm is None:
+            text = _invoke()
+            self.last_answer = text
+            return text
+
+        with span_cm as span:
+            span.set_inputs(
+                {
+                    "query": query,
+                    "n_chunks": len(chunks),
+                    "chunk_ids": [cid for cid, _ in chunks[:20]],
+                    "model": self.model,
+                }
+            )
+            try:
+                text = _invoke()
+                self.last_answer = text
+                span.set_outputs(
+                    {
+                        "answer_chars": len(text),
+                        "answer_preview": text[:500],
+                    }
+                )
+                return text
+            except Exception as exc:
+                span.set_attributes({"error": str(exc)[:500]})
+                raise
