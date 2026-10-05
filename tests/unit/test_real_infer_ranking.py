@@ -135,3 +135,36 @@ def test_choice_still_uses_id_text_criteria(monkeypatch: pytest.MonkeyPatch) -> 
     assert seen[0]["rank"]["type"] == "choice"
     assert isinstance(seen[0]["rank"]["criteria"], dict)
     assert out["ranking"][0]["id"] == "10-K"
+
+
+def test_choice_five_filing_types_not_batched(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: Score batch size 4 must not split Stage-1 K=5 Choice."""
+    from finagent_mesh.clients.engines import real_infer as ri
+
+    calls: list[int] = []
+
+    class FakeModel:
+        def system_one(self, *, state, questions):
+            crit = questions["rank"]["criteria"]
+            calls.append(len(crit))
+            probs = {k: 1.0 / len(crit) for k in crit}
+            return {
+                "answers": {
+                    "rank": {
+                        "type": "choice",
+                        "choice": next(iter(crit)),
+                        "probabilities": probs,
+                    }
+                }
+            }
+
+    monkeypatch.setattr(ri, "_load_decision20", lambda _mid: (FakeModel(), "cpu"))
+    cands = [{"id": t, "text": t} for t in ("10-K", "10-Q", "8-K", "DEF14A", "Earnings")]
+    out = ri.decide_decision20(
+        model_id="vllm-sr/Decision-2.0-Lux-9B",
+        query="annual report",
+        candidates=cands,
+        primitive="choice",
+    )
+    assert calls == [5]
+    assert len(out["ranking"]) == 5

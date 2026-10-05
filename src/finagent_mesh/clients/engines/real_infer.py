@@ -140,6 +140,10 @@ RELEVANCE_SCORE_CRITERIA: list[str] = [
     "Directly and fully answers the query",
 ]
 
+# Decision-2.0 Choice allows up to 255 options in one call. Never reuse the
+# ordinal Score batch size (4) for Choice — Stage-1 has K=5 filing types.
+CHOICE_MAX_OPTIONS = 255
+
 
 def _score_batch_size(model_id: str) -> int:
     raw = os.getenv("SYSTEMONE_SCORE_BATCH", "").strip()
@@ -361,11 +365,22 @@ def decide_decision20(
     """
     model, _device = _load_decision20(model_id)
     if primitive == "choice":
-        batch = _score_batch_size(model_id)
-        if len(candidates) <= batch:
+        if len(candidates) == 1:
+            cid = candidates[0]["id"]
+            return _ranking_payload(
+                primitive="choice",
+                ids=[cid],
+                scores=[1.0],
+                latency_ms=0.0,
+                backend="decision20_singleton",
+                model_id=model_id,
+            )
+        if len(candidates) <= CHOICE_MAX_OPTIONS:
             return _system_one_choice_rank(
                 model, query=query, candidates=candidates, model_id=model_id
             )
+        # Extremely large option sets only (API max 255 per call).
+        batch = CHOICE_MAX_OPTIONS
         log(
             f"Decision-2.0 {model_id}: Choice-ranking {len(candidates)} candidates "
             f"in batches of {batch}"
@@ -373,10 +388,14 @@ def decide_decision20(
         merged: dict[str, float] = {}
         latency_ms = 0.0
         for i in range(0, len(candidates), batch):
+            chunk = candidates[i : i + batch]
+            if len(chunk) == 1:
+                merged[str(chunk[0]["id"])] = 0.0
+                continue
             part = _system_one_choice_rank(
                 model,
                 query=query,
-                candidates=candidates[i : i + batch],
+                candidates=chunk,
                 model_id=model_id,
             )
             latency_ms += float(part.get("latency_ms") or 0.0)
