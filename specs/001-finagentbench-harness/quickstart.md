@@ -40,7 +40,21 @@ Ensure `mcp-sec-edgar` and `mcp-financial-calculator` are registered and reachab
 
 **Expected**: Gateway lists both servers; sample `ratio_analysis` / `list_document_types` calls succeed.
 
-## 4. Smoke ranking-only run (no synthesis)
+## 4. Preferred production smoke (paper CLI)
+
+For real engines + Block A/B + MLflow Traces, use `run_benchmark.py` (see [README](../../README.md) and [003 quickstart](../003-choice-score-paper/quickstart.md)):
+
+```bash
+./scripts/mlflow_ui.sh   # other terminal → http://127.0.0.1:5000
+uv run python scripts/run_benchmark.py --real --with-synthesis \
+  --pairs lux-lux --records 5 --seed 42 --run-id paper-smoke-mlflow-gemini-5
+```
+
+**Expected**: nested Runs with `stage1_*` / `stage2_*` / `gemini_*` metrics; Traces with `finagent_example` → LangGraph nodes → `systemone_*` → `gemini_synthesize`.
+
+## 5. Single-pair harness smoke (legacy CLI)
+
+Ranking-only:
 
 ```bash
 uv run python scripts/run_harness.py run \
@@ -53,9 +67,9 @@ uv run python scripts/run_harness.py run \
 - Ledger entries reach `ranking_complete` or `skipped_invalid` / failed-with-reason
 - Stage-1 and Stage-2 nDCG@5 / MAP@5 / MRR@5 persisted for labeled examples
 - No Gemini calls occur
-- MLflow traces include Stage 1/2 distributions
+- MLflow nested runs + traces include Stage 1/2 distributions and outcome metrics
 
-## 5. Smoke end-to-end run (with synthesis + answer score)
+End-to-end (with synthesis + answer score):
 
 ```bash
 uv run python scripts/run_harness.py run \
@@ -67,7 +81,7 @@ uv run python scripts/run_harness.py run \
 - ≥95% examples in a terminal ledger state
 - Synthesis uses top-5 chunks by default
 - Answer scores present when labels exist; explicit skip when missing
-- Traces reconstruct rankings, tools, synthesis, scores
+- Traces reconstruct rankings, tools, synthesis, scores (`gemini_synthesize` span when synthesis runs)
 
 ## 6. Crash-resume check
 

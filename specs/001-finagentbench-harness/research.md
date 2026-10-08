@@ -92,7 +92,7 @@
 
 ## 10. Observability
 
-**Decision**: MLflow autolog/spans around LangGraph nodes; log System-1 probability/score vectors, MCP tool I/O hashes/summaries, rankings, metrics, synthesis text, answer scores.
+**Decision**: Nested MLflow Runs (per example) plus GenAI Traces: `mlflow.langchain.autolog(run_tracer_inline=True)`, root `finagent_example` agent span, System-1 `systemone_{choice|score}` retriever spans, `gemini_synthesize` LLM span. Log Stage-1/2 outcome metrics (`stage1_top1_correct`, nDCG/MAP/MRR), Gemini outcomes (`gemini_synthesis_ok`, answer EM/F1), probability vectors, tool I/O, synthesis text.
 
 **Rationale**: Constitution Principle VI.
 

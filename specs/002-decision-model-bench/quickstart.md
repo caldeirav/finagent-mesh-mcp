@@ -94,16 +94,21 @@ uv run python scripts/run_matrix.py run \
 
 ## 6. Paper Block A/B pairs (default production matrix)
 
-The default matrix is no longer a CLM cross-product. See [003 quickstart](../003-choice-score-paper/quickstart.md) and [README.md](../../README.md).
+The default matrix is no longer a CLM cross-product. Prefer the README smoke → paper flow and [003 quickstart](../003-choice-score-paper/quickstart.md). Full flag list: [paper-cli.md](../003-choice-score-paper/contracts/paper-cli.md).
 
 ```bash
+# Technical smoke (Gemini + MLflow) — use a fresh --run-id
+./scripts/mlflow_ui.sh   # other terminal → http://127.0.0.1:5000
+uv run python scripts/run_benchmark.py --real --with-synthesis \
+  --pairs lux-lux --records 5 --seed 42 --run-id paper-smoke-mlflow-gemini-5
+
 uv run python scripts/run_benchmark.py --list-pairs
-uv run python scripts/run_benchmark.py --real --records 50 --seed 42 --run-id paper-smoke-50
+uv run python scripts/run_benchmark.py --real --records 10 --seed 42 --run-id paper-smoke-10
 # Highest-value pairs:
 uv run python scripts/run_benchmark.py --real --pairs lux-lux,lux-bm25,kai-lux --records 20 --seed 42 --run-id smoke-core
 ```
 
-**Expected**: Block A (`*-lux` Choice variants) + Block B (`lux-*` Score variants). `--real` is ranking-only unless `--with-synthesis`. Legacy `--engines` ablation still uses fixed CLM/AnyJev partners.
+**Expected**: Block A (`*-lux` Choice variants) + Block B (`lux-*` Score variants). `--real` is ranking-only unless `--with-synthesis`. Nested MLflow Runs expose `stage1_*` / `stage2_*` / `gemini_*` metrics; Traces show `finagent_example` → `systemone_*` → optional `gemini_synthesize`. Legacy `--engines` ablation still uses fixed CLM/AnyJev partners.
 
 ## 7. Sample matrix (≥2 engines, SC-002 / SC-007 / SC-009)
 

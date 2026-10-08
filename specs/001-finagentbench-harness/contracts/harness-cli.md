@@ -52,7 +52,7 @@ Prints ledger state counts and lease info.
 | `GEMINI_MODEL` | `gemini-2.5-flash` | System-2 model id |
 | `SYNTHESIS_K` | `5` | Top-K chunks to synthesize |
 | `HARNESS_MAX_ATTEMPTS` | `3` | Total attempts per failing stage |
-| `MLFLOW_TRACKING_URI` | `./mlruns` | MLflow tracking URI |
+| `MLFLOW_TRACKING_URI` | `sqlite:///mlflow.db` | MLflow tracking URI (SQLite; prefer over FileStore `./mlruns`) |
 | `PODMAN_OR_DOCKER` | `podman` | Runtime preference for build script |
 
 See also: [systemone-openapi.yaml](./systemone-openapi.yaml), [mcp-sec-edgar.json](./mcp-sec-edgar.json), [mcp-financial-calculator.json](./mcp-financial-calculator.json).

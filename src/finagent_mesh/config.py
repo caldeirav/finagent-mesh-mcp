@@ -51,7 +51,7 @@ class Settings:
             gemini_model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
             synthesis_k=_int("SYNTHESIS_K", 5),
             harness_max_attempts=_int("HARNESS_MAX_ATTEMPTS", 3),
-            mlflow_tracking_uri=os.getenv("MLFLOW_TRACKING_URI", "./mlruns"),
+            mlflow_tracking_uri=os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"),
             podman_or_docker=os.getenv("PODMAN_OR_DOCKER", "podman"),
             systemone_mock=_truthy("SYSTEMONE_MOCK", "0"),
             engines_registry_path=Path(

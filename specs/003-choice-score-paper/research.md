@@ -71,6 +71,12 @@
 
 **Alternatives considered**: Keep 002 full-pipeline default (rejected by clarify).
 
+### Observability (Runs + Traces)
+
+**Decision**: Paper smokes and full runs continue nested MLflow Runs and additionally emit GenAI Traces (root `finagent_example`, LangGraph autolog, `systemone_*`, optional `gemini_synthesize`) with clear Stage-1 / Stage-2 / Gemini outcome metrics on each nested run. Documented in README + 003 quickstart as the first technical verification step.
+
+**Rationale**: Operators need to confirm the agentic pipeline (not only aggregate IR tables) before a long paper matrix.
+
 ## 8. Reviewer metrics
 
 **Decision**: Compute and persist per pair:

@@ -2,7 +2,8 @@
 
 Entrypoints (via `uv run python …`):
 
-- `scripts/run_matrix.py` — sequential engine matrix
+- **`scripts/run_benchmark.py`** — **preferred** paper Block A/B matrix (`--real`); full flags in [003 paper-cli](../../003-choice-score-paper/contracts/paper-cli.md) and [README](../../../README.md)
+- `scripts/run_matrix.py` — sequential engine matrix (legacy / ablation-oriented)
 - `scripts/run_harness.py` — single pipeline run (extended bindings)
 - `scripts/serve_engine.sh` — start/stop/health one registry config
 
@@ -96,7 +97,7 @@ uv run python scripts/run_matrix.py status --matrix-run-id <id>
 | `GOOGLE_API_KEY` | _(required for synthesis)_ | Fail closed if missing when synthesis on |
 | `FINAGENTBENCH_PATH` | _(required)_ | Dataset root |
 | `EVAL_LEDGER_PATH` | `./eval_ledger.db` | Ledger |
-| `MLFLOW_TRACKING_URI` | `./mlruns` | Traces |
+| `MLFLOW_TRACKING_URI` | `sqlite:///mlflow.db` | Runs + Traces (use `./scripts/mlflow_ui.sh`) |
 | `ANYJEV_WEIGHTS` / `CLM8B_WEIGHTS` / … | _(operator)_ | Weights paths from registry |
 
 See also: [engines-registry.yaml](./engines-registry.yaml), [systemone-adapters.md](./systemone-adapters.md).
