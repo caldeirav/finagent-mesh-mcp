@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from finagent_mesh.agent.graph import build_graph, run_example
-from finagent_mesh.agent.state import AgentState
+from finagent_mesh.agent.nodes import answer_score as answer_score_node
+from finagent_mesh.agent.nodes import synthesize as synthesize_node
+from finagent_mesh.agent.state import AgentState, PassageChunk, StageRankingResult
 from finagent_mesh.clients.gemini import GeminiClient, GeminiError
 from finagent_mesh.clients.open_decision import OpenDecisionClient, OpenDecisionError, bind_from_registry
 from finagent_mesh.config import Settings, get_settings, require_official_mock_policy
@@ -333,6 +335,78 @@ class Harness:
         except Exception:  # noqa: BLE001
             ranking_payload["option_flipped"] = None
 
+    def _synthesize_from_state(self, state: AgentState, k: int) -> AgentState:
+        """Run Gemini + answer scoring under the active MLflow span (no Stage-1/2 rerun)."""
+        import mlflow
+        from mlflow.entities import SpanType
+
+        state = state.model_copy(update={"skip_synthesis": False, "synthesis_k": k})
+        with mlflow.start_span(
+            name="synthesize",
+            span_type=SpanType.CHAIN,
+            attributes={"stage": "synthesize", "gemini_model": self.gemini_model or ""},
+        ) as span:
+            updates = synthesize_node.run_synthesize(state, self.gemini)
+            state = state.model_copy(update=updates)
+            span.set_outputs(
+                {
+                    "has_answer": bool(
+                        state.synthesized_answer and str(state.synthesized_answer).strip()
+                    ),
+                    "error": state.error,
+                }
+            )
+        with mlflow.start_span(
+            name="answer_score",
+            span_type=SpanType.CHAIN,
+            attributes={"stage": "answer_score"},
+        ) as span:
+            updates = answer_score_node.run_answer_score(state)
+            state = state.model_copy(update=updates)
+            score = state.answer_score
+            span.set_outputs(
+                {
+                    "status": score.status if score else None,
+                    "normalized_em": score.normalized_em if score else None,
+                    "token_f1": score.token_f1 if score else None,
+                }
+            )
+        return state
+
+    def _synth_payload(self, example, state: AgentState, k: int) -> dict[str, Any]:
+        return {
+            "answer": state.synthesized_answer,
+            "answer_score": state.answer_score.model_dump() if state.answer_score else None,
+            "label": example.answer_label,
+            "gemini_model": self.gemini_model,
+            "prompt": self.gemini.last_prompt,
+            "passages": [
+                {"chunk_id": c.chunk_id, "text": (c.text or "")[:800]}
+                for c in (state.stage2_chunks or [])[:k]
+            ],
+        }
+
+    def _state_from_ranking(self, example, ranking: dict[str, Any], k: int) -> AgentState:
+        chunks = [PassageChunk.model_validate(c) for c in ranking.get("stage2_chunks") or []]
+        return AgentState(
+            example=example,
+            skip_synthesis=False,
+            synthesis_k=k,
+            top1_doc_type=ranking.get("top1_doc_type"),
+            stage1=(
+                StageRankingResult.model_validate(ranking["stage1"])
+                if ranking.get("stage1")
+                else None
+            ),
+            stage2=(
+                StageRankingResult.model_validate(ranking["stage2"])
+                if ranking.get("stage2")
+                else None
+            ),
+            stage2_chunks=chunks,
+            error=ranking.get("error"),
+        )
+
     def _process_full(
         self,
         ledger: SqliteLedger,
@@ -343,6 +417,7 @@ class Harness:
         k: int,
         agg: RunAggregator,
     ) -> None:
+        """Rank (and optionally synthesize) under one nested MLflow Run + Trace."""
         settings = self.settings
         ledger.transition(run_id, example.example_id, "in_progress")
         attempts = 0
@@ -350,6 +425,7 @@ class Harness:
         state: AgentState | None = None
         while attempts < settings.harness_max_attempts:
             attempts += 1
+            ranking_payload: dict[str, Any] | None = None
             try:
                 with tracing.example_run(run_id, example.example_id):
                     tracing.log_binding(
@@ -363,7 +439,7 @@ class Harness:
                         stage1_engine=self.stage1_engine,
                         stage2_engine=self.stage2_engine,
                         gemini_model=self.gemini_model,
-                        skip_synthesis=True,
+                        skip_synthesis=skip_synthesis,
                     ):
                         self.decision.reset_traces()
                         state = run_example(
@@ -372,33 +448,74 @@ class Harness:
                             skip_synthesis=True,
                             synthesis_k=k,
                         )
-                        tracing.log_agent_state(
-                            state, decision_meta=self.decision.last_response_meta
+                        # Reflect the operator intent on state before outcome metrics.
+                        state = state.model_copy(update={"skip_synthesis": skip_synthesis})
+                        ranking_payload = _ranking_payload(
+                            example,
+                            state,
+                            self.decision,
+                            self.stage1_engine,
+                            self.stage2_engine,
                         )
-                ranking_payload = _ranking_payload(
-                    example, state, self.decision, self.stage1_engine, self.stage2_engine
-                )
-                self._maybe_attach_ofr(example, state, ranking_payload)
-                if state.error == "empty_top1_chunks":
-                    ledger.transition(
-                        run_id,
-                        example.example_id,
-                        "failed_retriable",
-                        last_error=state.error,
-                        ranking_payload=ranking_payload,
-                        inc_stage2=True,
-                    )
-                    agg.add_payload(example.example_id, ranking_payload, None)
-                    return
+                        self._maybe_attach_ofr(example, state, ranking_payload)
+
+                        if state.error == "empty_top1_chunks":
+                            tracing.log_agent_state(
+                                state, decision_meta=self.decision.last_response_meta
+                            )
+                            ledger.transition(
+                                run_id,
+                                example.example_id,
+                                "failed_retriable",
+                                last_error=state.error,
+                                ranking_payload=ranking_payload,
+                                inc_stage2=True,
+                            )
+                            agg.add_payload(example.example_id, ranking_payload, None)
+                            return
+
+                        ledger.transition(
+                            run_id,
+                            example.example_id,
+                            "ranking_complete",
+                            ranking_payload=ranking_payload,
+                            inc_stage1=True,
+                            inc_stage2=True,
+                        )
+
+                        if skip_synthesis:
+                            tracing.log_agent_state(
+                                state, decision_meta=self.decision.last_response_meta
+                            )
+                            ledger.transition(run_id, example.example_id, "completed")
+                            agg.add_payload(example.example_id, ranking_payload, None)
+                            return
+
+                        # Same nested Run/Trace: Gemini + answer score (no Stage-1/2 rerun).
+                        try:
+                            state = self._synthesize_from_state(state, k)
+                            tracing.log_agent_state(
+                                state, decision_meta=self.decision.last_response_meta
+                            )
+                        except GeminiError:
+                            # Ranking is already checkpointed; log ranking-only outcomes.
+                            tracing.log_agent_state(
+                                state.model_copy(update={"skip_synthesis": True}),
+                                decision_meta=self.decision.last_response_meta,
+                            )
+                            raise
+
+                assert ranking_payload is not None and state is not None
+                synth_payload = self._synth_payload(example, state, k)
                 ledger.transition(
                     run_id,
                     example.example_id,
-                    "ranking_complete",
-                    ranking_payload=ranking_payload,
-                    inc_stage1=True,
-                    inc_stage2=True,
+                    "completed",
+                    synthesis_payload=synth_payload,
+                    inc_synthesis=True,
                 )
-                break
+                agg.add_payload(example.example_id, ranking_payload, synth_payload)
+                return
             except OpenDecisionError as exc:
                 last_err = str(exc)
                 ranking_payload = _ranking_payload(
@@ -420,8 +537,30 @@ class Harness:
                     )
                     agg.add_payload(example.example_id, ranking_payload, None)
                     return
+            except GeminiError as exc:
+                last_err = str(exc)
+                ledger.transition(
+                    run_id,
+                    example.example_id,
+                    "synthesis_retriable",
+                    last_error=last_err,
+                    inc_synthesis=True,
+                )
+                # Leave ranking_complete + synthesis_retriable for resume; do not loop
+                # ranking retries on Gemini failures.
+                return
             except Exception as exc:  # noqa: BLE001
                 last_err = str(exc)
+                entry = ledger.get_entry(run_id, example.example_id)
+                if entry and entry.state == "ranking_complete":
+                    ledger.transition(
+                        run_id,
+                        example.example_id,
+                        "synthesis_retriable",
+                        last_error=last_err,
+                        inc_synthesis=True,
+                    )
+                    return
                 ranking_payload = _ranking_payload(
                     example,
                     state,
@@ -440,13 +579,6 @@ class Harness:
                     )
                     agg.add_payload(example.example_id, ranking_payload, None)
                     return
-        entry = ledger.get_entry(run_id, example.example_id)
-        assert entry is not None
-        if skip_synthesis:
-            ledger.transition(run_id, example.example_id, "completed")
-            agg.add_payload(example.example_id, entry.ranking_payload_json, None)
-            return
-        self._resume_synthesis(ledger, run_id, example.example_id, entry, False, k, agg)
 
     def _resume_synthesis(
         self,
@@ -458,13 +590,14 @@ class Harness:
         k: int,
         agg: RunAggregator,
     ) -> None:
+        """Crash-resume synthesis only (own Run/Trace; does not re-rank)."""
         if skip_synthesis:
             ledger.transition(run_id, example_id, "completed")
             agg.add_payload(example_id, entry.ranking_payload_json, None)
             return
         settings = self.settings
         ranking = entry.ranking_payload_json or {}
-        from finagent_mesh.agent.state import BenchmarkExample, PassageChunk, StageRankingResult
+        from finagent_mesh.agent.state import BenchmarkExample
 
         chunks = [PassageChunk.model_validate(c) for c in ranking.get("stage2_chunks") or []]
         example = BenchmarkExample(
@@ -502,28 +635,10 @@ class Harness:
                         gemini_model=self.gemini_model,
                         skip_synthesis=False,
                     ):
-                        state = run_example(
-                            self.graph,
-                            example,
-                            skip_synthesis=False,
-                            synthesis_k=k,
-                        )
-                        if ranking.get("stage1"):
-                            state.stage1 = StageRankingResult.model_validate(ranking["stage1"])
-                        if ranking.get("stage2"):
-                            state.stage2 = StageRankingResult.model_validate(ranking["stage2"])
+                        state = self._state_from_ranking(example, ranking, k)
+                        state = self._synthesize_from_state(state, k)
                         tracing.log_agent_state(state)
-                synth_payload = {
-                    "answer": state.synthesized_answer,
-                    "answer_score": state.answer_score.model_dump() if state.answer_score else None,
-                    "label": example.answer_label,
-                    "gemini_model": self.gemini_model,
-                    "prompt": self.gemini.last_prompt,
-                    "passages": [
-                        {"chunk_id": c.chunk_id, "text": (c.text or "")[:800]}
-                        for c in (state.stage2_chunks or chunks)[:k]
-                    ],
-                }
+                synth_payload = self._synth_payload(example, state, k)
                 ledger.transition(
                     run_id,
                     example_id,

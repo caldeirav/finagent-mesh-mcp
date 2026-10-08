@@ -344,9 +344,9 @@ uv run mlflow migrate-filestore --source ./mlruns --target sqlite:///mlflow.db
 | Surface | Contents |
 |---|---|
 | **Runs** (nested per example) | `stage1_top1_correct`, `stage1_ndcg_at_5` / `map_at_5` / `mrr_at_5`, `stage2_*`, `empty_top1_chunks`, `gemini_synthesis_ok`, `gemini_answer_normalized_em`, `gemini_answer_token_f1`; tags `stage1_top1`, `gemini_status`, engines |
-| **Traces** | `finagent_example` → LangGraph nodes → `systemone_choice` / `systemone_score` → `gemini_synthesize` |
+| **Traces** | One `finagent_example` per example: LangGraph ranking nodes → `systemone_choice` / `systemone_score` → (if synthesis) `synthesize` → `gemini_synthesize` → `answer_score` |
 
-`mlflow.langchain.autolog(run_tracer_inline=True)` captures graph nodes; System-1 and Gemini add child spans. Set `MLFLOW_DISABLE_AUTOLOG=1` to disable autolog.
+Ranking and Gemini share a single nested Run/Trace on the happy path (crash-resume of synthesis alone still opens its own span). Set `MLFLOW_DISABLE_AUTOLOG=1` to disable LangGraph autolog.
 
 ---
 
