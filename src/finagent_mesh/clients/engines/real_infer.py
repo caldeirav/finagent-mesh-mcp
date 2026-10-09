@@ -10,11 +10,13 @@ Backends:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import time
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from finagent_mesh.metrics.ranking import stable_rank
@@ -34,6 +36,97 @@ def _require_torch():
             "Real inference requires optional deps: "
             "`uv sync --extra real` (torch, transformers>=5.17)"
         ) from exc
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _decision20_blobs_dir(package_dir: Path) -> Path | None:
+    """HF Hub layout: ``.../models--*/snapshots/<rev>`` → sibling ``blobs/``."""
+    if package_dir.parent.name == "snapshots":
+        blobs = package_dir.parent.parent / "blobs"
+        if blobs.is_dir():
+            return blobs
+    return None
+
+
+def repair_decision20_package(package_dir: Path | str) -> list[str]:
+    """Retarget files whose content drifted from ``MODEL_MANIFEST.json``.
+
+    Decision-2.0 ``verify_bundle`` refuses to load when Hub updates card files
+    (notably ``README.md``) without refreshing ``files_sha256``. When a local
+    blob still holds the manifest hash, point the package entry at that blob
+    so loads succeed without pinning an old revision.
+    """
+    root = Path(package_dir).resolve()
+    manifest_path = root / "MODEL_MANIFEST.json"
+    if not manifest_path.is_file():
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    files = manifest.get("files_sha256") if isinstance(manifest, dict) else None
+    if not isinstance(files, dict):
+        return []
+
+    blobs = _decision20_blobs_dir(root)
+    if blobs is None:
+        return []
+
+    # Prefer small card/config blobs first; skip scanning multi-GB weight shards.
+    candidates = sorted(
+        (p for p in blobs.iterdir() if p.is_file()),
+        key=lambda p: p.stat().st_size,
+    )
+    sha_to_blob: dict[str, Path] = {}
+
+    def _blob_for(expected: str) -> Path | None:
+        if expected in sha_to_blob:
+            return sha_to_blob[expected]
+        for blob in candidates:
+            # Weight shards are huge and almost never the drifted card files.
+            if blob.stat().st_size > 8 << 20:
+                continue
+            digest = _sha256_file(blob)
+            sha_to_blob[digest] = blob
+            if digest == expected:
+                return blob
+        return None
+
+    repaired: list[str] = []
+    for rel, expected in files.items():
+        if not isinstance(rel, str) or not isinstance(expected, str):
+            continue
+        if not re.fullmatch(r"[0-9a-f]{64}", expected):
+            continue
+        target = root / rel
+        if not target.exists():
+            continue
+        try:
+            actual = _sha256_file(target)
+        except OSError:
+            continue
+        if actual == expected:
+            continue
+        blob = _blob_for(expected)
+        if blob is None:
+            continue
+        try:
+            target.unlink(missing_ok=True)
+            target.symlink_to(os.path.relpath(blob, start=target.parent))
+        except OSError:
+            import shutil
+
+            shutil.copy2(blob, target)
+        if _sha256_file(target) == expected:
+            repaired.append(rel)
+    return repaired
 
 
 def _torch_device():
@@ -81,14 +174,28 @@ def _place_model(model, *, label: str, cast_dtype: bool = True):
 @lru_cache(maxsize=4)
 def _load_decision20(model_id: str):
     _require_torch()
+    from huggingface_hub import snapshot_download
     from transformers import AutoModel
 
     from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
 
     token = ensure_hf_hub_auth()
     log(f"Loading Decision-2.0 weights {model_id} (first call downloads from Hugging Face)…")
+    # Resolve to a local snapshot, repair Hub card/manifest drift, then load from
+    # that path with local_files_only so a Hub refresh cannot undo the repair.
+    local = snapshot_download(model_id, token=token)
+    repaired = repair_decision20_package(local)
+    if repaired:
+        log(
+            "Decision-2.0 package repair: retargeted "
+            + ", ".join(repaired)
+            + " to match MODEL_MANIFEST.json"
+        )
     model = AutoModel.from_pretrained(
-        model_id, trust_remote_code=True, token=token
+        local,
+        trust_remote_code=True,
+        token=token,
+        local_files_only=True,
     )
     model, device = _place_model(model, label=f"Decision-2.0 {model_id}", cast_dtype=False)
     return model, device

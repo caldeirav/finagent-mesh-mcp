@@ -1,0 +1,641 @@
+{
+  "matrix_run_id": "paper-n200-full",
+  "n_examples": 200,
+  "sample_seed": 42,
+  "dataset_path": "data/finagentbench",
+  "synthesis_enabled": false,
+  "skip_records": [
+    {
+      "pair_id": "lux-clm-ft",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/1"
+    },
+    {
+      "pair_id": "lux-e5-ce",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/2"
+    },
+    {
+      "pair_id": "lux-clm-shortlist",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "one-shot-ar",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "anyjev-l1-lux",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    }
+  ],
+  "deferred": [
+    {
+      "pair_id": "lux-clm-ft",
+      "issue": "https://github.com/caldeirav/finagent-mesh-mcp/issues/1",
+      "rationale": "Trained dual-encoder heads on held-out split"
+    },
+    {
+      "pair_id": "lux-e5-ce",
+      "issue": "https://github.com/caldeirav/finagent-mesh-mcp/issues/2",
+      "rationale": "Dense shortlist then cross-encoder ceiling"
+    }
+  ],
+  "executive_summary": [
+    "**Best Choice router (Block A):** `anyjev-l0-lux` with Stage-1 nDCG@5 = 0.8625 (Top-1 filing-type recall 95.1%).",
+    "**Best passage scorer (Block B, overall S2 nDCG@5):** `lux-e5` = 0.2825 (conditional-on-Top-1 0.3127).",
+    "**Routing ceiling:** ~40.5% of examples under Lux Choice yield empty Stage-2 candidate sets \u2014 passage scoring cannot recover those misses.",
+    "**Coverage:** 8/8 matrix pairs have measurable ranking metrics on N=200 (seed=42)."
+  ],
+  "findings": [
+    "Block A holds Stage-2 fixed at `decision20-lux` \u2014 Stage-2 nDCG differences across these rows reflect routing quality, not a different scorer.",
+    "Block B holds Stage-1 fixed at `decision20-lux` \u2014 compare Stage-2 overall nDCG vs **nDCG@5|Top-1** (scorer quality when routing was correct).",
+    "Answer EM/F1 were **not** collected (ranking-only; Gemini synthesis off).",
+    "Strongest Block A Stage-1 nDCG@5 among completed rows: `anyjev-l0-lux` (0.8625).",
+    "Strongest Block B Stage-2 nDCG@5 (overall): `lux-e5` (0.2825)."
+  ],
+  "findings_detail": {
+    "guardrails": [
+      "Block A holds Stage-2 fixed at `decision20-lux` \u2014 Stage-2 nDCG differences across these rows reflect routing quality, not a different scorer.",
+      "Block B holds Stage-1 fixed at `decision20-lux` \u2014 compare Stage-2 overall nDCG vs **nDCG@5|Top-1** (scorer quality when routing was correct).",
+      "Answer EM/F1 were **not** collected (ranking-only; Gemini synthesis off)."
+    ],
+    "block_a": [
+      "Ranked by Stage-1 nDCG@5 (filing-type ranking quality). Lux Choice baseline (`lux-lux`) is 0.8413.",
+      "1. **`anyjev-l0-lux`** (`anyjev-l0`) \u2014 nDCG@5 0.8625 (+0.0212 vs Lux), Top-1 recall 95.1%, S1 p50 791.0231 ms, option-flip rate 9.0%.",
+      "2. **`lux-lux`** (`decision20-lux`) \u2014 nDCG@5 0.8413 (+0.0000 vs Lux), Top-1 recall 93.9%, S1 p50 169.2432 ms.",
+      "3. **`kai-lux`** (`decision20-kai`) \u2014 nDCG@5 0.7830 (-0.0584 vs Lux), Top-1 recall 84.0%, S1 p50 42.7675 ms.",
+      "4. **`ar-lux`** (`ar-qwen3-8b-instruct`) \u2014 nDCG@5 0.7772 (-0.0641 vs Lux), Top-1 recall 77.3%, S1 p50 4552.1743 ms.",
+      "5. **`laya-lux`** (`laya-modernbert`) \u2014 nDCG@5 0.7509 (-0.0905 vs Lux), Top-1 recall 81.0%, S1 p50 0.0148 ms.",
+      "AnyJev L0 reports order sensitivity: OFR = 9.0% (fraction of examples whose top Choice flips when options are permuted).",
+      "Kai is much faster than Lux Choice (42.7675 vs 169.2432 ms p50) but trails on nDCG@5 (0.7830 vs 0.8413)."
+    ],
+    "block_b": [
+      "Ranked by overall Stage-2 nDCG@5 (full pipeline after Lux Choice). Lux Score baseline (`lux-lux`) is 0.2212 (conditional 0.2326).",
+      "1. **`lux-e5`** (`e5-base`) \u2014 S2 nDCG@5 0.2825 (+0.0613 vs Lux), S2|Top-1 0.3127, empty-Top-1 40.5%, S2 p50 861.5197 ms.",
+      "2. **`lux-bm25`** (`bm25-stage2`) \u2014 S2 nDCG@5 0.2648 (+0.0437 vs Lux), S2|Top-1 0.2829, empty-Top-1 40.5%, S2 p50 10.2259 ms.",
+      "3. **`lux-lux`** (`decision20-lux`) \u2014 S2 nDCG@5 0.2212 (+0.0000 vs Lux), S2|Top-1 0.2326, empty-Top-1 40.5%, S2 p50 14075.4844 ms.",
+      "4. **`lux-clm`** (`clm-8b`) \u2014 S2 nDCG@5 0.1026 (-0.1186 vs Lux), S2|Top-1 0.1066, empty-Top-1 40.5%, S2 p50 30051.6439 ms.",
+      "CLM zero-shot Action Cache is weakest on this sample (S2 nDCG@5 0.1026) and slowest (p50 30051.6439 ms) \u2014 treat as a stress baseline, not a production scorer, until shortlist/FT variants run.",
+      "E5 (general-domain dense) and/or BM25 beat Lux Score on overall passage nDCG here \u2014 surprising for a finance-specialized ordinal Score head; confirm on full FinAgentBench and with finance-tuned dense/CE ceilings."
+    ],
+    "routing": [
+      "When Stage-1 Top-1 filing type is wrong, Stage-2 sees no gold chunks (`empty_top1_chunks`). Those examples contribute 0 to overall S2 nDCG and are excluded from **S2 nDCG@5|Top-1**.",
+      "- `lux-lux`: empty-Top-1 rate 40.5% (81 / 200 examples)",
+      "- `anyjev-l0-lux`: empty-Top-1 rate 36.0% (72 / 200 examples)",
+      "- `kai-lux`: empty-Top-1 rate 53.0% (106 / 200 examples)",
+      "- `laya-lux`: empty-Top-1 rate 57.5% (115 / 200 examples)",
+      "- `ar-lux`: empty-Top-1 rate 57.0% (114 / 200 examples)",
+      "- `lux-clm`: empty-Top-1 rate 40.5% (81 / 200 examples)",
+      "- `lux-bm25`: empty-Top-1 rate 40.5% (81 / 200 examples)",
+      "- `lux-e5`: empty-Top-1 rate 40.5% (81 / 200 examples)"
+    ],
+    "latency": [
+      "BM25 is essentially free (p50 10.2259 ms) vs E5 (861.5197 ms) vs Lux Score (14075.4844 ms)."
+    ],
+    "takeaways": [
+      "For typed Choice routing, prefer `anyjev-l0-lux` on this sample; cite OFR when claiming AnyJev robustness.",
+      "For Stage-2 passage scoring after Lux Choice, `lux-e5` leads on overall nDCG@5; also report conditional-on-Top-1 and latency.",
+      "Always separate **router quality** (Block A / empty-Top-1 rate) from **scorer quality** (Block B S2|Top-1); overall S2 mixes both.",
+      "Re-run with `--with-synthesis` when answer-span EM/F1 are needed for the paper."
+    ]
+  },
+  "pair_outcomes": [
+    {
+      "pair_id": "lux-lux",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-lux-lux"
+    },
+    {
+      "pair_id": "anyjev-l0-lux",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 128,
+      "n_empty_top1": 72,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-anyjev-l0-lux"
+    },
+    {
+      "pair_id": "kai-lux",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 94,
+      "n_empty_top1": 106,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-kai-lux"
+    },
+    {
+      "pair_id": "laya-lux",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 85,
+      "n_empty_top1": 115,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-laya-lux"
+    },
+    {
+      "pair_id": "ar-lux",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 86,
+      "n_empty_top1": 114,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-ar-lux"
+    },
+    {
+      "pair_id": "lux-clm",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-lux-clm"
+    },
+    {
+      "pair_id": "lux-bm25",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-lux-bm25"
+    },
+    {
+      "pair_id": "lux-e5",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "paper-n200-full.inspect.html#pair-lux-e5"
+    }
+  ],
+  "artifact_index": [
+    {
+      "pair_id": "lux-lux",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-lux-lux"
+    },
+    {
+      "pair_id": "anyjev-l0-lux",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 128,
+      "n_empty_top1": 72,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-anyjev-l0-lux"
+    },
+    {
+      "pair_id": "kai-lux",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 94,
+      "n_empty_top1": 106,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-kai-lux"
+    },
+    {
+      "pair_id": "laya-lux",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 85,
+      "n_empty_top1": 115,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-laya-lux"
+    },
+    {
+      "pair_id": "ar-lux",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 86,
+      "n_empty_top1": 114,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-ar-lux"
+    },
+    {
+      "pair_id": "lux-clm",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-lux-clm"
+    },
+    {
+      "pair_id": "lux-bm25",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-lux-bm25"
+    },
+    {
+      "pair_id": "lux-e5",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 119,
+      "n_empty_top1": 81,
+      "n_other_fail": 0,
+      "href": "paper-n200-full.inspect.html#pair-lux-e5"
+    }
+  ],
+  "rows": [
+    {
+      "variable_config_id": "lux-lux",
+      "eval_run_id": "paper-n200:lux-lux",
+      "stage1_engine_id": "decision20-lux",
+      "stage2_engine_id": "decision20-lux",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.8413316040194614,
+        "stage1_map_at_5": 0.9068933197000683,
+        "stage1_mrr_at_5": 0.9683026584867076,
+        "stage2_ndcg_at_5": 0.22117061292825135,
+        "stage2_map_at_5": 0.2138888888888889,
+        "stage2_mrr_at_5": 0.40525525525525524,
+        "stage2_ndcg_at_5_given_top1": 0.2325885855888534,
+        "stage2_map_at_5_given_top1": 0.20978682170542637,
+        "stage2_mrr_at_5_given_top1": 0.4125968992248062,
+        "stage1_top1_recall": 0.9386503067484663,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.405,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 169.24317693337798,
+        "latency_ms_p95": 176.07784987194464,
+        "latency_stage1_p50_ms": 169.24317693337798,
+        "latency_stage1_p95_ms": 176.07784987194464,
+        "latency_stage2_p50_ms": 14075.48443088308,
+        "latency_stage2_p95_ms": 39874.84286648686,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 81,
+        "blocks": [
+          "A",
+          "B"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "A",
+        "B"
+      ],
+      "collapsed_stages": false,
+      "role": "long_context"
+    },
+    {
+      "variable_config_id": "anyjev-l0-lux",
+      "eval_run_id": "paper-n200:anyjev-l0-lux",
+      "stage1_engine_id": "anyjev-l0",
+      "stage2_engine_id": "decision20-lux",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.8624832020116757,
+        "stage1_map_at_5": 0.9114434219495569,
+        "stage1_mrr_at_5": 0.9710633946830266,
+        "stage2_ndcg_at_5": 0.23000079268681078,
+        "stage2_map_at_5": 0.21506944444444445,
+        "stage2_mrr_at_5": 0.4273611111111111,
+        "stage2_ndcg_at_5_given_top1": 0.2426607941897135,
+        "stage2_map_at_5_given_top1": 0.21166666666666667,
+        "stage2_mrr_at_5_given_top1": 0.43982456140350873,
+        "stage1_top1_recall": 0.950920245398773,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.36,
+        "option_flip_rate": 0.09,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 791.0231410060078,
+        "latency_ms_p95": 803.1480845063925,
+        "latency_stage1_p50_ms": 791.0231410060078,
+        "latency_stage1_p95_ms": 803.1480845063925,
+        "latency_stage2_p50_ms": 14293.968270882033,
+        "latency_stage2_p95_ms": 40648.40807889122,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 72,
+        "blocks": [
+          "A"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "A"
+      ],
+      "collapsed_stages": false,
+      "role": "calibrated"
+    },
+    {
+      "variable_config_id": "kai-lux",
+      "eval_run_id": "paper-n200-retry:kai-lux",
+      "stage1_engine_id": "decision20-kai",
+      "stage2_engine_id": "decision20-lux",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.7829588507699806,
+        "stage1_map_at_5": 0.86016530334015,
+        "stage1_mrr_at_5": 0.9120654396728016,
+        "stage2_ndcg_at_5": 0.19748356844973985,
+        "stage2_map_at_5": 0.18097868217054264,
+        "stage2_mrr_at_5": 0.39728682170542634,
+        "stage2_ndcg_at_5_given_top1": 0.2038732329882478,
+        "stage2_map_at_5_given_top1": 0.16170765027322404,
+        "stage2_mrr_at_5_given_top1": 0.40437158469945356,
+        "stage1_top1_recall": 0.8404907975460123,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.53,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 42.76747244875878,
+        "latency_ms_p95": 48.39821349596603,
+        "latency_stage1_p50_ms": 42.76747244875878,
+        "latency_stage1_p95_ms": 48.39821349596603,
+        "latency_stage2_p50_ms": 15573.945366893895,
+        "latency_stage2_p95_ms": 39826.3222286012,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 106,
+        "blocks": [
+          "A"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "A"
+      ],
+      "collapsed_stages": false,
+      "role": "latency"
+    },
+    {
+      "variable_config_id": "laya-lux",
+      "eval_run_id": "paper-n200:laya-lux",
+      "stage1_engine_id": "laya-modernbert",
+      "stage2_engine_id": "decision20-lux",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.7508675936187531,
+        "stage1_map_at_5": 0.8548057259713702,
+        "stage1_mrr_at_5": 0.9028629856850715,
+        "stage2_ndcg_at_5": 0.21451526717476146,
+        "stage2_map_at_5": 0.2160064935064935,
+        "stage2_mrr_at_5": 0.4088744588744589,
+        "stage2_ndcg_at_5_given_top1": 0.23019915188580997,
+        "stage2_map_at_5_given_top1": 0.2102403846153846,
+        "stage2_mrr_at_5_given_top1": 0.42275641025641025,
+        "stage1_top1_recall": 0.8098159509202454,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.575,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 0.014840974472463131,
+        "latency_ms_p95": 0.02308028051629662,
+        "latency_stage1_p50_ms": 0.014840974472463131,
+        "latency_stage1_p95_ms": 0.02308028051629662,
+        "latency_stage2_p50_ms": 12836.920895148069,
+        "latency_stage2_p95_ms": 35003.466272866346,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 115,
+        "blocks": [
+          "A"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "A"
+      ],
+      "collapsed_stages": false,
+      "role": "latency"
+    },
+    {
+      "variable_config_id": "ar-lux",
+      "eval_run_id": "paper-n200:ar-lux",
+      "stage1_engine_id": "ar-qwen3-8b-instruct",
+      "stage2_engine_id": "decision20-lux",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.7771820608943498,
+        "stage1_map_at_5": 0.8609406952965236,
+        "stage1_mrr_at_5": 0.8821063394683026,
+        "stage2_ndcg_at_5": 0.21419325980029058,
+        "stage2_map_at_5": 0.20670940170940172,
+        "stage2_mrr_at_5": 0.41773504273504275,
+        "stage2_ndcg_at_5_given_top1": 0.22942933188732365,
+        "stage2_map_at_5_given_top1": 0.19666666666666668,
+        "stage2_mrr_at_5_given_top1": 0.4355345911949685,
+        "stage1_top1_recall": 0.7730061349693251,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.57,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 4552.1743319695815,
+        "latency_ms_p95": 4667.066198750399,
+        "latency_stage1_p50_ms": 4552.1743319695815,
+        "latency_stage1_p95_ms": 4667.066198750399,
+        "latency_stage2_p50_ms": 13169.000604073517,
+        "latency_stage2_p95_ms": 38469.1874984419,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 114,
+        "blocks": [
+          "A"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "A"
+      ],
+      "collapsed_stages": false,
+      "role": "baseline"
+    },
+    {
+      "variable_config_id": "lux-clm",
+      "eval_run_id": "paper-n200-retry:lux-clm",
+      "stage1_engine_id": "decision20-lux",
+      "stage2_engine_id": "clm-8b",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.8413316040194614,
+        "stage1_map_at_5": 0.9068933197000683,
+        "stage1_mrr_at_5": 0.9683026584867076,
+        "stage2_ndcg_at_5": 0.1025881366755856,
+        "stage2_map_at_5": 0.07938438438438439,
+        "stage2_mrr_at_5": 0.18183183183183182,
+        "stage2_ndcg_at_5_given_top1": 0.1065930609234249,
+        "stage2_map_at_5_given_top1": 0.08319767441860465,
+        "stage2_mrr_at_5_given_top1": 0.1693798449612403,
+        "stage1_top1_recall": 0.9386503067484663,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.405,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 168.54642296675593,
+        "latency_ms_p95": 175.3781177685596,
+        "latency_stage1_p50_ms": 168.54642296675593,
+        "latency_stage1_p95_ms": 175.3781177685596,
+        "latency_stage2_p50_ms": 30051.643912913278,
+        "latency_stage2_p95_ms": 75747.07453656002,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 81,
+        "blocks": [
+          "B"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "B"
+      ],
+      "collapsed_stages": false,
+      "role": "production"
+    },
+    {
+      "variable_config_id": "lux-bm25",
+      "eval_run_id": "paper-n200-retry:lux-bm25",
+      "stage1_engine_id": "decision20-lux",
+      "stage2_engine_id": "bm25-stage2",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.8413316040194614,
+        "stage1_map_at_5": 0.9068933197000683,
+        "stage1_mrr_at_5": 0.9683026584867076,
+        "stage2_ndcg_at_5": 0.26484947885216487,
+        "stage2_map_at_5": 0.23465715715715715,
+        "stage2_mrr_at_5": 0.43753753753753755,
+        "stage2_ndcg_at_5_given_top1": 0.2829198440960063,
+        "stage2_map_at_5_given_top1": 0.24663113695090438,
+        "stage2_mrr_at_5_given_top1": 0.4517441860465116,
+        "stage1_top1_recall": 0.9386503067484663,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.405,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 166.8709235964343,
+        "latency_ms_p95": 171.4856863487512,
+        "latency_stage1_p50_ms": 166.8709235964343,
+        "latency_stage1_p95_ms": 171.4856863487512,
+        "latency_stage2_p50_ms": 10.225923964753747,
+        "latency_stage2_p95_ms": 50.608634296804645,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 81,
+        "blocks": [
+          "B"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "B"
+      ],
+      "collapsed_stages": false,
+      "role": "ir_floor"
+    },
+    {
+      "variable_config_id": "lux-e5",
+      "eval_run_id": "paper-n200-retry:lux-e5",
+      "stage1_engine_id": "decision20-lux",
+      "stage2_engine_id": "e5-base",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.8413316040194614,
+        "stage1_map_at_5": 0.9068933197000683,
+        "stage1_mrr_at_5": 0.9683026584867076,
+        "stage2_ndcg_at_5": 0.2824856232460483,
+        "stage2_map_at_5": 0.26433183183183184,
+        "stage2_mrr_at_5": 0.49594594594594593,
+        "stage2_ndcg_at_5_given_top1": 0.31267163915206353,
+        "stage2_map_at_5_given_top1": 0.2853972868217054,
+        "stage2_mrr_at_5_given_top1": 0.4968992248062016,
+        "stage1_top1_recall": 0.9386503067484663,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.405,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 166.40217951498926,
+        "latency_ms_p95": 171.1670529912226,
+        "latency_stage1_p50_ms": 166.40217951498926,
+        "latency_stage1_p95_ms": 171.1670529912226,
+        "latency_stage2_p50_ms": 861.5196631290019,
+        "latency_stage2_p95_ms": 2262.940147449262,
+        "gpu_mem_high_water_mb": 1035.5732421875,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 81,
+        "blocks": [
+          "B"
+        ],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [
+        "B"
+      ],
+      "collapsed_stages": false,
+      "role": "ir_dense"
+    }
+  ]
+}
