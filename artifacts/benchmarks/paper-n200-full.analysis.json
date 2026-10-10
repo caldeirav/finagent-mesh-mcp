@@ -82,7 +82,7 @@
       "E5 (general-domain dense) and/or BM25 beat Lux Score on overall passage nDCG here \u2014 surprising for a finance-specialized ordinal Score head; confirm on full FinAgentBench and with finance-tuned dense/CE ceilings."
     ],
     "routing": [
-      "When Stage-1 Top-1 filing type is wrong, Stage-2 sees no gold chunks (`empty_top1_chunks`). Those examples contribute 0 to overall S2 nDCG and are excluded from **S2 nDCG@5|Top-1**.",
+      "When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those examples are **omitted** from primary (scored-only) S2 nDCG/MRR and count as **0** in the secondary **pipeline-averaged** series. See Routing accounting for class counts \u2014 empty is not always \u201cwrong Top-1 type.\u201d",
       "- `lux-lux`: empty-Top-1 rate 40.5% (81 / 200 examples)",
       "- `anyjev-l0-lux`: empty-Top-1 rate 36.0% (72 / 200 examples)",
       "- `kai-lux`: empty-Top-1 rate 53.0% (106 / 200 examples)",
@@ -277,6 +277,10 @@
         "stage2_ndcg_at_5_given_top1": 0.2325885855888534,
         "stage2_map_at_5_given_top1": 0.20978682170542637,
         "stage2_mrr_at_5_given_top1": 0.4125968992248062,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.9386503067484663,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.405,
@@ -326,6 +330,10 @@
         "stage2_ndcg_at_5_given_top1": 0.2426607941897135,
         "stage2_map_at_5_given_top1": 0.21166666666666667,
         "stage2_mrr_at_5_given_top1": 0.43982456140350873,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.950920245398773,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.36,
@@ -373,6 +381,10 @@
         "stage2_ndcg_at_5_given_top1": 0.2038732329882478,
         "stage2_map_at_5_given_top1": 0.16170765027322404,
         "stage2_mrr_at_5_given_top1": 0.40437158469945356,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.8404907975460123,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.53,
@@ -420,6 +432,10 @@
         "stage2_ndcg_at_5_given_top1": 0.23019915188580997,
         "stage2_map_at_5_given_top1": 0.2102403846153846,
         "stage2_mrr_at_5_given_top1": 0.42275641025641025,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.8098159509202454,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.575,
@@ -467,6 +483,10 @@
         "stage2_ndcg_at_5_given_top1": 0.22942933188732365,
         "stage2_map_at_5_given_top1": 0.19666666666666668,
         "stage2_mrr_at_5_given_top1": 0.4355345911949685,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.7730061349693251,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.57,
@@ -514,6 +534,10 @@
         "stage2_ndcg_at_5_given_top1": 0.1065930609234249,
         "stage2_map_at_5_given_top1": 0.08319767441860465,
         "stage2_mrr_at_5_given_top1": 0.1693798449612403,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.9386503067484663,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.405,
@@ -561,6 +585,10 @@
         "stage2_ndcg_at_5_given_top1": 0.2829198440960063,
         "stage2_map_at_5_given_top1": 0.24663113695090438,
         "stage2_mrr_at_5_given_top1": 0.4517441860465116,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.9386503067484663,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.405,
@@ -608,6 +636,10 @@
         "stage2_ndcg_at_5_given_top1": 0.31267163915206353,
         "stage2_map_at_5_given_top1": 0.2853972868217054,
         "stage2_mrr_at_5_given_top1": 0.4968992248062016,
+        "stage2_ndcg_at_5_pipeline": null,
+        "stage2_mrr_at_5_pipeline": null,
+        "pipeline_yield": null,
+        "n_scored": 0,
         "stage1_top1_recall": 0.9386503067484663,
         "stage1_top5_recall": 1.0,
         "empty_top1_chunk_rate": 0.405,
@@ -637,5 +669,1243 @@
       "collapsed_stages": false,
       "role": "ir_dense"
     }
-  ]
+  ],
+  "pipeline_yield": [
+    {
+      "pair_id": "lux-lux",
+      "n_examples": 200,
+      "n_scored": 119,
+      "pipeline_yield": 0.595,
+      "stage1_top1_recall": 0.9386503067484663,
+      "empty_top1_chunk_rate": 0.405
+    },
+    {
+      "pair_id": "anyjev-l0-lux",
+      "n_examples": 200,
+      "n_scored": 128,
+      "pipeline_yield": 0.64,
+      "stage1_top1_recall": 0.950920245398773,
+      "empty_top1_chunk_rate": 0.36
+    },
+    {
+      "pair_id": "kai-lux",
+      "n_examples": 200,
+      "n_scored": 94,
+      "pipeline_yield": 0.47,
+      "stage1_top1_recall": 0.8404907975460123,
+      "empty_top1_chunk_rate": 0.53
+    },
+    {
+      "pair_id": "laya-lux",
+      "n_examples": 200,
+      "n_scored": 85,
+      "pipeline_yield": 0.425,
+      "stage1_top1_recall": 0.8098159509202454,
+      "empty_top1_chunk_rate": 0.575
+    },
+    {
+      "pair_id": "ar-lux",
+      "n_examples": 200,
+      "n_scored": 86,
+      "pipeline_yield": 0.43,
+      "stage1_top1_recall": 0.7730061349693251,
+      "empty_top1_chunk_rate": 0.57
+    },
+    {
+      "pair_id": "lux-clm",
+      "n_examples": 200,
+      "n_scored": 119,
+      "pipeline_yield": 0.595,
+      "stage1_top1_recall": 0.9386503067484663,
+      "empty_top1_chunk_rate": 0.405
+    },
+    {
+      "pair_id": "lux-bm25",
+      "n_examples": 200,
+      "n_scored": 119,
+      "pipeline_yield": 0.595,
+      "stage1_top1_recall": 0.9386503067484663,
+      "empty_top1_chunk_rate": 0.405
+    },
+    {
+      "pair_id": "lux-e5",
+      "n_examples": 200,
+      "n_scored": 119,
+      "pipeline_yield": 0.595,
+      "stage1_top1_recall": 0.9386503067484663,
+      "empty_top1_chunk_rate": 0.405
+    }
+  ],
+  "routing_classes": [
+    {
+      "pair_id": "lux-lux",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 86,
+        "correct_top1_empty": 67,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 14,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.43,
+        "correct_top1_empty": 0.335,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.07,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 119,
+      "pipeline_yield": 0.595
+    },
+    {
+      "pair_id": "anyjev-l0-lux",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 95,
+        "correct_top1_empty": 60,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 12,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.475,
+        "correct_top1_empty": 0.3,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.06,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 128,
+      "pipeline_yield": 0.64
+    },
+    {
+      "pair_id": "kai-lux",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 61,
+        "correct_top1_empty": 76,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 30,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.305,
+        "correct_top1_empty": 0.38,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.15,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 94,
+      "pipeline_yield": 0.47
+    },
+    {
+      "pair_id": "laya-lux",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 52,
+        "correct_top1_empty": 80,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 35,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.26,
+        "correct_top1_empty": 0.4,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.175,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 85,
+      "pipeline_yield": 0.425
+    },
+    {
+      "pair_id": "ar-lux",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 53,
+        "correct_top1_empty": 73,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 41,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.265,
+        "correct_top1_empty": 0.365,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.205,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 86,
+      "pipeline_yield": 0.43
+    },
+    {
+      "pair_id": "lux-clm",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 86,
+        "correct_top1_empty": 67,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 14,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.43,
+        "correct_top1_empty": 0.335,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.07,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 119,
+      "pipeline_yield": 0.595
+    },
+    {
+      "pair_id": "lux-bm25",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 86,
+        "correct_top1_empty": 67,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 14,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.43,
+        "correct_top1_empty": 0.335,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.07,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 119,
+      "pipeline_yield": 0.595
+    },
+    {
+      "pair_id": "lux-e5",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 86,
+        "correct_top1_empty": 67,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 14,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.43,
+        "correct_top1_empty": 0.335,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.07,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 119,
+      "pipeline_yield": 0.595
+    }
+  ],
+  "stage2_series": {
+    "lux-lux": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.22117061292825135,
+        "stage2_mrr_at_5": 0.40525525525525524,
+        "stage2_ndcg_at_5_given_top1": 0.2325885855888534,
+        "stage2_mrr_at_5_given_top1": 0.4125968992248062
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.1227496901751795,
+        "stage2_mrr_at_5": 0.22491666666666668
+      }
+    },
+    "anyjev-l0-lux": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.23000079268681078,
+        "stage2_mrr_at_5": 0.4273611111111111,
+        "stage2_ndcg_at_5_given_top1": 0.2426607941897135,
+        "stage2_mrr_at_5_given_top1": 0.43982456140350873
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.13800047561208648,
+        "stage2_mrr_at_5": 0.2564166666666667
+      }
+    },
+    "kai-lux": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.19748356844973985,
+        "stage2_mrr_at_5": 0.39728682170542634,
+        "stage2_ndcg_at_5_given_top1": 0.2038732329882478,
+        "stage2_mrr_at_5_given_top1": 0.40437158469945356
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.08491793443338815,
+        "stage2_mrr_at_5": 0.1708333333333333
+      }
+    },
+    "laya-lux": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.21451526717476146,
+        "stage2_mrr_at_5": 0.4088744588744589,
+        "stage2_ndcg_at_5_given_top1": 0.23019915188580997,
+        "stage2_mrr_at_5_given_top1": 0.42275641025641025
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.08258837786228317,
+        "stage2_mrr_at_5": 0.15741666666666668
+      }
+    },
+    "ar-lux": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.21419325980029058,
+        "stage2_mrr_at_5": 0.41773504273504275,
+        "stage2_ndcg_at_5_given_top1": 0.22942933188732365,
+        "stage2_mrr_at_5_given_top1": 0.4355345911949685
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.08353537132211333,
+        "stage2_mrr_at_5": 0.16291666666666668
+      }
+    },
+    "lux-clm": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.1025881366755856,
+        "stage2_mrr_at_5": 0.18183183183183182,
+        "stage2_ndcg_at_5_given_top1": 0.1065930609234249,
+        "stage2_mrr_at_5_given_top1": 0.1693798449612403
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.056936415854950004,
+        "stage2_mrr_at_5": 0.10091666666666667
+      }
+    },
+    "lux-bm25": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.26484947885216487,
+        "stage2_mrr_at_5": 0.43753753753753755,
+        "stage2_ndcg_at_5_given_top1": 0.2829198440960063,
+        "stage2_mrr_at_5_given_top1": 0.4517441860465116
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.1469914607629515,
+        "stage2_mrr_at_5": 0.24283333333333335
+      }
+    },
+    "lux-e5": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.2824856232460483,
+        "stage2_mrr_at_5": 0.49594594594594593,
+        "stage2_ndcg_at_5_given_top1": 0.31267163915206353,
+        "stage2_mrr_at_5_given_top1": 0.4968992248062016
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.1567795209015568,
+        "stage2_mrr_at_5": 0.27525
+      }
+    }
+  },
+  "strata": [
+    {
+      "axis": "gold_type",
+      "bucket": "10-K",
+      "pair_id": "lux-lux",
+      "n": 72,
+      "stage2_ndcg_at_5": 0.24461286700221396
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "10-K",
+      "pair_id": "lux-bm25",
+      "n": 72,
+      "stage2_ndcg_at_5": 0.2801648118210045
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "10-K",
+      "pair_id": "lux-e5",
+      "n": 72,
+      "stage2_ndcg_at_5": 0.3257505053046497
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "10-K",
+      "pair_id": "lux-clm",
+      "n": 72,
+      "stage2_ndcg_at_5": 0.09416355960575737
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "10-Q",
+      "pair_id": "lux-lux",
+      "n": 10,
+      "stage2_ndcg_at_5": 0.2016367622430239
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "10-Q",
+      "pair_id": "lux-bm25",
+      "n": 10,
+      "stage2_ndcg_at_5": 0.28658718495439495
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "10-Q",
+      "pair_id": "lux-e5",
+      "n": 10,
+      "stage2_ndcg_at_5": 0.21563775206112093
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "10-Q",
+      "pair_id": "lux-clm",
+      "n": 10,
+      "stage2_ndcg_at_5": 0.23872269478000102
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "DEF14A",
+      "pair_id": "lux-lux",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.1870621570258717
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "DEF14A",
+      "pair_id": "lux-bm25",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.36136328632247583
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "DEF14A",
+      "pair_id": "lux-e5",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.3330999358830078
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "DEF14A",
+      "pair_id": "lux-clm",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.0
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "Earnings",
+      "pair_id": "lux-lux",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.0
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "Earnings",
+      "pair_id": "lux-bm25",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.28532085947766006
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "Earnings",
+      "pair_id": "lux-e5",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.3065735963827292
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "Earnings",
+      "pair_id": "lux-clm",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.0
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "unknown",
+      "pair_id": "lux-lux",
+      "n": 33,
+      "stage2_ndcg_at_5": 0.13779756589074277
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "unknown",
+      "pair_id": "lux-bm25",
+      "n": 33,
+      "stage2_ndcg_at_5": 0.15355107758587141
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "unknown",
+      "pair_id": "lux-e5",
+      "n": 33,
+      "stage2_ndcg_at_5": 0.1353376731283
+    },
+    {
+      "axis": "gold_type",
+      "bucket": "unknown",
+      "pair_id": "lux-clm",
+      "n": 33,
+      "stage2_ndcg_at_5": 0.06728121004774124
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "1-8",
+      "pair_id": "lux-lux",
+      "n": 1,
+      "stage2_ndcg_at_5": 1.0
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "1-8",
+      "pair_id": "lux-bm25",
+      "n": 1,
+      "stage2_ndcg_at_5": 0.43067655807339306
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "1-8",
+      "pair_id": "lux-e5",
+      "n": 1,
+      "stage2_ndcg_at_5": 0.43067655807339306
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "1-8",
+      "pair_id": "lux-clm",
+      "n": 1,
+      "stage2_ndcg_at_5": 0.5
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "129+",
+      "pair_id": "lux-lux",
+      "n": 60,
+      "stage2_ndcg_at_5": 0.192529530882483
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "129+",
+      "pair_id": "lux-bm25",
+      "n": 60,
+      "stage2_ndcg_at_5": 0.19828024513371284
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "129+",
+      "pair_id": "lux-e5",
+      "n": 60,
+      "stage2_ndcg_at_5": 0.24501706528635833
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "129+",
+      "pair_id": "lux-clm",
+      "n": 60,
+      "stage2_ndcg_at_5": 0.06308201986278489
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "33-128",
+      "pair_id": "lux-lux",
+      "n": 51,
+      "stage2_ndcg_at_5": 0.20230355785849544
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "33-128",
+      "pair_id": "lux-bm25",
+      "n": 51,
+      "stage2_ndcg_at_5": 0.2810880166100061
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "33-128",
+      "pair_id": "lux-e5",
+      "n": 51,
+      "stage2_ndcg_at_5": 0.2788382792274341
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "33-128",
+      "pair_id": "lux-clm",
+      "n": 51,
+      "stage2_ndcg_at_5": 0.13001317201246704
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "9-32",
+      "pair_id": "lux-lux",
+      "n": 7,
+      "stage2_ndcg_at_5": 0.24009781875766473
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "9-32",
+      "pair_id": "lux-bm25",
+      "n": 7,
+      "stage2_ndcg_at_5": 0.3907588627691179
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "9-32",
+      "pair_id": "lux-e5",
+      "n": 7,
+      "stage2_ndcg_at_5": 0.2862073520653333
+    },
+    {
+      "axis": "cand_size",
+      "bucket": "9-32",
+      "pair_id": "lux-clm",
+      "n": 7,
+      "stage2_ndcg_at_5": 0.06738431522672703
+    },
+    {
+      "axis": "length",
+      "bucket": "Q1(\u22643325)",
+      "pair_id": "lux-lux",
+      "n": 83,
+      "stage2_ndcg_at_5": 0.18101783590306617
+    },
+    {
+      "axis": "length",
+      "bucket": "Q1(\u22643325)",
+      "pair_id": "lux-bm25",
+      "n": 2,
+      "stage2_ndcg_at_5": 0.21533827903669653
+    },
+    {
+      "axis": "length",
+      "bucket": "Q1(\u22643325)",
+      "pair_id": "lux-e5",
+      "n": 5,
+      "stage2_ndcg_at_5": 0.2087647501677703
+    },
+    {
+      "axis": "length",
+      "bucket": "Q1(\u22643325)",
+      "pair_id": "lux-clm",
+      "n": 29,
+      "stage2_ndcg_at_5": 0.1121099977572663
+    },
+    {
+      "axis": "length",
+      "bucket": "Q2(\u22645517)",
+      "pair_id": "lux-lux",
+      "n": 11,
+      "stage2_ndcg_at_5": 0.19125325012023933
+    },
+    {
+      "axis": "length",
+      "bucket": "Q2(\u22645517)",
+      "pair_id": "lux-bm25",
+      "n": 28,
+      "stage2_ndcg_at_5": 0.15652726194968358
+    },
+    {
+      "axis": "length",
+      "bucket": "Q2(\u22645517)",
+      "pair_id": "lux-e5",
+      "n": 21,
+      "stage2_ndcg_at_5": 0.19849606023733607
+    },
+    {
+      "axis": "length",
+      "bucket": "Q2(\u22645517)",
+      "pair_id": "lux-clm",
+      "n": 59,
+      "stage2_ndcg_at_5": 0.08812898235315919
+    },
+    {
+      "axis": "length",
+      "bucket": "Q3(\u22646000)",
+      "pair_id": "lux-lux",
+      "n": 25,
+      "stage2_ndcg_at_5": 0.29686687615035107
+    },
+    {
+      "axis": "length",
+      "bucket": "Q3(\u22646000)",
+      "pair_id": "lux-bm25",
+      "n": 89,
+      "stage2_ndcg_at_5": 0.2762342950553457
+    },
+    {
+      "axis": "length",
+      "bucket": "Q3(\u22646000)",
+      "pair_id": "lux-e5",
+      "n": 93,
+      "stage2_ndcg_at_5": 0.2811146576826716
+    },
+    {
+      "axis": "length",
+      "bucket": "Q3(\u22646000)",
+      "pair_id": "lux-clm",
+      "n": 31,
+      "stage2_ndcg_at_5": 0.09472526700622216
+    }
+  ],
+  "win_loss": [
+    {
+      "challenger_pair_id": "lux-e5",
+      "baseline_pair_id": "lux-lux",
+      "metric": "stage2_ndcg_at_5",
+      "tie_epsilon": 0.01,
+      "n_compared": 111,
+      "wins": 51,
+      "losses": 34,
+      "ties": 26,
+      "sample_wins": [
+        {
+          "example_id": "dev:q25119b32a2f9",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q25119b32a2f9"
+        },
+        {
+          "example_id": "dev:q84038a74fd59",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q84038a74fd59"
+        },
+        {
+          "example_id": "dev:qa602975e3d19",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qa602975e3d19"
+        },
+        {
+          "example_id": "dev:q7c284aabbba4",
+          "delta": 0.9520727775370875,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q7c284aabbba4"
+        },
+        {
+          "example_id": "dev:q4d8ac905167b",
+          "delta": 0.9026211001048622,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q4d8ac905167b"
+        }
+      ],
+      "sample_losses": [
+        {
+          "example_id": "dev:qe1811f4fd3dc",
+          "delta": -1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qe1811f4fd3dc"
+        },
+        {
+          "example_id": "dev:q8ba6a388d681",
+          "delta": -0.8318724637288826,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q8ba6a388d681"
+        },
+        {
+          "example_id": "dev:q31f6fd1f392c",
+          "delta": -0.7817304474156231,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q31f6fd1f392c"
+        },
+        {
+          "example_id": "dev:qa5c748248a5b",
+          "delta": -0.6716210907767882,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qa5c748248a5b"
+        },
+        {
+          "example_id": "dev:qdec70f55027f",
+          "delta": -0.5934398852259766,
+          "href": "paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qdec70f55027f"
+        }
+      ]
+    },
+    {
+      "challenger_pair_id": "lux-bm25",
+      "baseline_pair_id": "lux-lux",
+      "metric": "stage2_ndcg_at_5",
+      "tie_epsilon": 0.01,
+      "n_compared": 111,
+      "wins": 51,
+      "losses": 37,
+      "ties": 23,
+      "sample_wins": [
+        {
+          "example_id": "dev:q25119b32a2f9",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q25119b32a2f9"
+        },
+        {
+          "example_id": "dev:q84038a74fd59",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q84038a74fd59"
+        },
+        {
+          "example_id": "dev:q9dd3907388e3",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q9dd3907388e3"
+        },
+        {
+          "example_id": "dev:q4d8ac905167b",
+          "delta": 0.8304198973631919,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q4d8ac905167b"
+        },
+        {
+          "example_id": "dev:q9a5cfe35fecd",
+          "delta": 0.7557415207297861,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q9a5cfe35fecd"
+        }
+      ],
+      "sample_losses": [
+        {
+          "example_id": "dev:qe1811f4fd3dc",
+          "delta": -1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qe1811f4fd3dc"
+        },
+        {
+          "example_id": "dev:qf8cbcec9fec6",
+          "delta": -1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qf8cbcec9fec6"
+        },
+        {
+          "example_id": "dev:qdec70f55027f",
+          "delta": -0.7726578571095908,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qdec70f55027f"
+        },
+        {
+          "example_id": "dev:qa5c748248a5b",
+          "delta": -0.7429498456882975,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qa5c748248a5b"
+        },
+        {
+          "example_id": "dev:chunk-only:qb7d1dfae8271",
+          "delta": -0.6992148198508501,
+          "href": "paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:chunk-only:qb7d1dfae8271"
+        }
+      ]
+    },
+    {
+      "challenger_pair_id": "lux-clm",
+      "baseline_pair_id": "lux-lux",
+      "metric": "stage2_ndcg_at_5",
+      "tie_epsilon": 0.01,
+      "n_compared": 111,
+      "wins": 19,
+      "losses": 48,
+      "ties": 44,
+      "sample_wins": [
+        {
+          "example_id": "dev:q3ef7ce37ae77",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q3ef7ce37ae77"
+        },
+        {
+          "example_id": "dev:q84038a74fd59",
+          "delta": 1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q84038a74fd59"
+        },
+        {
+          "example_id": "dev:q7c284aabbba4",
+          "delta": 0.6061680178534535,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q7c284aabbba4"
+        },
+        {
+          "example_id": "dev:chunk-only:q7b219decf5da",
+          "delta": 0.33916020527361607,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:chunk-only:q7b219decf5da"
+        },
+        {
+          "example_id": "dev:q4bf1699a63fe",
+          "delta": 0.3156484524795145,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q4bf1699a63fe"
+        }
+      ],
+      "sample_losses": [
+        {
+          "example_id": "dev:qe1811f4fd3dc",
+          "delta": -1.0,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:qe1811f4fd3dc"
+        },
+        {
+          "example_id": "dev:qa5c748248a5b",
+          "delta": -0.8687949224876582,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:qa5c748248a5b"
+        },
+        {
+          "example_id": "dev:q8ba6a388d681",
+          "delta": -0.8318724637288826,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q8ba6a388d681"
+        },
+        {
+          "example_id": "dev:chunk-only:qb7d1dfae8271",
+          "delta": -0.6992148198508501,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:chunk-only:qb7d1dfae8271"
+        },
+        {
+          "example_id": "dev:qeccd6f3b9d06",
+          "delta": -0.6729603335076003,
+          "href": "paper-n200-full.inspect.html#pair-lux-clm-ex-dev:qeccd6f3b9d06"
+        }
+      ]
+    }
+  ],
+  "uncertainty": {
+    "bootstrap": [
+      {
+        "pair_id": "lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.8413316040194614,
+        "ci_low": 0.8191292844478417,
+        "ci_high": 0.8631436503350975,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-lux",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.22117061292825135,
+        "ci_low": 0.17124412015974663,
+        "ci_high": 0.27859540028429886,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-lux",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.40525525525525524,
+        "ci_low": 0.3244744744744745,
+        "ci_high": 0.4957957957957958,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "anyjev-l0-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.8624832020116757,
+        "ci_low": 0.8403067789365192,
+        "ci_high": 0.884916633342599,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "anyjev-l0-lux",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.23000079268681078,
+        "ci_low": 0.18279554820761318,
+        "ci_high": 0.28227104816609216,
+        "n": 120,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "anyjev-l0-lux",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.4273611111111111,
+        "ci_low": 0.3488888888888889,
+        "ci_high": 0.5086111111111111,
+        "n": 120,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:anyjev-l0-lux-vs-lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.021151597992214333,
+        "ci_low": -0.008938681749714683,
+        "ci_high": 0.05273297974316549,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:anyjev-l0-lux-vs-lux-lux",
+        "metric": "stage2_ndcg_at_5",
+        "point": 0.008830179758559431,
+        "ci_low": -0.0624100317147496,
+        "ci_high": 0.08444413099410439,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "kai-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.7829588507699806,
+        "ci_low": 0.7585009298311793,
+        "ci_high": 0.806353844013011,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "kai-lux",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.19748356844973985,
+        "ci_low": 0.1450333271273587,
+        "ci_high": 0.25440042173449656,
+        "n": 86,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "kai-lux",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.39728682170542634,
+        "ci_low": 0.29941860465116277,
+        "ci_high": 0.498062015503876,
+        "n": 86,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:kai-lux-vs-lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": -0.05837275324948077,
+        "ci_low": -0.08889558631411942,
+        "ci_high": -0.026432299835288164,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:kai-lux-vs-lux-lux",
+        "metric": "stage2_ndcg_at_5",
+        "point": -0.0236870444785115,
+        "ci_low": -0.09844703114700945,
+        "ci_high": 0.052111431950868425,
+        "n": 86,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "laya-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.7508675936187531,
+        "ci_low": 0.7285245657097449,
+        "ci_high": 0.7739891121710011,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "laya-lux",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.21451526717476146,
+        "ci_low": 0.1576305948909246,
+        "ci_high": 0.27912441405686916,
+        "n": 77,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "laya-lux",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.4088744588744589,
+        "ci_low": 0.3064935064935065,
+        "ci_high": 0.5147186147186147,
+        "n": 77,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:laya-lux-vs-lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": -0.09046401040070828,
+        "ci_low": -0.12211333391083734,
+        "ci_high": -0.05749676859419861,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:laya-lux-vs-lux-lux",
+        "metric": "stage2_ndcg_at_5",
+        "point": -0.0066553457534898885,
+        "ci_low": -0.09027736539605785,
+        "ci_high": 0.07420946501672321,
+        "n": 77,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "ar-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.7771820608943498,
+        "ci_low": 0.7532850872876673,
+        "ci_high": 0.8034072810262591,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "ar-lux",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.21419325980029058,
+        "ci_low": 0.15226894484958775,
+        "ci_high": 0.2736855972429859,
+        "n": 78,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "ar-lux",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.41773504273504275,
+        "ci_low": 0.3173076923076923,
+        "ci_high": 0.5128205128205128,
+        "n": 78,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:ar-lux-vs-lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": -0.06414954312511156,
+        "ci_low": -0.09598361696841173,
+        "ci_high": -0.03001962257482782,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:ar-lux-vs-lux-lux",
+        "metric": "stage2_ndcg_at_5",
+        "point": -0.0069773531279607726,
+        "ci_low": -0.08559646754810149,
+        "ci_high": 0.07283359271760273,
+        "n": 78,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-clm",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.8413316040194614,
+        "ci_low": 0.8191292844478417,
+        "ci_high": 0.8631436503350975,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-clm",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.1025881366755856,
+        "ci_low": 0.06638491866110918,
+        "ci_high": 0.1410528579903402,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-clm",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.18183183183183182,
+        "ci_low": 0.12222222222222222,
+        "ci_high": 0.240990990990991,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:lux-clm-vs-lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.0,
+        "ci_low": -0.03149559885170672,
+        "ci_high": 0.031234506327748934,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:lux-clm-vs-lux-lux",
+        "metric": "stage2_ndcg_at_5",
+        "point": -0.11858247625266576,
+        "ci_low": -0.18642699495062412,
+        "ci_high": -0.05939051603164612,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-bm25",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.8413316040194614,
+        "ci_low": 0.8191292844478417,
+        "ci_high": 0.8631436503350975,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-bm25",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.26484947885216487,
+        "ci_low": 0.21901718794846525,
+        "ci_high": 0.31390946069964515,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-bm25",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.43753753753753755,
+        "ci_low": 0.3666666666666667,
+        "ci_high": 0.517117117117117,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:lux-bm25-vs-lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.0,
+        "ci_low": -0.03149559885170672,
+        "ci_high": 0.031234506327748934,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:lux-bm25-vs-lux-lux",
+        "metric": "stage2_ndcg_at_5",
+        "point": 0.04367886592391351,
+        "ci_low": -0.03361945270999456,
+        "ci_high": 0.11360914482789261,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-e5",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.8413316040194614,
+        "ci_low": 0.8191292844478417,
+        "ci_high": 0.8631436503350975,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-e5",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.2824856232460483,
+        "ci_low": 0.2311605781743601,
+        "ci_high": 0.33381289813595694,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-e5",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.49594594594594593,
+        "ci_low": 0.424024024024024,
+        "ci_high": 0.5741741741741742,
+        "n": 111,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:lux-e5-vs-lux-lux",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.0,
+        "ci_low": -0.03149559885170672,
+        "ci_high": 0.031234506327748934,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "delta:lux-e5-vs-lux-lux",
+        "metric": "stage2_ndcg_at_5",
+        "point": 0.06131501031779696,
+        "ci_low": -0.015758444391190063,
+        "ci_high": 0.13158526617540778,
+        "n": 111,
+        "n_resamples": 1000
+      }
+    ],
+    "multi_seed": []
+  },
+  "synthesis_reuse": null
 }

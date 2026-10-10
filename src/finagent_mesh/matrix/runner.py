@@ -72,6 +72,10 @@ class MatrixRunner:
                 stage2_ndcg_at_5_given_top1=m.get("stage2_ndcg_at_5_given_top1"),
                 stage2_map_at_5_given_top1=m.get("stage2_map_at_5_given_top1"),
                 stage2_mrr_at_5_given_top1=m.get("stage2_mrr_at_5_given_top1"),
+                stage2_ndcg_at_5_pipeline=m.get("stage2_ndcg_at_5_pipeline"),
+                stage2_mrr_at_5_pipeline=m.get("stage2_mrr_at_5_pipeline"),
+                pipeline_yield=m.get("pipeline_yield"),
+                n_scored=int(m.get("n_scored") or 0),
                 stage1_top1_recall=m.get("stage1_top1_recall"),
                 stage1_top5_recall=m.get("stage1_top5_recall"),
                 empty_top1_chunk_rate=m.get("empty_top1_chunk_rate"),
@@ -444,10 +448,83 @@ class MatrixRunner:
             n_synthesis_attempted=n_synth_attempted,
             n_synthesis_failed=n_synth_failed,
             n_empty_top1=int(paper.get("n_empty_top1") or 0),
+            n_scored=int(paper.get("n_scored") or 0),
+            pipeline_yield=paper.get("pipeline_yield"),
+            stage2_ndcg_at_5_pipeline=paper.get("stage2_ndcg_at_5_pipeline"),
+            stage2_mrr_at_5_pipeline=paper.get("stage2_mrr_at_5_pipeline"),
             blocks=list(blocks or []),
         )
         _ = (stage1_id, stage2_id, variable_id)
         return metrics
+
+    def synthesis_from_rankings(
+        self,
+        source_matrix_run_id: str,
+        *,
+        new_run_id: str,
+        pair_ids: list[str],
+        gemini_model: str | None = None,
+    ) -> MatrixRun:
+        """Attach Gemini synthesis to saved rankings (no Choice/Score re-inference).
+
+        Reuses each pair's existing ``eval_run_id`` ledger entries (``ranking_complete``
+        / ``synthesis_retriable``) and runs synthesis resume only.
+        """
+        from copy import deepcopy
+
+        source = self.load(source_matrix_run_id)
+        matrix = deepcopy(source)
+        matrix.matrix_run_id = new_run_id
+        matrix.synthesis_enabled = True
+        if gemini_model:
+            matrix.gemini_model = gemini_model
+        wanted = set(pair_ids)
+        matrix.rows = [r for r in matrix.rows if r.variable_config_id in wanted]
+        if not matrix.rows:
+            raise ValueError(f"No matching pairs in {source_matrix_run_id} for {pair_ids}")
+        path = Path(matrix.dataset_path)
+        for row in matrix.rows:
+            progress_log(
+                f"synthesis-reuse {row.variable_config_id} "
+                f"eval_run_id={row.eval_run_id} (no Stage-1/2 engines)"
+            )
+            harness = Harness(
+                self.settings,
+                stage1_engine=row.stage1_engine_id,
+                stage2_engine=row.stage2_engine_id,
+                gemini_model=matrix.gemini_model,
+                allow_mock=True,
+                port_overrides={},
+            )
+            try:
+                harness.run(
+                    row.eval_run_id,
+                    skip_synthesis=False,
+                    example_ids=matrix.selected_example_ids,
+                    dataset_path=path,
+                )
+                row.metrics = self._metrics_for_run(
+                    row.eval_run_id,
+                    stage1_id=row.stage1_engine_id,
+                    stage2_id=row.stage2_engine_id,
+                    variable_id=row.variable_config_id,
+                    synthesis_enabled=True,
+                    blocks=list(row.blocks),
+                )
+                row.status = "completed"
+                row.error = None
+            except Exception as exc:  # noqa: BLE001
+                row.status = "failed"
+                row.error = str(exc)
+                progress_log(f"synthesis-reuse {row.variable_config_id} FAILED: {exc}")
+            self.save(matrix)
+        matrix.status = (
+            "completed"
+            if all(r.status == "completed" for r in matrix.rows)
+            else "failed"
+        )
+        self.save(matrix)
+        return matrix
 
     def export(
         self, matrix_run_id: str, *, out: Path | None = None, fmt: str = "json"
