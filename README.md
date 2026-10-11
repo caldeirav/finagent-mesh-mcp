@@ -87,7 +87,8 @@ Survey latency / composite figures are **not** FinAgentBench scores — they gui
 | `lux-clm` / `lux-bm25` / `lux-e5` | B | Lux | CLM / BM25 / E5 | Required |
 | `lux-clm-shortlist` / `one-shot-ar` | B | Lux / noop | shortlist-CLM / AR | Optional (`--include-optional`) |
 
-Deferred train/CE ceilings: issues [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1), [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2).
+Deferred trained CLM heads: issue [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1).
+Optional P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/) (closes [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)).
 
 ### Out of the default matrix
 
@@ -155,7 +156,7 @@ uv run python scripts/run_benchmark.py --real --with-synthesis \
   --run-id paper-n200-full-synth
 ```
 
-Spec: [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/). Deferred ceilings remain [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) / [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2).
+Spec: [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/). Trained CLM-ft remains deferred [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1). CE ceiling + champions: [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/).
 
 ---
 

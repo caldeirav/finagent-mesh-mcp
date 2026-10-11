@@ -7,6 +7,14 @@ Paper / production (real models + ranking-only default):
 
 Smoke:
   ... run_benchmark.py --real --records 10 --seed 42 --run-id paper-smoke-10
+
+P1 Stage-2 ceilings (005 — S8 / S2b / S7), ranking-only:
+  --pairs anyjev-l0-e5,anyjev-l0-bm25 --records 5 --skip-synthesis
+  --pairs lux-lux-shortlist --records 5 --skip-synthesis
+  --pairs lux-e5-ce --records 5 --skip-synthesis
+  Full: --pairs anyjev-l0-e5,anyjev-l0-bm25,lux-lux-shortlist,lux-e5-ce \\
+        --records 200 --seed 42 --run-id paper-p1-ceilings-n200
+  See specs/005-s2-approach-ceilings/quickstart.md
 """
 
 from __future__ import annotations
@@ -62,7 +70,10 @@ def main(
     include_optional: bool = typer.Option(
         False,
         "--include-optional",
-        help="Include optional Block B rows (lux-clm-shortlist, one-shot-ar).",
+        help=(
+            "Include optional rows (lux-clm-shortlist, one-shot-ar, P1 champions "
+            "anyjev-l0-e5/bm25, lux-lux-shortlist, lux-e5-ce)."
+        ),
     ),
     list_pairs: bool = typer.Option(False, "--list-pairs"),
     run_id: Optional[str] = typer.Option(None, "--run-id"),

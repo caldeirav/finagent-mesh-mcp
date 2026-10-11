@@ -195,6 +195,12 @@ def build_interpretation_markdown(matrix: MatrixRun) -> str:
             "`lux-lux` is the shared long-context control; `lux-bm25` / `lux-e5` / `lux-clm` "
             "are Score ablations; `kai-lux` / `laya-lux` are latency/edge Choice routers."
         )
+        lines.append(
+            "- **Champion / compound** pairs (`anyjev-l0-e5`, `anyjev-l0-bm25`) combine "
+            "AnyJev Choice with E5/BM25 Score — not an orthogonal Block A Score bake-off. "
+            "Optional P1 ceilings: `lux-lux-shortlist` (BM25→Lux), `lux-e5-ce` "
+            "(E5→CrossEncoder IR ceiling)."
+        )
         if matrix.partner_ids.get("binding") == "legacy-engines":
             lines.append(
                 "- This run used **legacy `--engines` ablation** (one variable + fixed partner). "

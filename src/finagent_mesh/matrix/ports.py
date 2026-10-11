@@ -27,8 +27,12 @@ def sidecar_dependencies(registry: EngineRegistry, config_id: str) -> list[str]:
     if not config_id:
         return []
     cfg = registry.get(config_id)
-    if cfg.backend == "clm_shortlist" or cfg.family == "hybrid-ir":
+    if cfg.backend == "clm_shortlist":
         return ["clm-8b"]
+    if cfg.backend == "lux_shortlist":
+        return ["decision20-lux"]
+    if cfg.backend == "e5_ce_shortlist":
+        return []
     return []
 
 

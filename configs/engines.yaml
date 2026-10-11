@@ -1,4 +1,5 @@
 # Engine registry — paper Block A/B Choice×Score matrix (see specs/003-choice-score-paper/)
+# P1 ceilings (S8/S2b/S7): specs/005-s2-approach-ceilings/contracts/matrix-pairs-p1.md
 # Ports: registry defaults are templates. Matrix runner rebinds S1→:8000 / S2→:8001
 # when a pair needs two different sidecars (Block A Choice×Lux Score).
 version: 1
@@ -171,6 +172,38 @@ engines:
     model_revision: clm-shortlist-32
     backend: clm_shortlist
 
+  - config_id: lux-score-shortlist-32
+    family: hybrid-ir
+    display_name: BM25 top-32 then Lux Score
+    primitives: [score]
+    primary_stages: [stage2]
+    base_url: http://localhost:8000
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: false
+    is_light_edge: false
+    calibration_ref: null
+    container_ref: containers/vllm-sr
+    weights_ref: ${DECISION20_LUX_WEIGHTS:-vllm-sr/Decision-2.0-Lux-9B}
+    model_revision: lux-score-shortlist-32
+    backend: lux_shortlist
+
+  - config_id: e5-ce-shortlist-32
+    family: hybrid-ir
+    display_name: E5 shortlist then CrossEncoder rerank
+    primitives: [score]
+    primary_stages: [stage2]
+    base_url: http://localhost:8703
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: false
+    is_light_edge: false
+    calibration_ref: null
+    container_ref: ""
+    weights_ref: ${CE_WEIGHTS:-cross-encoder/ms-marco-MiniLM-L6-v2}
+    model_revision: e5-ce-shortlist-32
+    backend: e5_ce_shortlist
+
   - config_id: noop-choice
     family: noop
     display_name: No-op Choice (collapsed-stage placeholder)
@@ -188,8 +221,8 @@ engines:
     backend: noop_inprocess
 
 # Paper matrix: Block A (Choice×Lux Score) + Block B (Lux Choice×Score).
-# Default --real runs optional=false only; --include-optional adds shortlist + one-shot.
-# Deferred (not runnable): lux-clm-ft (#1), lux-e5-ce (#2)
+# Default --real runs optional=false only; --include-optional adds shortlist + one-shot + P1.
+# Deferred (not runnable): lux-clm-ft (#1). CE ceiling lux-e5-ce is optional (005 / #2).
 matrix_pairs:
   - pair_id: lux-lux
     stage1: decision20-lux
@@ -264,6 +297,39 @@ matrix_pairs:
     optional: true
     rationale: BM25 top-32 then CLM Score.
 
+  - pair_id: lux-lux-shortlist
+    stage1: decision20-lux
+    stage2: lux-score-shortlist-32
+    blocks: [B]
+    role: optional
+    optional: true
+    rationale: BM25 top-32 then Lux ordinal Score (S2b shortlist hypothesis).
+
+  - pair_id: lux-e5-ce
+    stage1: decision20-lux
+    stage2: e5-ce-shortlist-32
+    blocks: [B]
+    role: ir_ceiling
+    optional: true
+    rationale: >
+      E5 shortlist then pretrained CrossEncoder rerank (S7 IR ceiling; issue #2).
+
+  - pair_id: anyjev-l0-e5
+    stage1: anyjev-l0
+    stage2: e5-base
+    blocks: []
+    role: champion
+    optional: true
+    rationale: Champion compound — best Choice router × E5 dense Score (S8).
+
+  - pair_id: anyjev-l0-bm25
+    stage1: anyjev-l0
+    stage2: bm25-stage2
+    blocks: []
+    role: champion
+    optional: true
+    rationale: Champion compound — best Choice router × BM25 Score (S8).
+
   - pair_id: one-shot-ar
     stage1: noop-choice
     stage2: ar-qwen3-8b-instruct
@@ -289,9 +355,6 @@ deferred_pairs:
   - pair_id: lux-clm-ft
     issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/1
     rationale: Trained dual-encoder heads on held-out FinAgentBench split.
-  - pair_id: lux-e5-ce
-    issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/2
-    rationale: Dense shortlist then cross-encoder Stage-2 ceiling.
 
 ports:
   stage1_default: 8000

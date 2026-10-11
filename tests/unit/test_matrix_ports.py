@@ -38,3 +38,16 @@ def test_clm_shortlist_starts_clm_sidecar() -> None:
     reg = load_registry(Path("configs/engines.yaml"))
     plan = plan_engine_ports(reg, "decision20-lux", "clm-shortlist-32")
     assert plan == {"decision20-lux": 8000, "clm-8b": 8001}
+
+
+def test_lux_shortlist_does_not_start_clm() -> None:
+    reg = load_registry(Path("configs/engines.yaml"))
+    plan = plan_engine_ports(reg, "decision20-lux", "lux-score-shortlist-32")
+    assert plan == {"decision20-lux": 8000}
+    assert "clm-8b" not in plan
+
+
+def test_e5_ce_shortlist_inprocess_only_choice_sidecar() -> None:
+    reg = load_registry(Path("configs/engines.yaml"))
+    plan = plan_engine_ports(reg, "decision20-lux", "e5-ce-shortlist-32")
+    assert plan == {"decision20-lux": 8000}

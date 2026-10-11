@@ -105,7 +105,7 @@
 
 ## 10. Deferred work
 
-**Decision**: Do not implement trained CLM heads or cross-encoder rows. Analysis report lists them as deferred with links to GitHub issues [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) and [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2).
+**Decision**: Do not implement trained CLM heads or cross-encoder rows *in 003*. Analysis originally listed them as deferred ([#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1), [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)). Cross-encoder ceiling is delivered in feature `005-s2-approach-ceilings`; #1 remains deferred.
 
 **Rationale**: Clarification 2026-10-05.
 
