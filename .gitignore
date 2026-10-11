@@ -218,9 +218,15 @@ artifacts/benchmarks/*
 !artifacts/benchmarks/paper-n200-full.json
 !artifacts/benchmarks/paper-n200-full.csv
 !artifacts/benchmarks/paper-n200-full.md
+!artifacts/benchmarks/paper-p1-ceilings-n200.analysis.md
+!artifacts/benchmarks/paper-p1-ceilings-n200.analysis.json
+!artifacts/benchmarks/paper-p1-ceilings-n200.json
+!artifacts/benchmarks/paper-p1-ceilings-n200.csv
+!artifacts/benchmarks/paper-p1-ceilings-n200.md
 !artifacts/matrix_runs/
 artifacts/matrix_runs/*
 !artifacts/matrix_runs/paper-n200-full.json
+!artifacts/matrix_runs/paper-p1-ceilings-n200.json
 # Large inspect dumps stay local-only (regenerate with --inspect-from / --analysis-from)
 
 # Large FinAgentBench dumps (download via scripts/download_finagentbench_kaggle.py)

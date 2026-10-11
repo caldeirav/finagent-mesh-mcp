@@ -19,7 +19,7 @@ Institutional questions over SEC filings need **document structure** and **passa
 
 | Doc | Audience | Contents |
 |---|---|---|
-| [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md) | Developers & architects | Short note: agent shape, FinAgentBench, MCP, performance/safety — with plain-language takeaways from `paper-n200-full` |
+| [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md) | Developers & architects | Short note: agent shape, FinAgentBench, MCP, performance/safety — takeaways from `paper-n200-full` + P1 ceilings |
 | [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md) | Deeper survey | System-1 landscape, trade-offs, failure modes |
 
 ---
@@ -91,9 +91,12 @@ Survey latency / composite figures are **not** FinAgentBench scores — they gui
 | `ar-lux` | A | Qwen3-8B JSON | Lux | Required baseline |
 | `lux-clm` / `lux-bm25` / `lux-e5` | B | Lux | CLM / BM25 / E5 | Required |
 | `lux-clm-shortlist` / `one-shot-ar` | B | Lux / noop | shortlist-CLM / AR | Optional (`--include-optional`) |
+| `anyjev-l0-e5` / `anyjev-l0-bm25` | champion | AnyJev L0 | E5 / BM25 | Opt-in P1 (S8) |
+| `lux-lux-shortlist` | B optional | Lux | BM25→Lux Score (k=32) | Opt-in P1 (S2b) |
+| `lux-e5-ce` | B baseline | Lux | E5→CrossEncoder (k=32) | Opt-in P1 (S7; [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)) |
 
 Deferred trained CLM heads: issue [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1).
-Optional P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/) (closes [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)).
+P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/); measured in `paper-p1-ceilings-n200` (see below).
 
 ### Out of the default matrix
 
@@ -163,7 +166,45 @@ uv run python scripts/run_benchmark.py --real --with-synthesis \
   --run-id paper-n200-full-synth
 ```
 
-Spec: [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/). Trained CLM-ft remains deferred [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1). CE ceiling + champions: [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/).
+Spec: [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/). Trained CLM-ft remains deferred [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1).
+
+---
+
+## Results: paper-p1-ceilings-n200 (N=200, seed=42)
+
+P1 Stage-2 approach ceilings on the **same example IDs** as `paper-n200-full` (ranking-only). Matrix state merges the four P1 pairs with published baselines so Champion / P1 Δ columns and bootstrap CIs are filled. Spec: [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/).
+
+### Headline findings
+
+| Question | Winner | Key numbers |
+|---|---|---|
+| **Best Stage-2 scorer (incl. P1)** | `lux-lux-shortlist` | S2 nDCG@5 **0.3517** scored (+0.131 vs lux-lux; bootstrap 95% CI excludes 0); S2\|Top-1 0.3735 |
+| **Champion compound (S8)** | `anyjev-l0-e5` | S2 **0.2868** (+0.057 vs anyjev-l0-lux; +0.004 vs lux-e5). `anyjev-l0-bm25` 0.2740 |
+| **Pretrained CE “ceiling” (S7)** | does **not** beat E5 | `lux-e5-ce` S2 **0.2496** (−0.033 vs lux-e5; +0.028 vs lux-lux) |
+
+**Takeaway:** BM25 shortlist → Lux Score is the Stage-2 win on this sample. Best Choice × classical IR helps vs Lux Score alone, but barely moves the needle vs Lux Choice × the same IR head. Off-the-shelf CrossEncoder is a useful baseline, not an IR ceiling here.
+
+Rebuild (no engines; baselines already merged into matrix state):
+
+```bash
+uv run python scripts/run_benchmark.py --analysis-from paper-p1-ceilings-n200 \
+  --multi-seed-from paper-n200-s7-core,paper-n200-s123-core
+```
+
+| Artifact | Path |
+|---|---|
+| **Analysis** | [`artifacts/benchmarks/paper-p1-ceilings-n200.analysis.md`](artifacts/benchmarks/paper-p1-ceilings-n200.analysis.md) |
+| Analysis JSON | [`artifacts/benchmarks/paper-p1-ceilings-n200.analysis.json`](artifacts/benchmarks/paper-p1-ceilings-n200.analysis.json) |
+| Matrix tables | [`artifacts/benchmarks/paper-p1-ceilings-n200.json`](artifacts/benchmarks/paper-p1-ceilings-n200.json) · [`.csv`](artifacts/benchmarks/paper-p1-ceilings-n200.csv) · [`.md`](artifacts/benchmarks/paper-p1-ceilings-n200.md) |
+| Matrix state | [`artifacts/matrix_runs/paper-p1-ceilings-n200.json`](artifacts/matrix_runs/paper-p1-ceilings-n200.json) |
+
+Full re-run:
+
+```bash
+uv run python scripts/run_benchmark.py --real --skip-synthesis \
+  --pairs anyjev-l0-e5,anyjev-l0-bm25,lux-lux-shortlist,lux-e5-ce \
+  --records 200 --seed 42 --run-id paper-p1-ceilings-n200
+```
 
 ---
 
@@ -360,7 +401,8 @@ Stop leftovers: `bash scripts/serve_engine.sh stop-all`.
 - `src/finagent_mesh/runtime/harness.py` / `tracing.py` — ledger + MLflow
 - `src/finagent_mesh/matrix/` — report, analysis, inspect, merge
 - `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM
-- `artifacts/benchmarks/paper-n200-full.*` — published N=200 analysis (inspect HTML/JSON local-only)
+- `artifacts/benchmarks/paper-n200-full.*` — published N=200 required-matrix analysis (inspect HTML/JSON local-only)
+- `artifacts/benchmarks/paper-p1-ceilings-n200.*` — published P1 ceilings analysis (inspect local-only)
 - Architecture (short): [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md)
 - Survey (long): [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md)
 - Specs: [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/005-s2-approach-ceilings/`](specs/005-s2-approach-ceilings/) · [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)

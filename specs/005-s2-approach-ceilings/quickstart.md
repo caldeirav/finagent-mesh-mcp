@@ -41,8 +41,11 @@ Compare against published `paper-n200-full` references for `anyjev-l0-lux`, `lux
 
 ## 4. Analysis
 
+Published matrix state merges P1 rows with `paper-n200-full` baselines (`lux-lux`, `anyjev-l0-lux`, `lux-e5`, `lux-bm25`) so Champion / P1 Δ columns fill. Rebuild:
+
 ```bash
-uv run python scripts/run_benchmark.py --analysis-from paper-p1-ceilings-n200
+uv run python scripts/run_benchmark.py --analysis-from paper-p1-ceilings-n200 \
+  --multi-seed-from paper-n200-s7-core,paper-n200-s123-core
 ```
 
 Check Champion + P1 ceilings sections; limitations show #1 deferred, #2 delivered.

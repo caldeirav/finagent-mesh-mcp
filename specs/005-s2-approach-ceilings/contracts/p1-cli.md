@@ -36,10 +36,11 @@ uv run python scripts/run_benchmark.py --real --skip-synthesis \
   --records 200 --seed 42 --run-id paper-p1-ceilings-n200
 ```
 
-Analysis rebuild:
+Analysis rebuild (merge baselines into matrix state first if Δ columns are blank):
 
 ```bash
-uv run python scripts/run_benchmark.py --analysis-from paper-p1-ceilings-n200
+uv run python scripts/run_benchmark.py --analysis-from paper-p1-ceilings-n200 \
+  --multi-seed-from paper-n200-s7-core,paper-n200-s123-core
 ```
 
 ## Env

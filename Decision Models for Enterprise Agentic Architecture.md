@@ -70,16 +70,22 @@ Importantly, many empties were **not** “wrong filing type.” Quite often the 
 
 So if your agent “feels broken,” measure **yield** (fraction of requests that reach a ranked evidence set) separately from “was the answer eloquent?”
 
-### 3. After type routing, classical search still set the pace
+### 3. After type routing, shortlist then Score beat raw Score—and classical IR stayed strong
 
-When we held Choice fixed at Lux and only swapped Stage-2:
+When we held Choice fixed at Lux and only swapped Stage-2 (required matrix, same 200 questions):
 
 - General **dense retrieval (E5)** ranked passages best among the required rows.
 - Simple **BM25** was close behind—and essentially free at runtime.
 - Lux’s own **Score** head was competitive but behind E5/BM25 on this sample.
 - Zero-shot **CLM Action Cache** was clearly weaker until you shortlist (an optional BM25→CLM path improved CLM but still did not beat E5/BM25).
 
-Translation for product design: **do not assume the same decision family that wins Choice also wins long passage lists.** A strong pattern we are exploring next is “best router × proven search” (for example AnyJev Choice with E5 or BM25 Score), plus shortlisting before an expensive Score head.
+A follow-on **P1 ceilings** run on the same sample (`paper-p1-ceilings-n200`) sharpens the product pattern:
+
+- **BM25 top-32 → Lux Score** (`lux-lux-shortlist`) raised Stage-2 nDCG@5 to **~0.35**—well above full-list Lux Score (~0.22) and above E5 (~0.28). Shortlist before the expensive Score head mattered more than swapping Choice alone.
+- **Best Choice × classical IR** (AnyJev × E5 / BM25) beat AnyJev × Lux Score, but was only a small lift over Lux Choice × the same IR head—routing quality and scorer quality do not multiply cleanly on this task.
+- A pretrained **CrossEncoder** after an E5 shortlist (`lux-e5-ce`) did **not** set an IR ceiling here; it underperformed plain E5. Treat off-the-shelf CE as a baseline, not a guaranteed upgrade.
+
+Translation for product design: **do not assume the same decision family that wins Choice also wins long passage lists.** Prefer “good router × proven search,” and **shortlist before heavy Score** when candidate lists are long.
 
 A one-shot generative ranker that skips the two-stage design and ranks all chunks in one go can look competitive on passage metrics—but it **collapses** the typed Choice→Score contract we want for MCP gating and audit. Treat it as a baseline, not as the production architecture.
 
@@ -102,7 +108,7 @@ Decision models are a **control plane** optimization:
 
 In our agent, Stage 1 and Stage 2 are exactly those discrete decisions. Generative System-2 runs **after** evidence is selected, on a short list of passages. That is the enterprise performance pattern: **cheap, local, typed decisions on the loop; expensive generation at the edge.**
 
-The FinAgentBench matrix sharpens that story: **pay for a good Choice router** (AnyJev / Lux beat JSON chat), then **pair it with an efficient passage ranker** (E5 or BM25 on this task) instead of assuming one heavy model should own both hops. Tiny routers remain attractive for high-frequency, short-context gates—just not as drop-in winners for long SEC-type triage in our sample.
+The FinAgentBench matrix sharpens that story: **pay for a good Choice router** (AnyJev / Lux beat JSON chat), then **pair it with an efficient passage path**—on our sample, BM25 shortlist → Lux Score beat both raw Lux Score and plain E5—instead of assuming one heavy model should own both hops. Tiny routers remain attractive for high-frequency, short-context gates—just not as drop-in winners for long SEC-type triage in our sample.
 
 The survey also notes patterns that map directly to product design: pre-computing embeddings for a stable tool registry (Action Cache–style), and order-robust Choice when menu order must not change the decision (exactly why AnyJev helped on Stage 1).
 
@@ -144,10 +150,10 @@ In short: **MCP standardizes tools; decision models standardize how agents selec
 ## Takeaways for implementers
 
 1. **Split the agent into decisions vs generation.** Use open decision models for Choice/Score on the hot path; reserve large language models for synthesis and dialogue.
-2. **Benchmark the decisions that hurt you.** On FinAgentBench, typed Choice already beat JSON chat for filing-type routing; passage quality still favored proven search (E5/BM25). Measure those hops separately before arguing about answer prose.
+2. **Benchmark the decisions that hurt you.** On FinAgentBench, typed Choice already beat JSON chat for filing-type routing; passage quality favored shortlist→Lux Score and classical IR over raw Lux Score (pretrained CE was not a free ceiling). Measure those hops separately before arguing about answer prose.
 3. **Watch yield, not only “accuracy.”** Roughly 40% empty Stage-2 pools in our Lux Choice run would look like “bad answers” if you only scored the final paragraph.
 4. **Put tools behind MCP and select them with Choice.** Keep numerics and side effects in servers; keep auth deterministic.
 5. **Fail closed and trace everything.** Empty routes, skipped synthesis, and tool calls should be first-class outcomes in your observability story.
 6. **Self-host when the control plane is sensitive.** Open decision weights plus local MCP is a coherent enterprise deployment story—performance *and* a smaller trust boundary.
 
-For depth on model families, latency trade-offs, and failure modes (order sensitivity, candidate filtering ceilings, when *not* to use decision models), see [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md). For numbers, matrix commands, and artifacts, see [`README.md`](README.md) (`paper-n200-full` analysis).
+For depth on model families, latency trade-offs, and failure modes (order sensitivity, candidate filtering ceilings, when *not* to use decision models), see [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md). For numbers, matrix commands, and artifacts, see [`README.md`](README.md) (`paper-n200-full` and `paper-p1-ceilings-n200` analyses).
