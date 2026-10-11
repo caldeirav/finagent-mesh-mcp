@@ -15,7 +15,12 @@ Institutional questions over SEC filings need **document structure** and **passa
 3. Sweeps a **Choice × Score** paper matrix (Block A / Block B) across open decision models and strong baselines.
 4. Writes paper-facing analysis, CSV/JSON tables, and per-example inspect HTML, with nested MLflow Runs/Traces for debugging.
 
-Survey of System-1 architectures: [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md).
+**Reading order for the “why”:**
+
+| Doc | Audience | Contents |
+|---|---|---|
+| [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md) | Developers & architects | Short note: agent shape, FinAgentBench, MCP, performance/safety — with plain-language takeaways from `paper-n200-full` |
+| [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md) | Deeper survey | System-1 landscape, trade-offs, failure modes |
 
 ---
 
@@ -104,6 +109,8 @@ Optional P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`00
 ## Results: paper-n200-full (N=200, seed=42)
 
 Merged primary + retry matrix: **8/8 required pairs measured**, ranking-only. Published analysis under `artifacts/benchmarks/` includes **P0 evidence** (routing audit, dual S2, strata, win/loss, bootstrap CIs, multi-seed rollup).
+
+For a **non-metrics walkthrough** of what these numbers mean for agent design (routing vs yield vs passage search vs generation), see [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md#what-the-benchmark-showed-developer-takeaways).
 
 ### Headline findings
 
@@ -354,5 +361,6 @@ Stop leftovers: `bash scripts/serve_engine.sh stop-all`.
 - `src/finagent_mesh/matrix/` — report, analysis, inspect, merge
 - `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM
 - `artifacts/benchmarks/paper-n200-full.*` — published N=200 analysis (inspect HTML/JSON local-only)
-- Survey: [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md)
-- Specs: [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)
+- Architecture (short): [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md)
+- Survey (long): [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md)
+- Specs: [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/005-s2-approach-ceilings/`](specs/005-s2-approach-ceilings/) · [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)
