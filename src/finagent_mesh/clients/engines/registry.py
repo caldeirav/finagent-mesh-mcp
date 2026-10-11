@@ -195,10 +195,23 @@ def create_adapter(
         from finagent_mesh.clients.engines.e5_score import E5ScoreAdapter
 
         return E5ScoreAdapter(cfg)
-    if family == "hybrid-ir" or cfg.backend == "clm_shortlist":
+    if cfg.backend == "clm_shortlist":
         from finagent_mesh.clients.engines.clm_shortlist import ClmShortlistAdapter
 
         return ClmShortlistAdapter(cfg)
+    if cfg.backend == "lux_shortlist":
+        from finagent_mesh.clients.engines.lux_shortlist import LuxShortlistAdapter
+
+        return LuxShortlistAdapter(cfg)
+    if cfg.backend == "e5_ce_shortlist":
+        from finagent_mesh.clients.engines.e5_ce_shortlist import E5CeShortlistAdapter
+
+        return E5CeShortlistAdapter(cfg)
+    if family == "hybrid-ir":
+        raise ValueError(
+            f"Unknown hybrid-ir backend={cfg.backend!r} for {cfg.config_id}; "
+            "expected clm_shortlist, lux_shortlist, or e5_ce_shortlist"
+        )
     if family == "noop" or cfg.backend == "noop_inprocess":
         from finagent_mesh.clients.engines.noop_choice import NoopChoiceAdapter
 

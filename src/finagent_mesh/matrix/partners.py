@@ -10,7 +10,14 @@ from finagent_mesh.clients.engines.registry import EngineConfiguration, EngineRe
 
 
 INPROCESS_BACKENDS = frozenset(
-    {"bm25_inprocess", "e5_inprocess", "noop_inprocess", "clm_shortlist"}
+    {
+        "bm25_inprocess",
+        "e5_inprocess",
+        "noop_inprocess",
+        "clm_shortlist",
+        "lux_shortlist",
+        "e5_ce_shortlist",
+    }
 )
 
 
@@ -62,9 +69,14 @@ class MatrixPair:
         for eid in (self.stage1_config_id, self.stage2_config_id):
             if eid and eid not in ids:
                 ids.append(eid)
-        # Shortlist adapter needs the CLM sidecar, not a separate shortlist process
+        # Hybrid Stage-2 adapters need their nested Score sidecars
         if self.stage2_config_id == "clm-shortlist-32" and "clm-8b" not in ids:
             ids.append("clm-8b")
+        if (
+            self.stage2_config_id == "lux-score-shortlist-32"
+            and "decision20-lux" not in ids
+        ):
+            ids.append("decision20-lux")
         return ids
 
 

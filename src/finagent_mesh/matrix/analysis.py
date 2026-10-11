@@ -16,12 +16,10 @@ DEFERRED_ISSUES = [
         "issue": "https://github.com/caldeirav/finagent-mesh-mcp/issues/1",
         "rationale": "Trained dual-encoder heads on held-out split",
     },
-    {
-        "pair_id": "lux-e5-ce",
-        "issue": "https://github.com/caldeirav/finagent-mesh-mcp/issues/2",
-        "rationale": "Dense shortlist then cross-encoder ceiling",
-    },
 ]
+
+CHAMPION_PAIR_IDS = ("anyjev-l0-e5", "anyjev-l0-bm25")
+P1_CEILING_PAIR_IDS = ("lux-lux-shortlist", "lux-e5-ce")
 
 
 def _fmt(v: Any, *, pct: bool = False) -> str:
@@ -74,6 +72,90 @@ def _find_row(matrix: MatrixRun, pair_id: str) -> MatrixRowResult | None:
         if r.variable_config_id == pair_id:
             return r
     return None
+
+
+def _rows_by_ids(matrix: MatrixRun, pair_ids: tuple[str, ...]) -> list[MatrixRowResult]:
+    out: list[MatrixRowResult] = []
+    for pid in pair_ids:
+        row = _find_row(matrix, pid)
+        if row is not None:
+            out.append(row)
+    return out
+
+
+def _champion_section_md(matrix: MatrixRun, series: dict[str, Any]) -> list[str]:
+    rows = _rows_by_ids(matrix, CHAMPION_PAIR_IDS)
+    if not rows:
+        return []
+    ref_any = _find_row(matrix, "anyjev-l0-lux")
+    ref_e5 = _find_row(matrix, "lux-e5")
+    ref_bm25 = _find_row(matrix, "lux-bm25")
+    lines = [
+        "",
+        "## Champion / compound (S8)",
+        "",
+        "These cells combine **best Choice** (AnyJev L0) with **classical IR Score** "
+        "(E5 / BM25). They are **not** orthogonal Block A/B rows — do not read Stage-2 "
+        "deltas as a Lux Score bake-off.",
+        "",
+        "| Pair | S1 nDCG@5 | Top-1 recall | Empty | Yield | S2 nDCG (scored) | "
+        "S2 MRR (scored) | S2 nDCG\\|Top-1 | S2 nDCG (pipeline) | Δ S2 vs same IR "
+        "(Lux Choice) | Δ S2 vs anyjev-l0-lux |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for r in rows:
+        m = r.metrics
+        pm = (series.get(r.variable_config_id) or {}).get("pipeline_mean") or {}
+        same_ir = ref_e5 if r.variable_config_id.endswith("-e5") else ref_bm25
+        same_ir_s2 = same_ir.metrics.stage2_ndcg_at_5 if same_ir and same_ir.metrics else None
+        any_s2 = ref_any.metrics.stage2_ndcg_at_5 if ref_any and ref_any.metrics else None
+        pipe_ndcg = pm.get("stage2_ndcg_at_5")
+        if pipe_ndcg is None:
+            pipe_ndcg = m.stage2_ndcg_at_5_pipeline
+        lines.append(
+            f"| {r.variable_config_id} | {_fmt(m.stage1_ndcg_at_5)} | "
+            f"{_fmt(m.stage1_top1_recall)} | {_fmt(m.empty_top1_chunk_rate)} | "
+            f"{_fmt(m.pipeline_yield)} | {_fmt(m.stage2_ndcg_at_5)} | {_fmt(m.stage2_mrr_at_5)} | "
+            f"{_fmt(m.stage2_ndcg_at_5_given_top1)} | "
+            f"{_fmt(pipe_ndcg)} | "
+            f"{_delta(m.stage2_ndcg_at_5, same_ir_s2)} | "
+            f"{_delta(m.stage2_ndcg_at_5, any_s2)} |"
+        )
+    return lines
+
+
+def _p1_ceilings_section_md(matrix: MatrixRun, series: dict[str, Any]) -> list[str]:
+    rows = _rows_by_ids(matrix, P1_CEILING_PAIR_IDS)
+    if not rows:
+        return []
+    lux = _find_row(matrix, "lux-lux")
+    e5 = _find_row(matrix, "lux-e5")
+    lux_s2 = lux.metrics.stage2_ndcg_at_5 if lux and lux.metrics else None
+    e5_s2 = e5.metrics.stage2_ndcg_at_5 if e5 and e5.metrics else None
+    lines = [
+        "",
+        "## P1 ceilings (S2b shortlist-Lux + S7 CE)",
+        "",
+        "`lux-lux-shortlist`: BM25 top-K then Lux Score. "
+        "`lux-e5-ce`: E5 shortlist then **pretrained CrossEncoder** "
+        "(IR ceiling / baseline — not a production System-1 Score head).",
+        "",
+        "| Pair | Role | S2 nDCG (scored) | S2 MRR (scored) | S2 nDCG\\|Top-1 | "
+        "Δ vs lux-lux | Δ vs lux-e5 | S2 p50 ms | S2 p95 ms |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for r in rows:
+        m = r.metrics
+        role = r.role or ("ir_ceiling" if r.variable_config_id == "lux-e5-ce" else "optional")
+        label = "IR ceiling" if r.variable_config_id == "lux-e5-ce" else role
+        lines.append(
+            f"| {r.variable_config_id} | {label} | {_fmt(m.stage2_ndcg_at_5)} | "
+            f"{_fmt(m.stage2_mrr_at_5)} | {_fmt(m.stage2_ndcg_at_5_given_top1)} | "
+            f"{_delta(m.stage2_ndcg_at_5, lux_s2)} | {_delta(m.stage2_ndcg_at_5, e5_s2)} | "
+            f"{_fmt(m.latency_stage2_p50_ms)} | {_fmt(m.latency_stage2_p95_ms)} |"
+        )
+        _ = series  # reserved for shortlist_k enrichment from inspect
+    return lines
 
 
 def _pair_outcome_summaries(
@@ -429,6 +511,12 @@ def build_analysis_payload(
         "synthesis_enabled": matrix.synthesis_enabled,
         "skip_records": list(matrix.skip_records),
         "deferred": DEFERRED_ISSUES,
+        "champion_pairs": [
+            r.variable_config_id for r in _rows_by_ids(matrix, CHAMPION_PAIR_IDS)
+        ],
+        "p1_ceiling_pairs": [
+            r.variable_config_id for r in _rows_by_ids(matrix, P1_CEILING_PAIR_IDS)
+        ],
         "executive_summary": structured["executive_summary"],
         "findings": structured["findings"],
         "findings_detail": {
@@ -510,6 +598,7 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
 
     lux_s2 = lux.metrics.stage2_ndcg_at_5 if lux else None
     series = payload.get("stage2_series") or {}
+    lines.extend(_champion_section_md(matrix, series))
     lines.extend(
         [
             "",
@@ -534,6 +623,8 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
         lines.extend(["", "### Block B findings", ""])
         for note in detail["block_b"]:
             lines.append(f"- {note}")
+
+    lines.extend(_p1_ceilings_section_md(matrix, series))
 
     # P0 sections: routing accounting, dual series detail, strata, win/loss, CIs, synth
     lines.extend(render_p0_markdown_sections(payload))
@@ -609,10 +700,13 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
             "- E5 is general-domain, not finance-tuned; BM25 is lexical only.",
             "- Empty-Top-1 rates depend on the Stage-1 engine — Block A rows are not "
             "comparable on Stage-2 overall nDCG without conditioning on Top-1.",
-            "- Deferred trained heads: "
-            "[#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1).",
-            "- Deferred cross-encoder ceiling: "
-            "[#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2).",
+            "- Deferred trained dual-encoder heads: "
+            "[#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) (`lux-clm-ft`).",
+            "- Cross-encoder IR ceiling (`lux-e5-ce`) is implemented as an optional "
+            "P1 pair (pretrained CE; closes "
+            "[#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)).",
+            "- Champion cells (`anyjev-l0-e5` / `anyjev-l0-bm25`) are compound pairs, "
+            "not orthogonal Block A/B.",
             "",
             "## Skipped / deferred pairs",
             "",

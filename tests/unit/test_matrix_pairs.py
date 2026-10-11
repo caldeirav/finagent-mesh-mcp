@@ -71,4 +71,4 @@ def test_deferred_skip_records() -> None:
     skips = deferred_skip_records(reg)
     ids = {s.pair_id for s in skips}
     assert "lux-clm-ft" in ids
-    assert "lux-e5-ce" in ids
+    assert "lux-e5-ce" not in ids  # promoted to optional runnable (005 / #2)
