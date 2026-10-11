@@ -137,37 +137,48 @@ class Harness:
         sample_size: int | None = None,
         sample_seed: int | None = None,
         example_ids: list[str] | None = None,
+        reuse_rankings_only: bool = False,
     ) -> dict[str, Any]:
         settings = self.settings
         path = dataset_path or settings.finagentbench_path
         if path is None:
             raise RuntimeError("FINAGENTBENCH_PATH is required")
 
-        if self.stage1_engine and self.stage2_engine and not settings.systemone_mock:
-            from finagent_mesh.clients.engines.registry import load_registry
+        if not reuse_rankings_only:
+            if self.stage1_engine and self.stage2_engine and not settings.systemone_mock:
+                from finagent_mesh.clients.engines.registry import load_registry
 
-            from finagent_mesh.matrix.ports import base_url_for_port
+                from finagent_mesh.matrix.ports import base_url_for_port
 
-            reg = load_registry(settings.engines_registry_path)
-            targets: list[tuple[str, str]] = []
-            for eid in (self.stage1_engine, self.stage2_engine):
-                if is_inprocess_engine(reg, eid):
-                    continue
-                cfg = reg.get(eid)
-                url = (
-                    base_url_for_port(self.port_overrides[eid])
-                    if eid in self.port_overrides
-                    else cfg.base_url
+                reg = load_registry(settings.engines_registry_path)
+                from finagent_mesh.matrix.ports import sidecar_dependencies
+
+                targets: list[tuple[str, str]] = []
+                seen_urls: set[str] = set()
+                engine_ids = [self.stage1_engine, self.stage2_engine]
+                for eid in list(engine_ids):
+                    engine_ids.extend(sidecar_dependencies(reg, eid))
+                for eid in engine_ids:
+                    if not eid or is_inprocess_engine(reg, eid):
+                        continue
+                    cfg = reg.get(eid)
+                    url = (
+                        base_url_for_port(self.port_overrides[eid])
+                        if eid in self.port_overrides
+                        else cfg.base_url
+                    )
+                    if url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+                    targets.append((url, cfg.health_path))
+                if targets:
+                    require_engines_healthy(targets, mock=False)
+            else:
+                require_systemone_healthy(
+                    settings.systemone_stage1_url,
+                    settings.systemone_stage2_url,
+                    mock=settings.systemone_mock,
                 )
-                targets.append((url, cfg.health_path))
-            if targets:
-                require_engines_healthy(targets, mock=False)
-        else:
-            require_systemone_healthy(
-                settings.systemone_stage1_url,
-                settings.systemone_stage2_url,
-                mock=settings.systemone_mock,
-            )
 
         progress_log(f"Harness {run_id}: loading FinAgentBench from {path}…")
         all_examples = load_examples(Path(path), limit=None if sample_size or example_ids else limit)
@@ -253,6 +264,40 @@ class Harness:
                             )
                         continue
                     t0 = time.perf_counter()
+                    if reuse_rankings_only:
+                        # Gemini-only path: never re-run Choice/Score.
+                        if entry.state in {"ranking_complete", "synthesis_retriable"} and (
+                            entry.ranking_payload_json
+                        ):
+                            progress_log(f"  [{idx}/{n_ex}] {short_id} synthesis…")
+                            self._resume_synthesis(
+                                ledger,
+                                run_id,
+                                example.example_id,
+                                entry,
+                                skip_synthesis,
+                                k,
+                                agg,
+                            )
+                            done = ledger.get_entry(run_id, example.example_id)
+                            st = done.state if done else "?"
+                            err = (done.last_error if done else None) or ""
+                            extra = f"  error={err[:300]}" if err else ""
+                            progress_log(
+                                f"  [{idx}/{n_ex}] {short_id} → {st} "
+                                f"({time.perf_counter() - t0:.1f}s){extra}"
+                            )
+                            continue
+                        reason = entry.last_error or entry.state
+                        progress_log(
+                            f"  [{idx}/{n_ex}] {short_id} skip synthesis "
+                            f"(no reusable ranking: {reason})"
+                        )
+                        if entry.ranking_payload_json:
+                            agg.add_payload(
+                                example.example_id, entry.ranking_payload_json, None
+                            )
+                        continue
                     was = entry.state
                     if was == "failed_retriable":
                         progress_log(

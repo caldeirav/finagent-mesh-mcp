@@ -102,21 +102,28 @@ Deferred train/CE ceilings: issues [#1](https://github.com/caldeirav/finagent-me
 
 ## Results: paper-n200-full (N=200, seed=42)
 
-Merged primary + retry matrix: **8/8 required pairs measured**, ranking-only (Gemini synthesis off). This is the single published full analysis under `artifacts/benchmarks/`.
+Merged primary + retry matrix: **8/8 required pairs measured**, ranking-only. Published analysis under `artifacts/benchmarks/` includes **P0 evidence** (routing audit, dual S2, strata, win/loss, bootstrap CIs, multi-seed rollup).
 
 ### Headline findings
 
 | Question | Winner | Key numbers |
 |---|---|---|
 | **Best Choice router (Block A)** | `anyjev-l0-lux` | S1 nDCG@5 **0.8625** (+0.021 vs Lux 0.8413); Top-1 recall 95.1%; OFR 9.0% |
-| **Best passage scorer (Block B)** | `lux-e5` | S2 nDCG@5 **0.2825** (+0.061 vs Lux 0.2212); S2\|Top-1 0.3127 |
-| **Routing ceiling** | Lux Choice | **40.5%** empty-Top-1 (81/200) — scorers cannot recover those misses |
+| **Best passage scorer (Block B)** | `lux-e5` | S2 nDCG@5 **0.2825** scored-only (+0.061 vs Lux); pipeline-averaged **0.157** |
+| **Routing / yield** | Lux Choice | Empty-Top-1 **40.5%**; pipeline yield **59.5%**. Many empties are **correct Top-1 + empty pool** (67/200), not only wrong type — see Routing accounting in the analysis. |
 
-**Block A order (S1 nDCG@5):** AnyJev 0.862 → Lux 0.841 → Kai 0.783 → AR 0.777 → Laya 0.751. Kai is fastest Choice (~43 ms p50) but trails quality; AR is slow (~4.5 s).
+**Block A order (S1 nDCG@5):** AnyJev 0.862 → Lux 0.841 → Kai 0.783 → AR 0.777 → Laya 0.751.
 
-**Block B order (overall S2 nDCG@5):** E5 0.282 → BM25 0.265 → Lux Score 0.221 → CLM 0.103. BM25 is ~10 ms; Lux Score ~14 s; zero-shot CLM ~30 s (stress baseline until shortlist/FT).
+**Block B order (scored-only S2 nDCG@5):** E5 0.282 → BM25 0.265 → Lux Score 0.221 → CLM 0.103. Win/tie/loss vs Lux (nDCG@5, ε=0.01): E5 51/26/34; BM25 51/23/37.
 
-General-domain E5 and lexical BM25 beating finance-specialized Lux Score on this sample is a main paper-facing result — confirm on full FinAgentBench and with finance-tuned dense / CE ceilings.
+**Multi-seed core (seeds 42 / 7 / 123, four pairs):** AnyJev beats Lux S1 on all three seeds. Across-seed mean S2: E5 ≈ 0.265, BM25 ≈ 0.246, Lux ≈ 0.209 — Block B **order is not seed-stable** (BM25 ≈ E5 on seed 7; BM25 collapses on seed 123). Cite mean + min–max from the Multi-seed summary in the analysis.
+
+**Optional baselines** (`paper-n200-optional`, same N/seed; local artifacts): BM25→CLM shortlist S2 **0.1475** (beats zero-shot CLM 0.103, still behind Lux/E5/BM25); one-shot AR S2 **0.2737** (~E5) as a **collapsed** baseline (~3% AR parse fail).
+
+**Synthesis reuse** (`paper-n200-full-synth`): Gemini attached to saved rankings for anyjev / lux / e5 / bm25 (no Choice/Score re-run). Attempted 119–128 / pair, 0 Gemini fails. **Answer EM/F1 are N/A** — the harness dump has `answer_label: null` on all examples (`skipped_no_label`).
+
+Rebuild analysis (no engines):  
+`uv run python scripts/run_benchmark.py --analysis-from paper-n200-full --multi-seed-from paper-n200-s7-core,paper-n200-s123-core`
 
 ### Detailed artifacts
 
@@ -127,14 +134,28 @@ General-domain E5 and lexical BM25 beating finance-specialized Lux Score on this
 | Matrix tables | [`artifacts/benchmarks/paper-n200-full.json`](artifacts/benchmarks/paper-n200-full.json) · [`.csv`](artifacts/benchmarks/paper-n200-full.csv) · [`.md`](artifacts/benchmarks/paper-n200-full.md) |
 | Matrix state | [`artifacts/matrix_runs/paper-n200-full.json`](artifacts/matrix_runs/paper-n200-full.json) |
 | Per-example inspect (local, large) | `artifacts/benchmarks/paper-n200-full.inspect.html` — regenerate with `--inspect-from paper-n200-full` if missing |
+| Optional / synth analyses (local) | `paper-n200-optional.analysis.md`, `paper-n200-full-synth.analysis.md` under `artifacts/benchmarks/` |
 
-### Proposed next steps
+### P0 evidence commands (re-run / extend)
 
-1. **Synthesis pass** — Re-run the same N=200 sample with `--with-synthesis` for answer-span EM/F1 on the best Block A/B pairs (`anyjev-l0-lux`, `lux-e5`, `lux-bm25`, `lux-lux`).
-2. **Routing focus** — Treat empty-Top-1 rate as a first-class metric; AnyJev already lowers it (36% vs Lux 40.5%) — test AnyJev L1 / order-robust Choice variants.
-3. **Stage-2 ceilings** — Enable optional `lux-clm-shortlist` and deferred finance-tuned dense / cross-encoder rows ([#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1), [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)) to see whether Lux Score recovers when candidates are filtered.
-4. **Scale-out** — Confirm E5/BM25 vs Lux Score ranking on the full ICAIF dump (and report S2\|Top-1 separately from overall S2).
-5. **Optional baseline** — Run `one-shot-ar` to quantify typed Choice→Score vs stuffing the full context into an AR model.
+```bash
+# Rebuild published analysis + multi-seed rollup (no GPU)
+uv run python scripts/run_benchmark.py --analysis-from paper-n200-full \
+  --multi-seed-from paper-n200-s7-core,paper-n200-s123-core
+
+# Optional baselines (ranking-only)
+uv run python scripts/run_benchmark.py --real --include-optional \
+  --pairs lux-clm-shortlist,one-shot-ar \
+  --records 200 --seed 42 --run-id paper-n200-optional
+
+# Synthesis reuse (Gemini only; needs GOOGLE_API_KEY)
+uv run python scripts/run_benchmark.py --real --with-synthesis \
+  --synthesis-from-rankings paper-n200-full \
+  --pairs anyjev-l0-lux,lux-lux,lux-e5,lux-bm25 \
+  --run-id paper-n200-full-synth
+```
+
+Spec: [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/). Deferred ceilings remain [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) / [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2).
 
 ---
 

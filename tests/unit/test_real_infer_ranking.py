@@ -189,6 +189,22 @@ def test_strip_think_and_extract_first_json() -> None:
     assert "The JSON above" not in obj
 
 
+def test_parse_ar_ranking_repairs_truncated_ordered_ids() -> None:
+    from finagent_mesh.clients.engines.real_infer import _parse_ar_ranking_text
+
+    truncated = (
+        '{"ordered_ids":["q9a5cfe35fecd:chunk-18","q9a5cfe35fecd:chunk-22",'
+        '"q9a5cfe35fecd:chunk-24","q9a5cfe35fecd:chun'
+    )
+    ordered, scores, _raw = _parse_ar_ranking_text(truncated)
+    assert ordered == [
+        "q9a5cfe35fecd:chunk-18",
+        "q9a5cfe35fecd:chunk-22",
+        "q9a5cfe35fecd:chunk-24",
+    ]
+    assert len(scores) == 3
+
+
 def test_decide_ar_json_uses_thinking_off(monkeypatch: pytest.MonkeyPatch) -> None:
     from finagent_mesh.clients.engines import real_infer as ri
 
@@ -219,6 +235,7 @@ def test_decide_ar_json_uses_thinking_off(monkeypatch: pytest.MonkeyPatch) -> No
         def generate(self, **kwargs):
             import torch
 
+            seen["max_new_tokens"] = kwargs.get("max_new_tokens")
             # prompt length 3 + generated
             return torch.tensor([[1, 2, 3, 9, 9, 9]])
 
@@ -232,3 +249,57 @@ def test_decide_ar_json_uses_thinking_off(monkeypatch: pytest.MonkeyPatch) -> No
     assert seen["kwargs"].get("enable_thinking") is False
     assert out["ranking"][0]["id"] == "10-K"
     assert out["backend"] == "ar_json"
+
+
+def test_decide_ar_json_oneshot_asks_top_k_and_repairs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from finagent_mesh.clients.engines import real_infer as ri
+
+    seen: dict = {}
+    ids = [f"q:chunk-{i}" for i in range(40)]
+
+    class FakeTok:
+        def apply_chat_template(self, messages, **kwargs):
+            seen["user"] = messages[1]["content"]
+            return "PROMPT"
+
+        def __call__(self, prompt, return_tensors="pt"):
+            import torch
+
+            return {"input_ids": torch.tensor([[1, 2, 3]])}
+
+        @property
+        def eos_token_id(self):
+            return 0
+
+        def decode(self, _ids, skip_special_tokens=True):
+            # Truncated mid-list — same failure mode as the smoke run.
+            return (
+                '{"ordered_ids":["q:chunk-18","q:chunk-22","q:chunk-24",'
+                '"q:chunk-26","q:chunk-27","q:chun'
+            )
+
+    class FakeModel:
+        def generate(self, **kwargs):
+            import torch
+
+            seen["max_new_tokens"] = kwargs.get("max_new_tokens")
+            return torch.tensor([[1, 2, 3, 9]])
+
+    monkeypatch.setattr(ri, "_load_ar", lambda _mid: (FakeTok(), FakeModel(), "cpu"))
+    out = ri.decide_ar_json(
+        model_id="Qwen/Qwen3-8B",
+        query="q",
+        candidates=[{"id": i, "text": "x" * 500} for i in ids],
+        primitive="score",
+    )
+    assert "best 10" in seen["user"]
+    assert seen["max_new_tokens"] >= 500
+    assert [r["id"] for r in out["ranking"]] == [
+        "q:chunk-18",
+        "q:chunk-22",
+        "q:chunk-24",
+        "q:chunk-26",
+        "q:chunk-27",
+    ]

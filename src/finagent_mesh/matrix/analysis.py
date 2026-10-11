@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from finagent_mesh.matrix.evidence_report import build_p0_evidence, render_p0_markdown_sections
 from finagent_mesh.matrix.models import EngineMetricsRecord, MatrixRowResult, MatrixRun
 
 
@@ -289,9 +290,10 @@ def _build_findings(
     if empty_rates:
         # Lux-backed Block B rows share Choice → same empty rate; Choice-varying Block A differ.
         routing_notes.append(
-            "When Stage-1 Top-1 filing type is wrong, Stage-2 sees no gold chunks "
-            "(`empty_top1_chunks`). Those examples contribute 0 to overall S2 nDCG and "
-            "are excluded from **S2 nDCG@5|Top-1**."
+            "When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those "
+            "examples are **omitted** from primary (scored-only) S2 nDCG/MRR and count as "
+            "**0** in the secondary **pipeline-averaged** series. See Routing accounting "
+            "for class counts — empty is not always “wrong Top-1 type.”"
         )
         for pid, rate, n in empty_rates:
             row = _find_row(matrix, pid)
@@ -393,10 +395,18 @@ def build_analysis_payload(
     matrix: MatrixRun,
     *,
     inspect_examples: dict[str, list[dict[str, Any]]] | None = None,
+    multi_seed_matrices: list[MatrixRun] | None = None,
 ) -> dict[str, Any]:
     """Build machine-readable analysis index."""
     pair_summaries = _pair_outcome_summaries(matrix, inspect_examples)
     structured = _build_findings(matrix, pair_summaries=pair_summaries)
+    p0 = build_p0_evidence(
+        matrix,
+        inspect_examples=inspect_examples,
+        multi_seed_matrices=multi_seed_matrices,
+    )
+    # Drop internal contrib cache from JSON
+    p0_public = {k: v for k, v in p0.items() if not k.startswith("_")}
 
     # Compact artifact index: one row per pair (full example drill-down lives in inspect HTML).
     artifact_index = [
@@ -432,6 +442,7 @@ def build_analysis_payload(
         "pair_outcomes": pair_summaries,
         "artifact_index": artifact_index,
         "rows": [r.to_dict() for r in matrix.rows],
+        **p0_public,
     }
 
 
@@ -458,15 +469,16 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
             "2. **Block B** varies the Stage-2 **Score** (or dense/lexical) head; Stage-1 "
             "Choice stays Lux. Compare overall S2 nDCG@5 (full pipeline) and "
             "**S2 nDCG@5|Top-1** (scorer only, when Top-1 type was correct).",
-            "3. **`empty_top1_chunks`** means the router picked the wrong filing type so "
-            "no gold passages remain — a routing failure, not a scorer bug.",
+            "3. **`empty_top1_chunks`** means no type-filtered Stage-2 candidates "
+            "(see Routing accounting — not always wrong Top-1). Primary S2 metrics are "
+            "**scored-only**; **pipeline-averaged** treats empties as 0.",
             "",
             "## Run facts",
             "",
             f"- **N**: {len(matrix.selected_example_ids)}",
             f"- **Seed**: {matrix.sample_seed}",
             f"- **Dataset**: `{matrix.dataset_path}`",
-            f"- **Synthesis**: {'on' if matrix.synthesis_enabled else 'not run (ranking-only)'}",
+            f"- **Synthesis**: {'on (reuse rankings if synthesis_reuse present)' if matrix.synthesis_enabled else 'not run (ranking-only)'}",
             f"- **Status**: {matrix.status}",
             "",
             "## Research questions",
@@ -497,29 +509,36 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
             lines.append(f"- {note}")
 
     lux_s2 = lux.metrics.stage2_ndcg_at_5 if lux else None
+    series = payload.get("stage2_series") or {}
     lines.extend(
         [
             "",
             "## Block B — Stage-2 Score (Lux Choice fixed)",
             "",
-            "| Pair | S2 engine | S2 nDCG@5 | Δ vs Lux | S2 nDCG@5\\|Top-1 | Empty Top-1 | S2 p50 ms |",
-            "|---|---|---|---|---|---|---|",
+            "| Pair | S2 engine | S2 nDCG (scored) | S2 MRR (scored) | Δ nDCG vs Lux | "
+            "S2 nDCG\\|Top-1 | S2 nDCG (pipeline) | Empty Top-1 | S2 p50 ms |",
+            "|---|---|---|---|---|---|---|---|---|",
         ]
     )
     for r in _rows_for_block(matrix, "B"):
         m = r.metrics
+        pm = (series.get(r.variable_config_id) or {}).get("pipeline_mean") or {}
         lines.append(
             f"| {r.variable_config_id} | {r.stage2_engine_id} | "
-            f"{_fmt(m.stage2_ndcg_at_5)} | {_delta(m.stage2_ndcg_at_5, lux_s2)} | "
-            f"{_fmt(m.stage2_ndcg_at_5_given_top1)} | {_fmt(m.empty_top1_chunk_rate)} | "
-            f"{_fmt(m.latency_stage2_p50_ms)} |"
+            f"{_fmt(m.stage2_ndcg_at_5)} | {_fmt(m.stage2_mrr_at_5)} | "
+            f"{_delta(m.stage2_ndcg_at_5, lux_s2)} | "
+            f"{_fmt(m.stage2_ndcg_at_5_given_top1)} | {_fmt(pm.get('stage2_ndcg_at_5'))} | "
+            f"{_fmt(m.empty_top1_chunk_rate)} | {_fmt(m.latency_stage2_p50_ms)} |"
         )
     if detail.get("block_b"):
         lines.extend(["", "### Block B findings", ""])
         for note in detail["block_b"]:
             lines.append(f"- {note}")
 
-    lines.extend(["", "## Routing vs scoring", ""])
+    # P0 sections: routing accounting, dual series detail, strata, win/loss, CIs, synth
+    lines.extend(render_p0_markdown_sections(payload))
+
+    lines.extend(["", "## Routing vs scoring (narrative)", ""])
     routing = detail.get("routing") or []
     if routing:
         lines.append(routing[0])
@@ -528,8 +547,8 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
             lines.append(note if note.startswith("- ") else f"- {note}")
     else:
         lines.append(
-            "Wrong Top-1 filing type caps Stage-2 candidates (`empty_top1_chunks`). "
-            "Prefer **S2 nDCG@5|Top-1** when judging scorers; use overall S2 for the full pipeline."
+            "See Routing accounting. Prefer **S2 nDCG@5|Top-1** and scored-only means when "
+            "judging scorers; use pipeline-averaged S2 for end-to-end agent yield."
         )
 
     lines.extend(
@@ -627,12 +646,17 @@ def write_analysis_reports(
     out_md: Path,
     out_json: Path,
     inspect_payload: dict[str, Any] | None = None,
+    multi_seed_matrices: list[MatrixRun] | None = None,
 ) -> tuple[Path, Path]:
     by_pair: dict[str, list[dict[str, Any]]] = {}
     if inspect_payload:
         for p in inspect_payload.get("pairs") or []:
             by_pair[str(p.get("pair_id"))] = list(p.get("examples") or [])
-    payload = build_analysis_payload(matrix, inspect_examples=by_pair)
+    payload = build_analysis_payload(
+        matrix,
+        inspect_examples=by_pair,
+        multi_seed_matrices=multi_seed_matrices,
+    )
     md = build_analysis_markdown(matrix, payload)
     out_md.parent.mkdir(parents=True, exist_ok=True)
     out_md.write_text(md, encoding="utf-8")

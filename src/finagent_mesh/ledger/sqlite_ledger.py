@@ -178,6 +178,7 @@ class SqliteLedger:
         last_error: str | None = None,
         ranking_payload: dict[str, Any] | None = None,
         synthesis_payload: dict[str, Any] | None = None,
+        clear_synthesis: bool = False,
         inc_stage1: bool = False,
         inc_stage2: bool = False,
         inc_synthesis: bool = False,
@@ -198,11 +199,12 @@ class SqliteLedger:
                 if ranking_payload is not None
                 else row["ranking_payload_json"]
             )
-            synth_json = (
-                json.dumps(synthesis_payload)
-                if synthesis_payload is not None
-                else row["synthesis_payload_json"]
-            )
+            if clear_synthesis:
+                synth_json = None
+            elif synthesis_payload is not None:
+                synth_json = json.dumps(synthesis_payload)
+            else:
+                synth_json = row["synthesis_payload_json"]
             self._conn.execute(
                 "UPDATE ledger_entries SET state=?, attempts_stage1=?, attempts_stage2=?, "
                 "attempts_synthesis=?, last_error=?, updated_at=?, "
@@ -225,6 +227,63 @@ class SqliteLedger:
         except Exception:
             self._conn.rollback()
             raise
+
+    def seed_rankings_for_synthesis(
+        self,
+        source_run_id: str,
+        dest_run_id: str,
+        example_ids: list[str],
+        *,
+        config: dict[str, Any],
+    ) -> dict[str, int]:
+        """Copy Stage-1/2 rankings into a new run as ``ranking_complete`` for Gemini-only.
+
+        Ranking-only ``completed`` source rows are reset to ``ranking_complete`` with
+        synthesis cleared. Empty / failed rankings stay ``failed_retriable`` (no re-rank).
+        Existing dest progress (completed / in-flight synthesis) is preserved.
+        """
+        self.ensure_run(dest_run_id, config)
+        self.ensure_examples(dest_run_id, example_ids)
+        counts = {"seeded": 0, "failed_kept": 0, "skipped_existing": 0, "missing_source": 0}
+        for eid in example_ids:
+            dest = self.get_entry(dest_run_id, eid)
+            if dest and dest.state in {"completed", "ranking_complete", "synthesis_retriable"}:
+                if dest.ranking_payload_json:
+                    counts["skipped_existing"] += 1
+                    continue
+            src = self.get_entry(source_run_id, eid)
+            if src is None:
+                counts["missing_source"] += 1
+                continue
+            err = (src.last_error or "").strip()
+            if src.state == "failed_retriable" or err == "empty_top1_chunks":
+                self.transition(
+                    dest_run_id,
+                    eid,
+                    "failed_retriable",
+                    last_error=err or "empty_top1_chunks",
+                    ranking_payload=src.ranking_payload_json,
+                    clear_synthesis=True,
+                )
+                counts["failed_kept"] += 1
+                continue
+            if src.ranking_payload_json and src.state in {
+                "completed",
+                "ranking_complete",
+                "synthesis_retriable",
+            }:
+                self.transition(
+                    dest_run_id,
+                    eid,
+                    "ranking_complete",
+                    last_error=None,
+                    ranking_payload=src.ranking_payload_json,
+                    clear_synthesis=True,
+                )
+                counts["seeded"] += 1
+                continue
+            counts["missing_source"] += 1
+        return counts
 
     def list_entries(self, run_id: str) -> list[LedgerEntry]:
         rows = self._conn.execute(

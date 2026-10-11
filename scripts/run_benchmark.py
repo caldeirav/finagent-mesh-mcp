@@ -102,6 +102,18 @@ def main(
         "--analysis-from",
         help="Rebuild analysis MD/JSON from an existing matrix --run-id (no engines).",
     ),
+    multi_seed_from: Optional[str] = typer.Option(
+        None,
+        "--multi-seed-from",
+        help="Comma-separated extra matrix run ids to roll into multi-seed summary "
+        "(with --analysis-from).",
+    ),
+    synthesis_from_rankings: Optional[str] = typer.Option(
+        None,
+        "--synthesis-from-rankings",
+        help="Reuse saved Stage-1/2 rankings from this matrix run id; run Gemini only "
+        "(no Choice/Score re-inference). Use with --with-synthesis and --run-id.",
+    ),
     real: bool = typer.Option(
         False,
         "--real",
@@ -156,15 +168,73 @@ def main(
                 ledger_path=settings.eval_ledger_path,
                 dataset_path=Path(matrix.dataset_path),
             )
+            multi_mats = []
+            if multi_seed_from:
+                for mid in [x.strip() for x in multi_seed_from.split(",") if x.strip()]:
+                    try:
+                        multi_mats.append(runner.load(mid))
+                    except FileNotFoundError as exc:
+                        typer.secho(f"Missing multi-seed run {mid}: {exc}", fg=typer.colors.YELLOW)
             md_a, js_a = write_analysis_reports(
                 matrix,
                 out_md=out_dir / f"{rid}.analysis.md",
                 out_json=out_dir / f"{rid}.analysis.json",
                 inspect_payload=inspect_payload,
+                multi_seed_matrices=multi_mats or None,
             )
             typer.secho(f"Analysis MD  : {md_a}", fg=typer.colors.GREEN)
             typer.secho(f"Analysis JSON: {js_a}", fg=typer.colors.GREEN)
         raise typer.Exit(0)
+
+    if synthesis_from_rankings:
+        if not with_synthesis:
+            typer.secho(
+                "--synthesis-from-rankings requires --with-synthesis",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(2)
+        rid = run_id or f"{synthesis_from_rankings}-synth"
+        pair_list = (
+            [p.strip() for p in pairs.split(",") if p.strip()]
+            if pairs
+            else ["anyjev-l0-lux", "lux-lux", "lux-e5", "lux-bm25"]
+        )
+        runner = MatrixRunner(settings, allow_mock=True, manage_servers=False, repo_root=ROOT)
+        try:
+            matrix = runner.synthesis_from_rankings(
+                synthesis_from_rankings,
+                new_run_id=rid,
+                pair_ids=pair_list,
+                gemini_model=gemini_model,
+            )
+        except Exception as exc:  # noqa: BLE001
+            typer.secho(f"synthesis-from-rankings failed: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(2) from exc
+        out_dir.mkdir(parents=True, exist_ok=True)
+        write_report(matrix, out_dir / f"{rid}.json", fmt="json")
+        write_report(matrix, out_dir / f"{rid}.csv", fmt="csv")
+        write_interpretation_report(matrix, out_dir / f"{rid}.md")
+        inspect_payload = build_inspect_payload(
+            matrix,
+            ledger_path=settings.eval_ledger_path,
+            dataset_path=Path(matrix.dataset_path),
+        )
+        write_inspect_reports(
+            matrix,
+            ledger_path=settings.eval_ledger_path,
+            out_json=out_dir / f"{rid}.inspect.json",
+            out_html=out_dir / f"{rid}.inspect.html",
+            dataset_path=Path(matrix.dataset_path),
+        )
+        write_analysis_reports(
+            matrix,
+            out_md=out_dir / f"{rid}.analysis.md",
+            out_json=out_dir / f"{rid}.analysis.json",
+            inspect_payload=inspect_payload,
+        )
+        typer.secho(f"Synthesis-reuse matrix saved as {rid}", fg=typer.colors.GREEN)
+        raise typer.Exit(0 if matrix.status == "completed" else 1)
 
     if list_engines or list_pairs:
         from finagent_mesh.clients.engines.registry import load_registry

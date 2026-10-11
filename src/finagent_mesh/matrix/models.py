@@ -32,6 +32,10 @@ class EngineMetricsRecord:
     stage2_ndcg_at_5_given_top1: float | None = None
     stage2_map_at_5_given_top1: float | None = None
     stage2_mrr_at_5_given_top1: float | None = None
+    stage2_ndcg_at_5_pipeline: float | None = None
+    stage2_mrr_at_5_pipeline: float | None = None
+    pipeline_yield: float | None = None
+    n_scored: int = 0
     stage1_top1_recall: float | None = None
     stage1_top5_recall: float | None = None
     empty_top1_chunk_rate: float | None = None
@@ -65,6 +69,10 @@ class EngineMetricsRecord:
             "stage2_ndcg_at_5_given_top1": self.stage2_ndcg_at_5_given_top1,
             "stage2_map_at_5_given_top1": self.stage2_map_at_5_given_top1,
             "stage2_mrr_at_5_given_top1": self.stage2_mrr_at_5_given_top1,
+            "stage2_ndcg_at_5_pipeline": self.stage2_ndcg_at_5_pipeline,
+            "stage2_mrr_at_5_pipeline": self.stage2_mrr_at_5_pipeline,
+            "pipeline_yield": self.pipeline_yield,
+            "n_scored": self.n_scored,
             "stage1_top1_recall": self.stage1_top1_recall,
             "stage1_top5_recall": self.stage1_top5_recall,
             "empty_top1_chunk_rate": self.empty_top1_chunk_rate,
