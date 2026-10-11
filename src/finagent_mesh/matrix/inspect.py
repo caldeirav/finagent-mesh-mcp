@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,38 @@ from typing import Any
 from finagent_mesh.dataset.finagentbench import load_examples
 from finagent_mesh.ledger.sqlite_ledger import SqliteLedger
 from finagent_mesh.matrix.models import MatrixRun
+
+# Published compact Markdown (GitHub-viewable) + optional raw download for full HTML.
+_GITHUB_RAW_PREFIX = (
+    "https://raw.githubusercontent.com/caldeirav/finagent-mesh-mcp/main/artifacts/benchmarks"
+)
+_QUERY_MAX = 220
+_CHUNK_TEXT_MAX = 120
+_TOP_CHUNKS = 5
+
+
+def example_anchor_slug(example_id: str) -> str:
+    """Stable GitHub-heading-friendly fragment for an example id."""
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", str(example_id)).strip("-").lower()
+    return slug or "unknown"
+
+
+def compact_inspect_href(
+    matrix_run_id: str,
+    pair_id: str,
+    *,
+    example_id: str | None = None,
+) -> str:
+    """Relative href into the compact per-pair Markdown inspect page."""
+    href = f"{matrix_run_id}.inspect/{pair_id}.md"
+    if example_id:
+        href = f"{href}#ex-{example_anchor_slug(example_id)}"
+    return href
+
+
+def full_inspect_download_url(matrix_run_id: str) -> str:
+    """Raw GitHub URL for the full (large) HTML dump."""
+    return f"{_GITHUB_RAW_PREFIX}/{matrix_run_id}.inspect.html"
 
 
 def _gold_s1(labels: list[Any]) -> list[str]:
@@ -315,6 +348,137 @@ def render_inspect_html(payload: dict[str, Any]) -> str:
     return "".join(parts)
 
 
+def _md_cell(v: Any) -> str:
+    s = "" if v is None else str(v)
+    return s.replace("|", "\\|").replace("\n", " ")
+
+
+def _clip(text: Any, n: int) -> str:
+    s = "" if text is None else str(text)
+    s = re.sub(r"\s+", " ", s).strip()
+    if len(s) <= n:
+        return s
+    return s[: n - 1] + "…"
+
+
+def write_compact_inspect_markdown(payload: dict[str, Any], *, out_dir: Path) -> Path:
+    """Write GitHub-viewable compact Markdown index + per-pair pages.
+
+    Full HTML/JSON dumps stay separate; each page links to a raw download of the
+    full HTML for offline deep inspection.
+    """
+    run_id = str(payload.get("matrix_run_id") or "inspect")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    index_path = out_dir / f"{run_id}.inspect.md"
+    pair_dir = out_dir / f"{run_id}.inspect"
+    pair_dir.mkdir(parents=True, exist_ok=True)
+    full_html = f"{run_id}.inspect.html"
+    full_raw = full_inspect_download_url(run_id)
+
+    index: list[str] = [
+        f"# Inspect (compact) — `{run_id}`",
+        "",
+        "GitHub-friendly summary of each Stage-1 × Stage-2 pair. "
+        "Open a pair page for per-example routing / ranking detail.",
+        "",
+        f"**Download full dump** (large HTML; open locally in a browser): "
+        f"[raw download]({full_raw}) · [`{full_html}`]({full_html})",
+        "",
+        f"- Sample size: {payload.get('sample_size')} · seed: {payload.get('sample_seed')}",
+        f"- Synthesis: {payload.get('synthesis_enabled')} · status: {payload.get('status')}",
+        "",
+        "| Pair | S1 | S2 | S1 nDCG@5 | S2 nDCG@5 | Completed | Failed | Browse |",
+        "|---|---|---|---:|---:|---:|---:|---|",
+    ]
+
+    for p in payload.get("pairs") or []:
+        pid = str(p.get("pair_id") or "pair")
+        m = p.get("metrics") or {}
+        rel = f"{run_id}.inspect/{pid}.md"
+        index.append(
+            f"| `{_md_cell(pid)}` | {_md_cell(p.get('stage1_engine_id'))} | "
+            f"{_md_cell(p.get('stage2_engine_id'))} | "
+            f"{_md_cell(m.get('stage1_ndcg_at_5'))} | {_md_cell(m.get('stage2_ndcg_at_5'))} | "
+            f"{_md_cell(p.get('n_completed'))} | {_md_cell(p.get('n_failed_retriable'))} | "
+            f"[open]({rel}) |"
+        )
+
+        lines: list[str] = [
+            f"# Pair `{pid}` — `{run_id}`",
+            "",
+            f"[← compact index](../{run_id}.inspect.md) · "
+            f"**Download full HTML**: [raw]({full_raw}) · [`{full_html}`](../{full_html})",
+            "",
+            f"- eval_run_id: `{_md_cell(p.get('eval_run_id'))}`",
+            f"- S1=`{_md_cell(p.get('stage1_engine_id'))}` · S2=`{_md_cell(p.get('stage2_engine_id'))}`",
+            f"- row status: `{_md_cell(p.get('row_status'))}` · "
+            f"completed={_md_cell(p.get('n_completed'))} · "
+            f"failed_retriable={_md_cell(p.get('n_failed_retriable'))}",
+            "",
+            "## Examples",
+            "",
+        ]
+        for ex in p.get("examples") or []:
+            eid = str(ex.get("example_id") or "unknown")
+            slug = example_anchor_slug(eid)
+            st = ex.get("ledger_state") or ""
+            err = ex.get("error")
+            exp = ex.get("expected") or {}
+            s1 = ex.get("stage1") or {}
+            s2 = ex.get("stage2") or {}
+            lines.append(f"### ex-{slug}")
+            lines.append("")
+            lines.append(f"- **example_id**: `{eid}`")
+            lines.append(f"- **state**: `{st}`" + (f" · **error**: `{err}`" if err else ""))
+            q = _clip(exp.get("query_text"), _QUERY_MAX)
+            if q:
+                lines.append(f"- **query**: {q}")
+            lines.append(
+                f"- **S1**: top1=`{_md_cell(s1.get('top1'))}` "
+                f"in_gold={_md_cell(s1.get('top1_in_gold'))} · "
+                f"nDCG@5={_md_cell(s1.get('ndcg_at_5'))} · "
+                f"gold={_md_cell(s1.get('gold'))}"
+            )
+            ordered1 = s1.get("ordered_ids") or []
+            if ordered1:
+                lines.append(f"- **S1 ordered**: `{_md_cell(ordered1[:5])}`")
+            lines.append(
+                f"- **S2**: nDCG@5={_md_cell(s2.get('ndcg_at_5'))} · "
+                f"skipped={_md_cell(s2.get('skipped_reason'))} · "
+                f"n_scored={_md_cell(s2.get('n_scored'))}"
+            )
+            rows = (s2.get("rows") or [])[:_TOP_CHUNKS]
+            if rows:
+                lines.append("")
+                lines.append("| Rank | Chunk | Score | Gold | Text |")
+                lines.append("|---:|---|---:|---:|---|")
+                for r in rows:
+                    lines.append(
+                        f"| {_md_cell(r.get('rank'))} | `{_md_cell(r.get('chunk_id'))}` | "
+                        f"{_md_cell(r.get('score'))} | {_md_cell(r.get('gold_relevance'))} | "
+                        f"{_md_cell(_clip(r.get('text'), _CHUNK_TEXT_MAX))} |"
+                    )
+            syn = ex.get("synthesis")
+            if syn and (syn.get("answer") or syn.get("answer_score")):
+                lines.append(
+                    f"- **synthesis**: model=`{_md_cell(syn.get('gemini_model'))}` · "
+                    f"{_clip(syn.get('answer'), 160)}"
+                )
+            lines.append("")
+            lines.append(
+                f"_Full I/O traces & longer passage text: "
+                f"[download HTML]({full_raw}) "
+                f"(search for `{eid}`)._"
+            )
+            lines.append("")
+
+        (pair_dir / f"{pid}.md").write_text("\n".join(lines), encoding="utf-8")
+
+    index.extend(["", f"_Generated compact inspect for `{run_id}`._", ""])
+    index_path.write_text("\n".join(index), encoding="utf-8")
+    return index_path
+
+
 def write_inspect_reports(
     matrix: MatrixRun,
     *,
@@ -327,4 +491,5 @@ def write_inspect_reports(
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     out_html.write_text(render_inspect_html(payload), encoding="utf-8")
+    write_compact_inspect_markdown(payload, out_dir=out_html.parent)
     return out_json, out_html

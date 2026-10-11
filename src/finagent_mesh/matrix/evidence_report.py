@@ -86,7 +86,6 @@ def build_p0_evidence(
             },
         }
 
-    inspect_name = f"{matrix.matrix_run_id}.inspect.html"
     b_pairs = [p for p in BLOCK_B_SCORERS if p in by_pair_contrib]
     strata = build_strata(by_pair_contrib, pair_ids=b_pairs) if b_pairs else []
 
@@ -101,7 +100,7 @@ def build_p0_evidence(
                 by_pair_contrib[chal],
                 baseline_pair_id="lux-lux",
                 challenger_pair_id=chal,
-                inspect_name=inspect_name,
+                matrix_run_id=matrix.matrix_run_id,
             )
         )
 

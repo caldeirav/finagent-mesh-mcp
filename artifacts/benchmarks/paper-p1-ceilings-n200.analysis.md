@@ -175,34 +175,34 @@ Decided by per-example Stage-2 **nDCG@5**; `|Δ| < 0.01` counts as tie.
 ### Samples — `lux-e5`
 
 **Wins:**
-- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q25119b32a2f9))
-- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q84038a74fd59))
-- `dev:qa602975e3d19` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qa602975e3d19))
-- `dev:q7c284aabbba4` Δ=0.9521 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q7c284aabbba4))
-- `dev:q4d8ac905167b` Δ=0.9026 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q4d8ac905167b))
+- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q25119b32a2f9))
+- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q84038a74fd59))
+- `dev:qa602975e3d19` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qa602975e3d19))
+- `dev:q7c284aabbba4` Δ=0.9521 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q7c284aabbba4))
+- `dev:q4d8ac905167b` Δ=0.9026 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q4d8ac905167b))
 
 **Losses:**
-- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qe1811f4fd3dc))
-- `dev:q8ba6a388d681` Δ=-0.8319 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q8ba6a388d681))
-- `dev:q31f6fd1f392c` Δ=-0.7817 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q31f6fd1f392c))
-- `dev:qa5c748248a5b` Δ=-0.6716 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qa5c748248a5b))
-- `dev:qdec70f55027f` Δ=-0.5934 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qdec70f55027f))
+- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qe1811f4fd3dc))
+- `dev:q8ba6a388d681` Δ=-0.8319 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q8ba6a388d681))
+- `dev:q31f6fd1f392c` Δ=-0.7817 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q31f6fd1f392c))
+- `dev:qa5c748248a5b` Δ=-0.6716 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qa5c748248a5b))
+- `dev:qdec70f55027f` Δ=-0.5934 ([inspect](paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qdec70f55027f))
 
 ### Samples — `lux-bm25`
 
 **Wins:**
-- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q25119b32a2f9))
-- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q84038a74fd59))
-- `dev:q9dd3907388e3` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q9dd3907388e3))
-- `dev:q4d8ac905167b` Δ=0.8304 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q4d8ac905167b))
-- `dev:q9a5cfe35fecd` Δ=0.7557 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q9a5cfe35fecd))
+- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q25119b32a2f9))
+- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q84038a74fd59))
+- `dev:q9dd3907388e3` Δ=1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q9dd3907388e3))
+- `dev:q4d8ac905167b` Δ=0.8304 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q4d8ac905167b))
+- `dev:q9a5cfe35fecd` Δ=0.7557 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q9a5cfe35fecd))
 
 **Losses:**
-- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qe1811f4fd3dc))
-- `dev:qf8cbcec9fec6` Δ=-1.0000 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qf8cbcec9fec6))
-- `dev:qdec70f55027f` Δ=-0.7727 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qdec70f55027f))
-- `dev:qa5c748248a5b` Δ=-0.7429 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qa5c748248a5b))
-- `dev:chunk-only:qb7d1dfae8271` Δ=-0.6992 ([inspect](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:chunk-only:qb7d1dfae8271))
+- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qe1811f4fd3dc))
+- `dev:qf8cbcec9fec6` Δ=-1.0000 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qf8cbcec9fec6))
+- `dev:qdec70f55027f` Δ=-0.7727 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qdec70f55027f))
+- `dev:qa5c748248a5b` Δ=-0.7429 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qa5c748248a5b))
+- `dev:chunk-only:qb7d1dfae8271` Δ=-0.6992 ([inspect](paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-chunk-only-qb7d1dfae8271))
 
 
 ## Uncertainty (bootstrap 95% CI)
@@ -302,14 +302,14 @@ When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those exampl
 
 | Pair | Status | Completed | Empty Top-1 | Other fail | Inspect |
 |---|---|---|---|---|---|
-| anyjev-l0-e5 | measured | 128 | 72 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-e5) |
-| anyjev-l0-bm25 | measured | 128 | 72 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-bm25) |
-| lux-lux-shortlist | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-lux-lux-shortlist) |
-| lux-e5-ce | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ce) |
-| anyjev-l0-lux | measured | 128 | 72 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-lux) |
-| lux-bm25 | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-lux-bm25) |
-| lux-e5 | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-lux-e5) |
-| lux-lux | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect.html#pair-lux-lux) |
+| anyjev-l0-e5 | measured | 128 | 72 | 0 | [open](paper-p1-ceilings-n200.inspect/anyjev-l0-e5.md) |
+| anyjev-l0-bm25 | measured | 128 | 72 | 0 | [open](paper-p1-ceilings-n200.inspect/anyjev-l0-bm25.md) |
+| lux-lux-shortlist | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect/lux-lux-shortlist.md) |
+| lux-e5-ce | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect/lux-e5-ce.md) |
+| anyjev-l0-lux | measured | 128 | 72 | 0 | [open](paper-p1-ceilings-n200.inspect/anyjev-l0-lux.md) |
+| lux-bm25 | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect/lux-bm25.md) |
+| lux-e5 | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect/lux-e5.md) |
+| lux-lux | measured | 119 | 81 | 0 | [open](paper-p1-ceilings-n200.inspect/lux-lux.md) |
 
 ## Limitations / threats to validity
 
@@ -330,6 +330,7 @@ When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those exampl
 
 ## Artifact index
 
-- Interactive inspect (per-example): `paper-p1-ceilings-n200.inspect.html`
+- Compact inspect (GitHub): `paper-p1-ceilings-n200.inspect.md`
+- Full inspect HTML (download / open locally): `paper-p1-ceilings-n200.inspect.html`
 - Analysis JSON: `paper-p1-ceilings-n200.analysis.json`
 - Matrix JSON / CSV: `paper-p1-ceilings-n200.json`, `paper-p1-ceilings-n200.csv`

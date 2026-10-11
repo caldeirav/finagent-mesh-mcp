@@ -95,11 +95,13 @@ def win_loss_vs_baseline(
     *,
     baseline_pair_id: str,
     challenger_pair_id: str,
-    inspect_name: str,
+    matrix_run_id: str,
     metric: str = "stage2_ndcg_at_5",
     tie_eps: float = TIE_EPS,
     n_samples: int = 5,
 ) -> dict[str, Any]:
+    from finagent_mesh.matrix.inspect import compact_inspect_href
+
     base_by = {c["example_id"]: c for c in baseline if c.get("scored") and c.get("example_id")}
     chal_by = {c["example_id"]: c for c in challenger if c.get("scored") and c.get("example_id")}
     common = sorted(set(base_by) & set(chal_by))
@@ -123,7 +125,9 @@ def win_loss_vs_baseline(
         {
             "example_id": eid,
             "delta": d,
-            "href": f"{inspect_name}#pair-{challenger_pair_id}-ex-{eid}",
+            "href": compact_inspect_href(
+                matrix_run_id, challenger_pair_id, example_id=eid
+            ),
         }
         for eid, d in deltas_sorted
         if d >= tie_eps
@@ -132,7 +136,9 @@ def win_loss_vs_baseline(
         {
             "example_id": eid,
             "delta": d,
-            "href": f"{inspect_name}#pair-{challenger_pair_id}-ex-{eid}",
+            "href": compact_inspect_href(
+                matrix_run_id, challenger_pair_id, example_id=eid
+            ),
         }
         for eid, d in deltas_sorted
         if d <= -tie_eps

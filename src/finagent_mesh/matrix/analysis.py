@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from finagent_mesh.matrix.evidence_report import build_p0_evidence, render_p0_markdown_sections
+from finagent_mesh.matrix.inspect import compact_inspect_href
 from finagent_mesh.matrix.models import EngineMetricsRecord, MatrixRowResult, MatrixRun
 
 
@@ -164,7 +165,6 @@ def _pair_outcome_summaries(
 ) -> list[dict[str, Any]]:
     """Per-pair counts for the analysis summary table (not every example)."""
     out: list[dict[str, Any]] = []
-    inspect_name = f"{matrix.matrix_run_id}.inspect.html"
     for row in matrix.rows:
         examples = (inspect_examples or {}).get(row.variable_config_id) or []
         n_completed = n_empty = n_other = 0
@@ -208,7 +208,9 @@ def _pair_outcome_summaries(
                 else int(row.metrics.n_empty_top1 or 0),
                 "n_other_fail": n_other,
                 "measured": _measured(row),
-                "href": f"{inspect_name}#pair-{row.variable_config_id}",
+                "href": compact_inspect_href(
+                    matrix.matrix_run_id, row.variable_config_id
+                ),
             }
         )
     return out
@@ -725,7 +727,8 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
             "",
             "## Artifact index",
             "",
-            f"- Interactive inspect (per-example): `{matrix.matrix_run_id}.inspect.html`",
+            f"- Compact inspect (GitHub): `{matrix.matrix_run_id}.inspect.md`",
+            f"- Full inspect HTML (download / open locally): `{matrix.matrix_run_id}.inspect.html`",
             f"- Analysis JSON: `{matrix.matrix_run_id}.analysis.json`",
             f"- Matrix JSON / CSV: `{matrix.matrix_run_id}.json`, `{matrix.matrix_run_id}.csv`",
             "",

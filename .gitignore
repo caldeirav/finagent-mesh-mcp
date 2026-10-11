@@ -219,17 +219,24 @@ artifacts/benchmarks/*
 !artifacts/benchmarks/paper-n200-full.csv
 !artifacts/benchmarks/paper-n200-full.md
 !artifacts/benchmarks/paper-n200-full.inspect.html
+!artifacts/benchmarks/paper-n200-full.inspect.md
+!artifacts/benchmarks/paper-n200-full.inspect/
+!artifacts/benchmarks/paper-n200-full.inspect/**
 !artifacts/benchmarks/paper-p1-ceilings-n200.analysis.md
 !artifacts/benchmarks/paper-p1-ceilings-n200.analysis.json
 !artifacts/benchmarks/paper-p1-ceilings-n200.json
 !artifacts/benchmarks/paper-p1-ceilings-n200.csv
 !artifacts/benchmarks/paper-p1-ceilings-n200.md
 !artifacts/benchmarks/paper-p1-ceilings-n200.inspect.html
+!artifacts/benchmarks/paper-p1-ceilings-n200.inspect.md
+!artifacts/benchmarks/paper-p1-ceilings-n200.inspect/
+!artifacts/benchmarks/paper-p1-ceilings-n200.inspect/**
 !artifacts/matrix_runs/
 artifacts/matrix_runs/*
 !artifacts/matrix_runs/paper-n200-full.json
 !artifacts/matrix_runs/paper-p1-ceilings-n200.json
-# Large inspect JSON stays local-only (regenerate with --inspect-from); HTML is published
+# Large inspect JSON stays local-only (regenerate with --inspect-from).
+# Compact Markdown inspect is published for GitHub; full HTML is for download/local view.
 
 # Large FinAgentBench dumps (download via scripts/download_finagentbench_kaggle.py)
 data/finagentbench_kaggle/

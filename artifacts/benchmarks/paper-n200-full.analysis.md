@@ -176,50 +176,50 @@ Decided by per-example Stage-2 **nDCG@5**; `|Δ| < 0.01` counts as tie.
 ### Samples — `lux-e5`
 
 **Wins:**
-- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q25119b32a2f9))
-- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q84038a74fd59))
-- `dev:qa602975e3d19` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qa602975e3d19))
-- `dev:q7c284aabbba4` Δ=0.9521 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q7c284aabbba4))
-- `dev:q4d8ac905167b` Δ=0.9026 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q4d8ac905167b))
+- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-q25119b32a2f9))
+- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-q84038a74fd59))
+- `dev:qa602975e3d19` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-qa602975e3d19))
+- `dev:q7c284aabbba4` Δ=0.9521 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-q7c284aabbba4))
+- `dev:q4d8ac905167b` Δ=0.9026 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-q4d8ac905167b))
 
 **Losses:**
-- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qe1811f4fd3dc))
-- `dev:q8ba6a388d681` Δ=-0.8319 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q8ba6a388d681))
-- `dev:q31f6fd1f392c` Δ=-0.7817 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:q31f6fd1f392c))
-- `dev:qa5c748248a5b` Δ=-0.6716 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qa5c748248a5b))
-- `dev:qdec70f55027f` Δ=-0.5934 ([inspect](paper-n200-full.inspect.html#pair-lux-e5-ex-dev:qdec70f55027f))
+- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-qe1811f4fd3dc))
+- `dev:q8ba6a388d681` Δ=-0.8319 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-q8ba6a388d681))
+- `dev:q31f6fd1f392c` Δ=-0.7817 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-q31f6fd1f392c))
+- `dev:qa5c748248a5b` Δ=-0.6716 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-qa5c748248a5b))
+- `dev:qdec70f55027f` Δ=-0.5934 ([inspect](paper-n200-full.inspect/lux-e5.md#ex-dev-qdec70f55027f))
 
 ### Samples — `lux-bm25`
 
 **Wins:**
-- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q25119b32a2f9))
-- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q84038a74fd59))
-- `dev:q9dd3907388e3` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q9dd3907388e3))
-- `dev:q4d8ac905167b` Δ=0.8304 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q4d8ac905167b))
-- `dev:q9a5cfe35fecd` Δ=0.7557 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:q9a5cfe35fecd))
+- `dev:q25119b32a2f9` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-q25119b32a2f9))
+- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-q84038a74fd59))
+- `dev:q9dd3907388e3` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-q9dd3907388e3))
+- `dev:q4d8ac905167b` Δ=0.8304 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-q4d8ac905167b))
+- `dev:q9a5cfe35fecd` Δ=0.7557 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-q9a5cfe35fecd))
 
 **Losses:**
-- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qe1811f4fd3dc))
-- `dev:qf8cbcec9fec6` Δ=-1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qf8cbcec9fec6))
-- `dev:qdec70f55027f` Δ=-0.7727 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qdec70f55027f))
-- `dev:qa5c748248a5b` Δ=-0.7429 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:qa5c748248a5b))
-- `dev:chunk-only:qb7d1dfae8271` Δ=-0.6992 ([inspect](paper-n200-full.inspect.html#pair-lux-bm25-ex-dev:chunk-only:qb7d1dfae8271))
+- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-qe1811f4fd3dc))
+- `dev:qf8cbcec9fec6` Δ=-1.0000 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-qf8cbcec9fec6))
+- `dev:qdec70f55027f` Δ=-0.7727 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-qdec70f55027f))
+- `dev:qa5c748248a5b` Δ=-0.7429 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-qa5c748248a5b))
+- `dev:chunk-only:qb7d1dfae8271` Δ=-0.6992 ([inspect](paper-n200-full.inspect/lux-bm25.md#ex-dev-chunk-only-qb7d1dfae8271))
 
 ### Samples — `lux-clm`
 
 **Wins:**
-- `dev:q3ef7ce37ae77` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q3ef7ce37ae77))
-- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q84038a74fd59))
-- `dev:q7c284aabbba4` Δ=0.6062 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q7c284aabbba4))
-- `dev:chunk-only:q7b219decf5da` Δ=0.3392 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:chunk-only:q7b219decf5da))
-- `dev:q4bf1699a63fe` Δ=0.3156 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q4bf1699a63fe))
+- `dev:q3ef7ce37ae77` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-q3ef7ce37ae77))
+- `dev:q84038a74fd59` Δ=1.0000 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-q84038a74fd59))
+- `dev:q7c284aabbba4` Δ=0.6062 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-q7c284aabbba4))
+- `dev:chunk-only:q7b219decf5da` Δ=0.3392 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-chunk-only-q7b219decf5da))
+- `dev:q4bf1699a63fe` Δ=0.3156 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-q4bf1699a63fe))
 
 **Losses:**
-- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:qe1811f4fd3dc))
-- `dev:qa5c748248a5b` Δ=-0.8688 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:qa5c748248a5b))
-- `dev:q8ba6a388d681` Δ=-0.8319 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:q8ba6a388d681))
-- `dev:chunk-only:qb7d1dfae8271` Δ=-0.6992 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:chunk-only:qb7d1dfae8271))
-- `dev:qeccd6f3b9d06` Δ=-0.6730 ([inspect](paper-n200-full.inspect.html#pair-lux-clm-ex-dev:qeccd6f3b9d06))
+- `dev:qe1811f4fd3dc` Δ=-1.0000 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-qe1811f4fd3dc))
+- `dev:qa5c748248a5b` Δ=-0.8688 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-qa5c748248a5b))
+- `dev:q8ba6a388d681` Δ=-0.8319 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-q8ba6a388d681))
+- `dev:chunk-only:qb7d1dfae8271` Δ=-0.6992 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-chunk-only-qb7d1dfae8271))
+- `dev:qeccd6f3b9d06` Δ=-0.6730 ([inspect](paper-n200-full.inspect/lux-clm.md#ex-dev-qeccd6f3b9d06))
 
 
 ## Uncertainty (bootstrap 95% CI)
@@ -319,14 +319,14 @@ When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those exampl
 
 | Pair | Status | Completed | Empty Top-1 | Other fail | Inspect |
 |---|---|---|---|---|---|
-| lux-lux | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect.html#pair-lux-lux) |
-| anyjev-l0-lux | measured | 128 | 72 | 0 | [open](paper-n200-full.inspect.html#pair-anyjev-l0-lux) |
-| kai-lux | measured | 94 | 106 | 0 | [open](paper-n200-full.inspect.html#pair-kai-lux) |
-| laya-lux | measured | 85 | 115 | 0 | [open](paper-n200-full.inspect.html#pair-laya-lux) |
-| ar-lux | measured | 86 | 114 | 0 | [open](paper-n200-full.inspect.html#pair-ar-lux) |
-| lux-clm | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect.html#pair-lux-clm) |
-| lux-bm25 | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect.html#pair-lux-bm25) |
-| lux-e5 | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect.html#pair-lux-e5) |
+| lux-lux | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect/lux-lux.md) |
+| anyjev-l0-lux | measured | 128 | 72 | 0 | [open](paper-n200-full.inspect/anyjev-l0-lux.md) |
+| kai-lux | measured | 94 | 106 | 0 | [open](paper-n200-full.inspect/kai-lux.md) |
+| laya-lux | measured | 85 | 115 | 0 | [open](paper-n200-full.inspect/laya-lux.md) |
+| ar-lux | measured | 86 | 114 | 0 | [open](paper-n200-full.inspect/ar-lux.md) |
+| lux-clm | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect/lux-clm.md) |
+| lux-bm25 | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect/lux-bm25.md) |
+| lux-e5 | measured | 119 | 81 | 0 | [open](paper-n200-full.inspect/lux-e5.md) |
 
 ## Limitations / threats to validity
 
@@ -334,8 +334,9 @@ When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those exampl
 - CLM Stage-2 is zero-shot Action Cache (2k context) unless shortlist optional row ran.
 - E5 is general-domain, not finance-tuned; BM25 is lexical only.
 - Empty-Top-1 rates depend on the Stage-1 engine — Block A rows are not comparable on Stage-2 overall nDCG without conditioning on Top-1.
-- Deferred trained heads: [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1).
-- Deferred cross-encoder ceiling: [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2).
+- Deferred trained dual-encoder heads: [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) (`lux-clm-ft`).
+- Cross-encoder IR ceiling (`lux-e5-ce`) is implemented as an optional P1 pair (pretrained CE; closes [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)).
+- Champion cells (`anyjev-l0-e5` / `anyjev-l0-bm25`) are compound pairs, not orthogonal Block A/B.
 
 ## Skipped / deferred pairs
 
@@ -347,6 +348,7 @@ When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those exampl
 
 ## Artifact index
 
-- Interactive inspect (per-example): `paper-n200-full.inspect.html`
+- Compact inspect (GitHub): `paper-n200-full.inspect.md`
+- Full inspect HTML (download / open locally): `paper-n200-full.inspect.html`
 - Analysis JSON: `paper-n200-full.analysis.json`
 - Matrix JSON / CSV: `paper-n200-full.json`, `paper-n200-full.csv`

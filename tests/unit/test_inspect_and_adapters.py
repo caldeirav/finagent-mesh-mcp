@@ -7,7 +7,14 @@ import pytest
 from finagent_mesh.clients.engines.registry import EngineConfiguration
 from finagent_mesh.clients.engines.vllm_sr import VllmSrAdapter
 from finagent_mesh.clients.open_decision import OpenDecisionClient
-from finagent_mesh.matrix.inspect import _gold_s1, _gold_s2_map, render_inspect_html
+from finagent_mesh.matrix.inspect import (
+    _gold_s1,
+    _gold_s2_map,
+    compact_inspect_href,
+    example_anchor_slug,
+    render_inspect_html,
+    write_compact_inspect_markdown,
+)
 
 
 def test_decision20_adapter_allows_score(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -89,3 +96,71 @@ def test_inspect_html_links_pairs() -> None:
 def test_gold_label_parsers() -> None:
     assert _gold_s1(["10-K", {"id": "10-Q"}]) == ["10-K", "10-Q"]
     assert _gold_s2_map([{"id": "c1", "relevance": 2}])["c1"] == 2.0
+
+
+def test_compact_inspect_href_and_slug() -> None:
+    assert example_anchor_slug("dev:q25119b32a2f9") == "dev-q25119b32a2f9"
+    assert example_anchor_slug("dev:chunk-only:q1") == "dev-chunk-only-q1"
+    assert (
+        compact_inspect_href("paper-n200-full", "lux-e5", example_id="dev:q1")
+        == "paper-n200-full.inspect/lux-e5.md#ex-dev-q1"
+    )
+
+
+def test_write_compact_inspect_markdown(tmp_path) -> None:
+    payload = {
+        "matrix_run_id": "smoke-test",
+        "sample_size": 1,
+        "sample_seed": 42,
+        "synthesis_enabled": False,
+        "status": "completed",
+        "pairs": [
+            {
+                "pair_id": "lux-e5",
+                "eval_run_id": "smoke-test:lux-e5",
+                "stage1_engine_id": "decision20-lux",
+                "stage2_engine_id": "e5-base",
+                "row_status": "completed",
+                "metrics": {"stage1_ndcg_at_5": 0.9, "stage2_ndcg_at_5": 0.3},
+                "n_completed": 1,
+                "n_failed_retriable": 0,
+                "examples": [
+                    {
+                        "example_id": "dev:q1",
+                        "ledger_state": "completed",
+                        "error": None,
+                        "expected": {"query_text": "What is revenue?"},
+                        "stage1": {
+                            "top1": "10-K",
+                            "top1_in_gold": True,
+                            "gold": ["10-K"],
+                            "ordered_ids": ["10-K"],
+                            "ndcg_at_5": 1.0,
+                        },
+                        "stage2": {
+                            "ndcg_at_5": 0.5,
+                            "n_scored": 3,
+                            "rows": [
+                                {
+                                    "rank": 1,
+                                    "chunk_id": "c1",
+                                    "score": 0.9,
+                                    "gold_relevance": 2,
+                                    "text": "revenue grew",
+                                }
+                            ],
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+    index = write_compact_inspect_markdown(payload, out_dir=tmp_path)
+    assert index.exists()
+    pair_md = tmp_path / "smoke-test.inspect" / "lux-e5.md"
+    assert pair_md.exists()
+    body = pair_md.read_text()
+    assert "### ex-dev-q1" in body
+    assert "What is revenue?" in body
+    assert "raw.githubusercontent.com" in body
+    assert "smoke-test.inspect.html" in index.read_text()

@@ -105,7 +105,7 @@
       "n_empty_top1": 72,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-e5"
+      "href": "paper-p1-ceilings-n200.inspect/anyjev-l0-e5.md"
     },
     {
       "pair_id": "anyjev-l0-bm25",
@@ -115,7 +115,7 @@
       "n_empty_top1": 72,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-bm25"
+      "href": "paper-p1-ceilings-n200.inspect/anyjev-l0-bm25.md"
     },
     {
       "pair_id": "lux-lux-shortlist",
@@ -125,7 +125,7 @@
       "n_empty_top1": 81,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-lux-shortlist"
+      "href": "paper-p1-ceilings-n200.inspect/lux-lux-shortlist.md"
     },
     {
       "pair_id": "lux-e5-ce",
@@ -135,7 +135,7 @@
       "n_empty_top1": 81,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ce"
+      "href": "paper-p1-ceilings-n200.inspect/lux-e5-ce.md"
     },
     {
       "pair_id": "anyjev-l0-lux",
@@ -145,7 +145,7 @@
       "n_empty_top1": 72,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-lux"
+      "href": "paper-p1-ceilings-n200.inspect/anyjev-l0-lux.md"
     },
     {
       "pair_id": "lux-bm25",
@@ -155,7 +155,7 @@
       "n_empty_top1": 81,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25"
+      "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md"
     },
     {
       "pair_id": "lux-e5",
@@ -165,7 +165,7 @@
       "n_empty_top1": 81,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5"
+      "href": "paper-p1-ceilings-n200.inspect/lux-e5.md"
     },
     {
       "pair_id": "lux-lux",
@@ -175,7 +175,7 @@
       "n_empty_top1": 81,
       "n_other_fail": 0,
       "measured": true,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-lux"
+      "href": "paper-p1-ceilings-n200.inspect/lux-lux.md"
     }
   ],
   "artifact_index": [
@@ -186,7 +186,7 @@
       "n_completed": 128,
       "n_empty_top1": 72,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-e5"
+      "href": "paper-p1-ceilings-n200.inspect/anyjev-l0-e5.md"
     },
     {
       "pair_id": "anyjev-l0-bm25",
@@ -195,7 +195,7 @@
       "n_completed": 128,
       "n_empty_top1": 72,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-bm25"
+      "href": "paper-p1-ceilings-n200.inspect/anyjev-l0-bm25.md"
     },
     {
       "pair_id": "lux-lux-shortlist",
@@ -204,7 +204,7 @@
       "n_completed": 119,
       "n_empty_top1": 81,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-lux-shortlist"
+      "href": "paper-p1-ceilings-n200.inspect/lux-lux-shortlist.md"
     },
     {
       "pair_id": "lux-e5-ce",
@@ -213,7 +213,7 @@
       "n_completed": 119,
       "n_empty_top1": 81,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ce"
+      "href": "paper-p1-ceilings-n200.inspect/lux-e5-ce.md"
     },
     {
       "pair_id": "anyjev-l0-lux",
@@ -222,7 +222,7 @@
       "n_completed": 128,
       "n_empty_top1": 72,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-anyjev-l0-lux"
+      "href": "paper-p1-ceilings-n200.inspect/anyjev-l0-lux.md"
     },
     {
       "pair_id": "lux-bm25",
@@ -231,7 +231,7 @@
       "n_completed": 119,
       "n_empty_top1": 81,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25"
+      "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md"
     },
     {
       "pair_id": "lux-e5",
@@ -240,7 +240,7 @@
       "n_completed": 119,
       "n_empty_top1": 81,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5"
+      "href": "paper-p1-ceilings-n200.inspect/lux-e5.md"
     },
     {
       "pair_id": "lux-lux",
@@ -249,7 +249,7 @@
       "n_completed": 119,
       "n_empty_top1": 81,
       "n_other_fail": 0,
-      "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-lux"
+      "href": "paper-p1-ceilings-n200.inspect/lux-lux.md"
     }
   ],
   "rows": [
@@ -1282,54 +1282,54 @@
         {
           "example_id": "dev:q25119b32a2f9",
           "delta": 1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q25119b32a2f9"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q25119b32a2f9"
         },
         {
           "example_id": "dev:q84038a74fd59",
           "delta": 1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q84038a74fd59"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q84038a74fd59"
         },
         {
           "example_id": "dev:qa602975e3d19",
           "delta": 1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qa602975e3d19"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qa602975e3d19"
         },
         {
           "example_id": "dev:q7c284aabbba4",
           "delta": 0.9520727775370875,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q7c284aabbba4"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q7c284aabbba4"
         },
         {
           "example_id": "dev:q4d8ac905167b",
           "delta": 0.9026211001048622,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q4d8ac905167b"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q4d8ac905167b"
         }
       ],
       "sample_losses": [
         {
           "example_id": "dev:qe1811f4fd3dc",
           "delta": -1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qe1811f4fd3dc"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qe1811f4fd3dc"
         },
         {
           "example_id": "dev:q8ba6a388d681",
           "delta": -0.8318724637288826,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q8ba6a388d681"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q8ba6a388d681"
         },
         {
           "example_id": "dev:q31f6fd1f392c",
           "delta": -0.7817304474156231,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:q31f6fd1f392c"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-q31f6fd1f392c"
         },
         {
           "example_id": "dev:qa5c748248a5b",
           "delta": -0.6716210907767882,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qa5c748248a5b"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qa5c748248a5b"
         },
         {
           "example_id": "dev:qdec70f55027f",
           "delta": -0.5934398852259766,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-e5-ex-dev:qdec70f55027f"
+          "href": "paper-p1-ceilings-n200.inspect/lux-e5.md#ex-dev-qdec70f55027f"
         }
       ]
     },
@@ -1346,54 +1346,54 @@
         {
           "example_id": "dev:q25119b32a2f9",
           "delta": 1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q25119b32a2f9"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q25119b32a2f9"
         },
         {
           "example_id": "dev:q84038a74fd59",
           "delta": 1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q84038a74fd59"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q84038a74fd59"
         },
         {
           "example_id": "dev:q9dd3907388e3",
           "delta": 1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q9dd3907388e3"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q9dd3907388e3"
         },
         {
           "example_id": "dev:q4d8ac905167b",
           "delta": 0.8304198973631919,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q4d8ac905167b"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q4d8ac905167b"
         },
         {
           "example_id": "dev:q9a5cfe35fecd",
           "delta": 0.7557415207297861,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:q9a5cfe35fecd"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-q9a5cfe35fecd"
         }
       ],
       "sample_losses": [
         {
           "example_id": "dev:qe1811f4fd3dc",
           "delta": -1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qe1811f4fd3dc"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qe1811f4fd3dc"
         },
         {
           "example_id": "dev:qf8cbcec9fec6",
           "delta": -1.0,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qf8cbcec9fec6"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qf8cbcec9fec6"
         },
         {
           "example_id": "dev:qdec70f55027f",
           "delta": -0.7726578571095908,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qdec70f55027f"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qdec70f55027f"
         },
         {
           "example_id": "dev:qa5c748248a5b",
           "delta": -0.7429498456882975,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:qa5c748248a5b"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-qa5c748248a5b"
         },
         {
           "example_id": "dev:chunk-only:qb7d1dfae8271",
           "delta": -0.6992148198508501,
-          "href": "paper-p1-ceilings-n200.inspect.html#pair-lux-bm25-ex-dev:chunk-only:qb7d1dfae8271"
+          "href": "paper-p1-ceilings-n200.inspect/lux-bm25.md#ex-dev-chunk-only-qb7d1dfae8271"
         }
       ]
     }
