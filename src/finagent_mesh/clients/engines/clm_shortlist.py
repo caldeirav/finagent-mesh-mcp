@@ -39,7 +39,12 @@ class ClmShortlistAdapter:
     def _clm_adapter(self):
         if self._clm is None:
             reg = load_registry()
-            self._clm = create_adapter("clm-8b", reg)
+            # Prefer matrix port override when the runner rebound clm-8b.
+            clm_url = os.getenv("CLM8B_BASE_URL") or None
+            if clm_url is None and self.cfg.base_url:
+                # engines.yaml pins shortlist + clm-8b on the same Stage-2 port.
+                clm_url = self.cfg.base_url
+            self._clm = create_adapter("clm-8b", reg, base_url=clm_url)
         return self._clm
 
     def health(self) -> tuple[bool, str]:

@@ -467,10 +467,13 @@ class MatrixRunner:
     ) -> MatrixRun:
         """Attach Gemini synthesis to saved rankings (no Choice/Score re-inference).
 
-        Reuses each pair's existing ``eval_run_id`` ledger entries (``ranking_complete``
-        / ``synthesis_retriable``) and runs synthesis resume only.
+        Clones each source pair's ranking ledger into ``{new_run_id}:{pair_id}`` as
+        ``ranking_complete``, then runs Gemini-only resume. Never mutates the source
+        ranking-only ledger (e.g. ``paper-n200:lux-lux``).
         """
         from copy import deepcopy
+
+        from finagent_mesh.ledger.sqlite_ledger import SqliteLedger
 
         source = self.load(source_matrix_run_id)
         matrix = deepcopy(source)
@@ -483,41 +486,70 @@ class MatrixRunner:
         if not matrix.rows:
             raise ValueError(f"No matching pairs in {source_matrix_run_id} for {pair_ids}")
         path = Path(matrix.dataset_path)
-        for row in matrix.rows:
-            progress_log(
-                f"synthesis-reuse {row.variable_config_id} "
-                f"eval_run_id={row.eval_run_id} (no Stage-1/2 engines)"
-            )
-            harness = Harness(
-                self.settings,
-                stage1_engine=row.stage1_engine_id,
-                stage2_engine=row.stage2_engine_id,
-                gemini_model=matrix.gemini_model,
-                allow_mock=True,
-                port_overrides={},
-            )
-            try:
-                harness.run(
-                    row.eval_run_id,
-                    skip_synthesis=False,
-                    example_ids=matrix.selected_example_ids,
-                    dataset_path=path,
+        ledger = SqliteLedger(self.settings.eval_ledger_path)
+        try:
+            for row in matrix.rows:
+                source_eval = row.eval_run_id
+                dest_eval = f"{new_run_id}:{row.variable_config_id}"
+                seed_counts = ledger.seed_rankings_for_synthesis(
+                    source_eval,
+                    dest_eval,
+                    matrix.selected_example_ids,
+                    config={
+                        "matrix_run_id": new_run_id,
+                        "source_matrix_run_id": source_matrix_run_id,
+                        "source_eval_run_id": source_eval,
+                        "pair_id": row.variable_config_id,
+                        "synthesis_enabled": True,
+                        "reuse_rankings_only": True,
+                        "dataset_path": str(path),
+                        "stage1_engine": row.stage1_engine_id,
+                        "stage2_engine": row.stage2_engine_id,
+                        "gemini_model": matrix.gemini_model,
+                    },
                 )
-                row.metrics = self._metrics_for_run(
-                    row.eval_run_id,
-                    stage1_id=row.stage1_engine_id,
-                    stage2_id=row.stage2_engine_id,
-                    variable_id=row.variable_config_id,
-                    synthesis_enabled=True,
-                    blocks=list(row.blocks),
+                row.eval_run_id = dest_eval
+                progress_log(
+                    f"synthesis-reuse {row.variable_config_id}: "
+                    f"source={source_eval} → dest={dest_eval} "
+                    f"seeded={seed_counts['seeded']} "
+                    f"empty/failed={seed_counts['failed_kept']} "
+                    f"resume_existing={seed_counts['skipped_existing']} "
+                    f"(Gemini only; no Stage-1/2 engines)"
                 )
-                row.status = "completed"
-                row.error = None
-            except Exception as exc:  # noqa: BLE001
-                row.status = "failed"
-                row.error = str(exc)
-                progress_log(f"synthesis-reuse {row.variable_config_id} FAILED: {exc}")
-            self.save(matrix)
+                harness = Harness(
+                    self.settings,
+                    stage1_engine=row.stage1_engine_id,
+                    stage2_engine=row.stage2_engine_id,
+                    gemini_model=matrix.gemini_model,
+                    allow_mock=True,
+                    port_overrides={},
+                )
+                try:
+                    harness.run(
+                        dest_eval,
+                        skip_synthesis=False,
+                        example_ids=matrix.selected_example_ids,
+                        dataset_path=path,
+                        reuse_rankings_only=True,
+                    )
+                    row.metrics = self._metrics_for_run(
+                        dest_eval,
+                        stage1_id=row.stage1_engine_id,
+                        stage2_id=row.stage2_engine_id,
+                        variable_id=row.variable_config_id,
+                        synthesis_enabled=True,
+                        blocks=list(row.blocks),
+                    )
+                    row.status = "completed"
+                    row.error = None
+                except Exception as exc:  # noqa: BLE001
+                    row.status = "failed"
+                    row.error = str(exc)
+                    progress_log(f"synthesis-reuse {row.variable_config_id} FAILED: {exc}")
+                self.save(matrix)
+        finally:
+            ledger.close()
         matrix.status = (
             "completed"
             if all(r.status == "completed" for r in matrix.rows)

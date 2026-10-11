@@ -637,6 +637,67 @@ def _extract_first_json_object(text: str) -> str | None:
     return None
 
 
+def _extract_partial_ordered_ids(text: str) -> list[str]:
+    """Salvage complete string ids from a truncated ``ordered_ids`` array."""
+    match = re.search(r'"ordered_ids"\s*:\s*\[', text)
+    if not match:
+        return []
+    i = match.end()
+    ids: list[str] = []
+    n = len(text)
+    while i < n:
+        while i < n and text[i] in " \n\r\t,":
+            i += 1
+        if i >= n or text[i] in "]}":
+            break
+        if text[i] != '"':
+            break
+        i += 1
+        start = i
+        intact = False
+        while i < n:
+            ch = text[i]
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == '"':
+                try:
+                    ids.append(json.loads(f'"{text[start:i]}"'))
+                except json.JSONDecodeError:
+                    return ids
+                i += 1
+                intact = True
+                break
+            i += 1
+        if not intact:
+            # Truncated mid-string — drop the incomplete id.
+            break
+    return ids
+
+
+def _parse_ar_ranking_text(text: str) -> tuple[list[str], list[float], str]:
+    """Parse AR generation into ordered ids + scores; tolerate truncated JSON."""
+    cleaned = _strip_think_blocks(text)
+    raw = _extract_first_json_object(cleaned)
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            ordered = [str(x) for x in (parsed.get("ordered_ids") or [])]
+            scores_raw = parsed.get("scores") or []
+            scores = [float(x) for x in scores_raw]
+            if ordered:
+                if len(scores) != len(ordered):
+                    scores = [float(len(ordered) - i) for i in range(len(ordered))]
+                return ordered, scores, raw
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+    ordered = _extract_partial_ordered_ids(cleaned if cleaned else text)
+    if ordered:
+        scores = [float(len(ordered) - i) for i in range(len(ordered))]
+        return ordered, scores, (raw or cleaned or text)[:500]
+    raise RealInferError(f"AR JSON parse failure; raw={text[:200]!r}")
+
+
 def decide_ar_json(
     *,
     model_id: str,
@@ -644,19 +705,31 @@ def decide_ar_json(
     candidates: list[dict[str, str]],
     primitive: str,
 ) -> dict[str, Any]:
-    """Autoregressive JSON ordered_ids baseline (thinking disabled for Qwen3)."""
+    """Autoregressive JSON ordered_ids baseline (thinking disabled for Qwen3).
+
+    For large one-shot chunk lists, ask only for top-K ids (nDCG@5 needs ≤5) and
+    shorten candidate text so generation finishes inside ``max_new_tokens``.
+    Truncated JSON is repaired when complete id strings are still present.
+    """
     import torch
 
     tok, model, device = _load_ar(model_id)
+    n_cand = len(candidates)
+    # Choice (K≈5) can emit a full permutation; one-shot Score needs a short top-K.
+    default_top_k = n_cand if primitive == "choice" and n_cand <= 8 else min(10, n_cand)
+    top_k = max(1, int(os.getenv("AR_TOP_K", str(default_top_k))))
+    top_k = min(top_k, max(n_cand, 1))
+    text_cap = int(os.getenv("AR_CAND_TEXT_CHARS", "120" if n_cand > 16 else "300"))
     cand_blob = json.dumps(
-        [{"id": c["id"], "text": (c.get("text") or "")[:300]} for c in candidates]
+        [{"id": c["id"], "text": (c.get("text") or "")[:text_cap]} for c in candidates]
     )
     user = (
-        "Rank these financial retrieval candidates for the query.\n"
-        "Reply with ONLY a JSON object (no prose): "
+        f"Rank the best {top_k} financial retrieval candidates for the query "
+        f"(best first; at most {top_k} ids).\n"
+        "Reply with ONLY a JSON object (no prose, no markdown): "
         '{"ordered_ids":["id1","id2",...],"scores":[1.0,0.9,...]}\n'
         f"Query: {query}\n"
-        f"Candidates: {cand_blob}"
+        f"Candidates ({n_cand}): {cand_blob}"
     )
     messages = [
         {
@@ -668,6 +741,9 @@ def decide_ar_json(
         },
         {"role": "user", "content": user},
     ]
+    # Long chunk ids need ~40–50 tokens each; pad for braces/scores.
+    default_new = min(1024, 96 + top_k * 48)
+    max_new_tokens = int(os.getenv("AR_MAX_NEW_TOKENS", str(default_new)))
     started = time.perf_counter()
     try:
         prompt = tok.apply_chat_template(
@@ -688,26 +764,22 @@ def decide_ar_json(
     with torch.no_grad():
         out = model.generate(
             **inputs,
-            max_new_tokens=384,
+            max_new_tokens=max_new_tokens,
             do_sample=False,
             pad_token_id=tok.eos_token_id,
         )
     text = tok.decode(out[0][inputs["input_ids"].shape[-1] :], skip_special_tokens=True)
     latency_ms = (time.perf_counter() - started) * 1000.0
-    cleaned = _strip_think_blocks(text)
-    raw = _extract_first_json_object(cleaned)
-    if not raw:
-        raise RealInferError(f"AR JSON parse failure; raw={text[:200]!r}")
-    try:
-        parsed = json.loads(raw)
-        ordered = list(parsed.get("ordered_ids") or [])
-        scores = [float(x) for x in (parsed.get("scores") or [])]
-    except Exception as exc:  # noqa: BLE001
-        raise RealInferError(f"AR JSON parse failure: {exc}; raw={raw[:200]!r}") from exc
+    ordered, scores, raw = _parse_ar_ranking_text(text)
+    cand_set = {c["id"] for c in candidates}
+    ordered = [i for i in ordered if i in cand_set]
     if not ordered:
-        raise RealInferError("AR JSON missing ordered_ids")
+        raise RealInferError(f"AR JSON missing ordered_ids; raw={text[:200]!r}")
+    ordered = ordered[:top_k]
     if len(scores) != len(ordered):
         scores = [float(len(ordered) - i) for i in range(len(ordered))]
+    else:
+        scores = scores[: len(ordered)]
     ranked = stable_rank(ordered, scores)
     total = sum(max(s, 0.0) for _, s, _ in ranked) or 1.0
     return {
@@ -715,6 +787,8 @@ def decide_ar_json(
         "ranking": [{"id": i, "score": s, "rank": r} for i, s, r in ranked],
         "distribution": {i: max(s, 0.0) / total for i, s, _ in ranked},
         "raw_json": raw,
+        "coverage": len(ordered) / max(n_cand, 1),
+        "top_k_requested": top_k,
         "latency_ms": latency_ms,
         "backend": "ar_json",
         "model_id": model_id,

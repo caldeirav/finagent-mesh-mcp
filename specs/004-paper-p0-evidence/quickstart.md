@@ -67,8 +67,10 @@ uv run python scripts/run_benchmark.py --real --with-synthesis \
 ```
 
 **Expect**:
-- No Choice/Score sidecar load for examples that already have rankings (or documented equivalent)
-- EM/F1 table for four pairs; skips counted for empty/missing evidence
+- Log line `source=paper-n200:… → dest=paper-n200-full-synth:…` with `seeded=` / `empty/failed=` (new ledger; does **not** mutate ranking-only runs)
+- Per example: `synthesis…` or `skip synthesis (no reusable ranking: empty_top1_chunks)` — **not** `skip (already completed)` on the source run, and **not** `retry ranking`
+- No Choice/Score sidecar start; Gemini only
+- EM/F1 table for four pairs; empty-Top-1 examples skipped for synthesis
 - Ranking nDCG in analysis still matches published `paper-n200-full` for those pairs
 
 ## Pass / fail summary

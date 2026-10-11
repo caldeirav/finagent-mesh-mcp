@@ -267,6 +267,12 @@ def bind_from_registry(
         else reg.get(stage2_config_id).base_url
     )
     s1 = create_adapter(stage1_config_id, reg, base_url=s1_url)
+    # Hybrid shortlist Stage-2: point nested CLM client at the started sidecar port.
+    s2_cfg = reg.get(stage2_config_id)
+    if (
+        s2_cfg.backend == "clm_shortlist" or s2_cfg.family == "hybrid-ir"
+    ) and "clm-8b" in ports:
+        s2_url = base_url_for_port(ports["clm-8b"])
     s2 = create_adapter(stage2_config_id, reg, base_url=s2_url)
     return OpenDecisionClient(
         s1_url,

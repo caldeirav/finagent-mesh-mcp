@@ -116,8 +116,8 @@ description: "Task list for Paper P0 Evidence Pack"
 - [x] T025 [US4] Implement synthesis-reuse path in `src/finagent_mesh/runtime/harness.py` (extend `synthesis_retriable` / ranking_payload resume): load saved rankings + chunk texts from ledger/inspect; **MUST NOT** call Choice/Score engines; skip empty/missing evidence with counters
 - [x] T026 [US4] Persist synthesis payloads, answer EM/F1, attempted/failed/skipped-no-evidence into ledger and pair aggregates in `src/finagent_mesh/matrix/runner.py` / harness
 - [x] T027 [US4] Render **Answer metrics (synthesis reuse)** section in `src/finagent_mesh/matrix/analysis.py` stating rankings were reused; fail-closed (no extractive fake answers)
-- [ ] T028 [US4] Smoke then full N=200 synthesis reuse against `paper-n200-full` per `quickstart.md` §5; confirm ranking metrics in analysis still match published matrix
-  - Deferred: operator GPU/API run (`--synthesis-from-rankings`); CLI + runner path implemented in T025–T027
+- [x] T028 [US4] Smoke then full N=200 synthesis reuse against `paper-n200-full` per `quickstart.md` §5; confirm ranking metrics in analysis still match published matrix
+  - Done: `paper-n200-full-synth` (Gemini-only clone path). EM/F1 N/A — harness dump has no `answer_label`.
 
 **Checkpoint**: US4 answer metrics attached without re-ranking
 
@@ -132,8 +132,8 @@ description: "Task list for Paper P0 Evidence Pack"
 ### Implementation for User Story 5
 
 - [x] T029 [US5] Verify/fix optional pair execution path in `src/finagent_mesh/matrix/partners.py` + `scripts/run_benchmark.py` for `--include-optional --pairs lux-clm-shortlist,one-shot-ar` (shortlist K printed; one-shot `collapsed_stages` / baseline role)
-- [ ] T030 [US5] Run ranking-only optional matrix on N=200 seed=42 (`paper-n200-optional` or merge into analysis view) using existing engines in `configs/engines.yaml`; merge via `src/finagent_mesh/matrix/merge.py` if needed
-  - Deferred: optional operator GPU run; engine configs already present
+- [x] T030 [US5] Run ranking-only optional matrix on N=200 seed=42 (`paper-n200-optional` or merge into analysis view) using existing engines in `configs/engines.yaml`; merge via `src/finagent_mesh/matrix/merge.py` if needed
+  - Done: `paper-n200-optional` (shortlist S2 0.1475; one-shot-ar S2 0.2737, ~3% AR parse fail).
 - [x] T031 [US5] Ensure analysis **Optional baselines** + **Skipped/deferred** sections in `src/finagent_mesh/matrix/analysis.py` show measured optionals and deferred `lux-clm-ft` / `lux-e5-ce` with [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1) / [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)
 
 **Checkpoint**: US5 closes Spec 003 optional gaps without implementing #1/#2

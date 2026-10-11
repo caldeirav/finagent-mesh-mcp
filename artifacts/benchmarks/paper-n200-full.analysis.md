@@ -73,7 +73,7 @@ Mutually exclusive classes reconcile Top-1 recall vs empty-Top-1. **Pipeline yie
 
 | Pair | N | Top-1 recall | Empty rate | Yield | correct_scored | correct_empty | wrong_scored | wrong_empty | missing/other |
 |---|---|---|---|---|---|---|---|---|---|
-| lux-lux | 200 | 0.9387 | 0.4050 | 0.5950 | 86 | 67 | 33 | 14 | 0 |
+| lux-lux | 200 | 0.9387 | 0.4050 | 0.5950 | 86 | 66 | 33 | 15 | 0 |
 | anyjev-l0-lux | 200 | 0.9509 | 0.3600 | 0.6400 | 95 | 60 | 33 | 12 | 0 |
 | kai-lux | 200 | 0.8405 | 0.5300 | 0.4700 | 61 | 76 | 33 | 30 | 0 |
 | laya-lux | 200 | 0.8098 | 0.5750 | 0.4250 | 52 | 80 | 33 | 35 | 0 |
@@ -226,37 +226,47 @@ Decided by per-example Stage-2 **nDCG@5**; `|Δ| < 0.01` counts as tie.
 
 | Id | Metric | Point | CI low | CI high | N |
 |---|---|---|---|---|---|
-| lux-lux | stage1_ndcg_at_5 | 0.8413 | 0.8191 | 0.8631 | 163 |
+| lux-lux | stage1_ndcg_at_5 | 0.8463 | 0.8216 | 0.8698 | 163 |
 | lux-lux | stage2_ndcg_at_5_scored | 0.2212 | 0.1712 | 0.2786 | 111 |
 | lux-lux | stage2_mrr_at_5_scored | 0.4053 | 0.3245 | 0.4958 | 111 |
 | anyjev-l0-lux | stage1_ndcg_at_5 | 0.8625 | 0.8403 | 0.8849 | 163 |
 | anyjev-l0-lux | stage2_ndcg_at_5_scored | 0.2300 | 0.1828 | 0.2823 | 120 |
 | anyjev-l0-lux | stage2_mrr_at_5_scored | 0.4274 | 0.3489 | 0.5086 | 120 |
-| delta:anyjev-l0-lux-vs-lux-lux | stage1_ndcg_at_5 | 0.0212 | -0.0089 | 0.0527 | 163 |
+| delta:anyjev-l0-lux-vs-lux-lux | stage1_ndcg_at_5 | 0.0162 | -0.0144 | 0.0487 | 163 |
 | delta:anyjev-l0-lux-vs-lux-lux | stage2_ndcg_at_5 | 0.0088 | -0.0624 | 0.0844 | 111 |
-| delta:kai-lux-vs-lux-lux | stage1_ndcg_at_5 | -0.0584 | -0.0889 | -0.0264 | 163 |
+| delta:kai-lux-vs-lux-lux | stage1_ndcg_at_5 | -0.0634 | -0.0943 | -0.0321 | 163 |
 | delta:kai-lux-vs-lux-lux | stage2_ndcg_at_5 | -0.0237 | -0.0984 | 0.0521 | 86 |
-| delta:laya-lux-vs-lux-lux | stage1_ndcg_at_5 | -0.0905 | -0.1221 | -0.0575 | 163 |
+| delta:laya-lux-vs-lux-lux | stage1_ndcg_at_5 | -0.0955 | -0.1284 | -0.0620 | 163 |
 | delta:laya-lux-vs-lux-lux | stage2_ndcg_at_5 | -0.0067 | -0.0903 | 0.0742 | 77 |
-| delta:ar-lux-vs-lux-lux | stage1_ndcg_at_5 | -0.0641 | -0.0960 | -0.0300 | 163 |
+| delta:ar-lux-vs-lux-lux | stage1_ndcg_at_5 | -0.0691 | -0.1027 | -0.0361 | 163 |
 | delta:ar-lux-vs-lux-lux | stage2_ndcg_at_5 | -0.0070 | -0.0856 | 0.0728 | 78 |
-| delta:lux-clm-vs-lux-lux | stage1_ndcg_at_5 | 0.0000 | -0.0315 | 0.0312 | 163 |
+| delta:lux-clm-vs-lux-lux | stage1_ndcg_at_5 | -0.0050 | -0.0362 | 0.0267 | 163 |
 | delta:lux-clm-vs-lux-lux | stage2_ndcg_at_5 | -0.1186 | -0.1864 | -0.0594 | 111 |
 | lux-bm25 | stage1_ndcg_at_5 | 0.8413 | 0.8191 | 0.8631 | 163 |
 | lux-bm25 | stage2_ndcg_at_5_scored | 0.2648 | 0.2190 | 0.3139 | 111 |
 | lux-bm25 | stage2_mrr_at_5_scored | 0.4375 | 0.3667 | 0.5171 | 111 |
-| delta:lux-bm25-vs-lux-lux | stage1_ndcg_at_5 | 0.0000 | -0.0315 | 0.0312 | 163 |
+| delta:lux-bm25-vs-lux-lux | stage1_ndcg_at_5 | -0.0050 | -0.0362 | 0.0267 | 163 |
 | delta:lux-bm25-vs-lux-lux | stage2_ndcg_at_5 | 0.0437 | -0.0336 | 0.1136 | 111 |
 | lux-e5 | stage1_ndcg_at_5 | 0.8413 | 0.8191 | 0.8631 | 163 |
 | lux-e5 | stage2_ndcg_at_5_scored | 0.2825 | 0.2312 | 0.3338 | 111 |
 | lux-e5 | stage2_mrr_at_5_scored | 0.4959 | 0.4240 | 0.5742 | 111 |
-| delta:lux-e5-vs-lux-lux | stage1_ndcg_at_5 | 0.0000 | -0.0315 | 0.0312 | 163 |
+| delta:lux-e5-vs-lux-lux | stage1_ndcg_at_5 | -0.0050 | -0.0362 | 0.0267 | 163 |
 | delta:lux-e5-vs-lux-lux | stage2_ndcg_at_5 | 0.0613 | -0.0158 | 0.1316 | 111 |
 
 ## Multi-seed summary
 
-_Pending: run core-subset seeds `{42,7,123}` (`lux-lux`, `anyjev-l0-lux`, `lux-e5`, `lux-bm25`) and rebuild analysis._
+Independent N draws per seed; across-seed = mean of seed means + min–max.
 
+| Pair | Metric | Per-seed | Mean | Min | Max |
+|---|---|---|---|---|---|
+| lux-lux | stage1_ndcg_at_5 | `{'7': 0.8419909717877244, '42': 0.8413316040194614, '123': 0.8525207389460415}` | 0.8453 | 0.8413 | 0.8525 |
+| lux-lux | stage2_ndcg_at_5 | `{'7': 0.20763463005510788, '42': 0.22117061292825135, '123': 0.19735149287851278}` | 0.2087 | 0.1974 | 0.2212 |
+| anyjev-l0-lux | stage1_ndcg_at_5 | `{'7': 0.8584140447053069, '42': 0.8624832020116757, '123': 0.8667149873181825}` | 0.8625 | 0.8584 | 0.8667 |
+| anyjev-l0-lux | stage2_ndcg_at_5 | `{'7': 0.22379343443990715, '42': 0.23000079268681078, '123': 0.19697593703055066}` | 0.2169 | 0.1970 | 0.2300 |
+| lux-e5 | stage1_ndcg_at_5 | `{'7': 0.8419909717877244, '42': 0.8413316040194614, '123': 0.8525207389460415}` | 0.8453 | 0.8413 | 0.8525 |
+| lux-e5 | stage2_ndcg_at_5 | `{'7': 0.27082406553176913, '42': 0.2824856232460483, '123': 0.2407089740673051}` | 0.2647 | 0.2407 | 0.2825 |
+| lux-bm25 | stage1_ndcg_at_5 | `{'7': 0.8419909717877244, '42': 0.8413316040194614, '123': 0.8525207389460415}` | 0.8453 | 0.8413 | 0.8525 |
+| lux-bm25 | stage2_ndcg_at_5 | `{'7': 0.27595784043046784, '42': 0.26484947885216487, '123': 0.19730975987049912}` | 0.2460 | 0.1973 | 0.2760 |
 
 ## Answer metrics (synthesis reuse)
 

@@ -31,3 +31,10 @@ def test_inprocess_stage2_only_starts_choice() -> None:
     reg = load_registry(Path("configs/engines.yaml"))
     plan = plan_engine_ports(reg, "decision20-lux", "bm25-stage2")
     assert plan == {"decision20-lux": 8000}
+
+
+def test_clm_shortlist_starts_clm_sidecar() -> None:
+    """Hybrid BM25→CLM Stage-2 is in-process but still needs clm-8b on :8001."""
+    reg = load_registry(Path("configs/engines.yaml"))
+    plan = plan_engine_ports(reg, "decision20-lux", "clm-shortlist-32")
+    assert plan == {"decision20-lux": 8000, "clm-8b": 8001}
