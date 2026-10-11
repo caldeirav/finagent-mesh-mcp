@@ -144,7 +144,7 @@ Rebuild analysis (no engines):
 | Analysis JSON | [`artifacts/benchmarks/paper-n200-full.analysis.json`](artifacts/benchmarks/paper-n200-full.analysis.json) |
 | Matrix tables | [`artifacts/benchmarks/paper-n200-full.json`](artifacts/benchmarks/paper-n200-full.json) · [`.csv`](artifacts/benchmarks/paper-n200-full.csv) · [`.md`](artifacts/benchmarks/paper-n200-full.md) |
 | Matrix state | [`artifacts/matrix_runs/paper-n200-full.json`](artifacts/matrix_runs/paper-n200-full.json) |
-| Per-example inspect (local, large) | `artifacts/benchmarks/paper-n200-full.inspect.html` — regenerate with `--inspect-from paper-n200-full` if missing |
+| Per-example inspect | [`artifacts/benchmarks/paper-n200-full.inspect.html`](artifacts/benchmarks/paper-n200-full.inspect.html) — regenerate with `--inspect-from paper-n200-full` if missing |
 | Optional / synth analyses (local) | `paper-n200-optional.analysis.md`, `paper-n200-full-synth.analysis.md` under `artifacts/benchmarks/` |
 
 ### P0 evidence commands (re-run / extend)
@@ -197,6 +197,7 @@ uv run python scripts/run_benchmark.py --analysis-from paper-p1-ceilings-n200 \
 | Analysis JSON | [`artifacts/benchmarks/paper-p1-ceilings-n200.analysis.json`](artifacts/benchmarks/paper-p1-ceilings-n200.analysis.json) |
 | Matrix tables | [`artifacts/benchmarks/paper-p1-ceilings-n200.json`](artifacts/benchmarks/paper-p1-ceilings-n200.json) · [`.csv`](artifacts/benchmarks/paper-p1-ceilings-n200.csv) · [`.md`](artifacts/benchmarks/paper-p1-ceilings-n200.md) |
 | Matrix state | [`artifacts/matrix_runs/paper-p1-ceilings-n200.json`](artifacts/matrix_runs/paper-p1-ceilings-n200.json) |
+| Per-example inspect | [`artifacts/benchmarks/paper-p1-ceilings-n200.inspect.html`](artifacts/benchmarks/paper-p1-ceilings-n200.inspect.html) |
 
 Full re-run:
 
@@ -401,8 +402,8 @@ Stop leftovers: `bash scripts/serve_engine.sh stop-all`.
 - `src/finagent_mesh/runtime/harness.py` / `tracing.py` — ledger + MLflow
 - `src/finagent_mesh/matrix/` — report, analysis, inspect, merge
 - `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM
-- `artifacts/benchmarks/paper-n200-full.*` — published N=200 required-matrix analysis (inspect HTML/JSON local-only)
-- `artifacts/benchmarks/paper-p1-ceilings-n200.*` — published P1 ceilings analysis (inspect local-only)
+- `artifacts/benchmarks/paper-n200-full.*` — published N=200 required-matrix analysis (+ inspect HTML; JSON local-only)
+- `artifacts/benchmarks/paper-p1-ceilings-n200.*` — published P1 ceilings analysis (+ inspect HTML; JSON local-only)
 - Architecture (short): [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md)
 - Survey (long): [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md)
 - Specs: [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/005-s2-approach-ceilings/`](specs/005-s2-approach-ceilings/) · [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)
