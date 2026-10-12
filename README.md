@@ -111,9 +111,13 @@ P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-appr
 **Unsloth track (parallel):** export / train / eval never overwrite `paper-n200-full*` or `paper-p1-ceilings-n200*`. Spec: [`006-unsloth-decision-track`](specs/006-unsloth-decision-track/). Operator guide: [`quickstart.md`](specs/006-unsloth-decision-track/quickstart.md). Choice train and AnyJev×Unsloth compounds are deferred past v1.
 
 ```bash
+# ZGX Nano / DGX Spark (aarch64): do NOT `uv sync --extra unsloth` alone for the
+# PyPI `unsloth` package — it pulls xformers which fails to build. Use:
+bash scripts/install_unsloth_zgx.sh
+
 uv run python scripts/export_unsloth_dataset.py
-uv run --extra unsloth python scripts/train_unsloth_score.py --max-train-rows 1000 --dry-run   # or full GPU train
-uv run --extra unsloth python scripts/run_unsloth_eval.py --real --pairs lux-unsloth-score \
+uv run python scripts/train_unsloth_score.py --max-train-rows 1000 --dry-run   # or full GPU train
+uv run python scripts/run_unsloth_eval.py --real --pairs lux-unsloth-score \
   --checkpoint artifacts/unsloth/checkpoints/<run> --records 20 --run-id unsloth-score-smoke20
 ```
 

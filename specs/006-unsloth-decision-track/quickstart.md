@@ -6,7 +6,11 @@ ZGX Nano / DGX Spark. Does **not** replace `run_benchmark.py --real` paper matri
 
 - FinAgentBench under `data/finagentbench`
 - Published `artifacts/matrix_runs/paper-n200-full.json` (+ inspect/ledger for frozen Lux Top-1)
-- `uv sync --extra real` for BM25; then `uv sync --extra unsloth` (or documented venv) for train/serve
+- `uv sync --extra real` for BM25 / paper matrix
+- Unsloth on ZGX Nano / DGX Spark (aarch64): **`bash scripts/install_unsloth_zgx.sh`**
+  (do **not** rely on `uv sync --extra unsloth` to pull PyPI `unsloth` — that resolves
+  `xformers`, which fails to build on GB10; the script installs `unsloth`/`unsloth_zoo`
+  with `--no-deps` per NVIDIA Spark playbook and uses PyTorch SDPA)
 - GPU free of Lux sidecars during 27B train (`bash scripts/serve_engine.sh stop-all`)
 
 ## 1. Export + leakage check

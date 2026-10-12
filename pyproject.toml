@@ -36,10 +36,23 @@ real = [
     "transformers>=5.17",
 ]
 # Parallel Unsloth decision-Score track (006). Not required for default --real matrix.
-# Install: uv sync --extra unsloth  (may conflict with --extra real torch pins — use a dedicated venv if needed)
+#
+# Do NOT list the PyPI `unsloth` package here: on aarch64 / DGX Spark (GB10) it
+# pulls `xformers`, which has no wheel and fails to build. Install Unsloth itself
+# with --no-deps via:  bash scripts/install_unsloth_zgx.sh
+# (NVIDIA Spark pattern: pip install --no-deps unsloth unsloth_zoo bitsandbytes)
 unsloth = [
-    "unsloth",
+    "accelerate>=1.15.0",
+    "bitsandbytes",
+    "datasets>=3.0.0",
+    "huggingface-hub>=1.33.0",
+    "peft",
+    "protobuf",
+    "safetensors>=0.8.0",
+    "sentencepiece",
+    "torch>=2.14.1",
     "transformers>=4.57.0",
+    "trl",
 ]
 
 [build-system]
@@ -50,6 +63,11 @@ build-backend = "hatchling.build"
 # Use only uv-managed CPython from `.python-version` (no conda/system interpreters).
 python-preference = "only-managed"
 package = true
+# If anything still requests xformers, do not try to build broken aarch64 sources.
+# Unsloth uses PyTorch SDPA when xformers is absent.
+override-dependencies = [
+    "xformers ; sys_platform == 'never'",
+]
 
 [dependency-groups]
 dev = [
