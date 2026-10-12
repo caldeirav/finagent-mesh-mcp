@@ -89,7 +89,9 @@ def main(
     if real:
         os.environ.setdefault("SYSTEMONE_MOCK", "0")
         try:
-            assert_real_runtime()
+            assert_real_runtime(
+                systemone_mock=settings.systemone_mock, backend="real"
+            )
             assert_real_dataset(dataset_path or Path(settings.finagentbench_path))
         except RealRunError as exc:
             typer.echo(str(exc), err=True)
