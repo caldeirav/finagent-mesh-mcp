@@ -69,14 +69,7 @@ def main(
 ) -> None:
     assert_writable_artifact(out_dir, purpose="train")
     # Mirror run_benchmark.py: propagate HF_TOKEN → HUGGING_FACE_HUB_TOKEN before downloads.
-    token = ensure_hf_hub_auth()
-    if token and len(token) < 20:
-        typer.echo(
-            "WARNING: HF_TOKEN looks unusually short for a Hugging Face Hub token "
-            f"(len={len(token)}). Create a token at https://huggingface.co/settings/tokens "
-            "and put HF_TOKEN=hf_... in .env (no quotes).",
-            err=True,
-        )
+    ensure_hf_hub_auth()
     split = json.loads((dataset_dir / "split_manifest.json").read_text(encoding="utf-8"))
     paper_ids = load_paper_test_ids(paper_matrix)
     try:
