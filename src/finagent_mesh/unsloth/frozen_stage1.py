@@ -9,6 +9,16 @@ from typing import Any
 
 from finagent_mesh.unsloth.types import FrozenStage1Record
 
+# Ledger run_id candidates when the canonical paper matrix stem has no rows
+# (e.g. rankings were stored under synth / multi-seed cores / earlier stems).
+_LEDGER_RUN_FALLBACKS = (
+    "{matrix}:lux-lux",
+    "{matrix}-synth:lux-lux",
+    "paper-n200:lux-lux",
+    "paper-n200-s123-core:lux-lux",
+    "paper-n200-s7-core:lux-lux",
+)
+
 
 def _empty_from_payload(payload: dict[str, Any]) -> bool:
     if payload.get("empty_top1_chunks") is True:
@@ -21,29 +31,11 @@ def _empty_from_payload(payload: dict[str, Any]) -> bool:
     return False
 
 
-def load_frozen_from_ledger(
-    ledger_path: Path | str,
+def _records_from_rows(
+    rows: list[tuple[Any, Any]],
     *,
-    matrix_run_id: str = "paper-n200-full",
-    pair_id: str = "lux-lux",
-    source: str | None = None,
+    source: str,
 ) -> dict[str, FrozenStage1Record]:
-    """Read ranking_payload_json for ``{matrix_run_id}:{pair_id}``."""
-    path = Path(ledger_path)
-    run_id = f"{matrix_run_id}:{pair_id}"
-    src = source or run_id
-    if not path.exists():
-        raise FileNotFoundError(f"Eval ledger not found: {path}")
-    conn = sqlite3.connect(str(path))
-    try:
-        cur = conn.execute(
-            "SELECT example_id, ranking_payload_json FROM ledger_entries "
-            "WHERE run_id = ?",
-            (run_id,),
-        )
-        rows = cur.fetchall()
-    finally:
-        conn.close()
     out: dict[str, FrozenStage1Record] = {}
     for example_id, payload_json in rows:
         payload: dict[str, Any] = {}
@@ -63,11 +55,48 @@ def load_frozen_from_ledger(
             example_id=eid,
             top1_doc_type=str(top1) if top1 is not None else None,
             empty_top1=_empty_from_payload(payload),
-            source=src,
+            source=source,
             stage1_ordered_ids=[str(x) for x in ordered],
             stage1_scores=scores,
         )
     return out
+
+
+def load_frozen_from_ledger(
+    ledger_path: Path | str,
+    *,
+    matrix_run_id: str = "paper-n200-full",
+    pair_id: str = "lux-lux",
+    source: str | None = None,
+) -> dict[str, FrozenStage1Record]:
+    """Read ranking_payload_json for ``{matrix_run_id}:{pair_id}`` (and fallbacks)."""
+    path = Path(ledger_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Eval ledger not found: {path}")
+
+    candidates: list[str] = []
+    primary = f"{matrix_run_id}:{pair_id}"
+    candidates.append(primary)
+    if pair_id == "lux-lux":
+        for tmpl in _LEDGER_RUN_FALLBACKS:
+            rid = tmpl.format(matrix=matrix_run_id)
+            if rid not in candidates:
+                candidates.append(rid)
+
+    conn = sqlite3.connect(str(path))
+    try:
+        for run_id in candidates:
+            cur = conn.execute(
+                "SELECT example_id, ranking_payload_json FROM ledger_entries "
+                "WHERE run_id = ?",
+                (run_id,),
+            )
+            rows = cur.fetchall()
+            if rows:
+                return _records_from_rows(rows, source=source or run_id)
+    finally:
+        conn.close()
+    return {}
 
 
 def load_frozen_from_inspect(
@@ -114,29 +143,36 @@ def load_frozen_stage1(
     inspect_path: Path | str | None = None,
     repo_root: Path | None = None,
 ) -> dict[str, FrozenStage1Record]:
-    """Prefer ledger; fall back to inspect JSON under artifacts/benchmarks."""
+    """Load frozen Stage-1; ledger first (with fallbacks), then inspect JSON.
+
+    Raises ``FileNotFoundError`` if no non-empty source is found.
+    """
     root = repo_root or Path.cwd()
-    if ledger_path is not None:
-        return load_frozen_from_ledger(
-            ledger_path, matrix_run_id=paper_matrix_id, pair_id=pair_id
+    tried: list[str] = []
+
+    ledger = Path(ledger_path) if ledger_path is not None else root / "eval_ledger.db"
+    if ledger.exists():
+        tried.append(str(ledger))
+        recs = load_frozen_from_ledger(
+            ledger, matrix_run_id=paper_matrix_id, pair_id=pair_id
         )
-    if inspect_path is not None:
-        return load_frozen_from_inspect(inspect_path, pair_id=pair_id)
-    # Defaults
-    default_ledger = root / "eval_ledger.db"
-    if default_ledger.exists():
-        try:
-            recs = load_frozen_from_ledger(
-                default_ledger, matrix_run_id=paper_matrix_id, pair_id=pair_id
-            )
-            if recs:
-                return recs
-        except Exception:
-            pass
-    inspect = root / "artifacts" / "benchmarks" / f"{paper_matrix_id}.inspect.json"
+        if recs:
+            return recs
+
+    inspect = (
+        Path(inspect_path)
+        if inspect_path is not None
+        else root / "artifacts" / "benchmarks" / f"{paper_matrix_id}.inspect.json"
+    )
     if inspect.exists():
-        return load_frozen_from_inspect(inspect, pair_id=pair_id)
+        tried.append(str(inspect))
+        recs = load_frozen_from_inspect(inspect, pair_id=pair_id)
+        if recs:
+            return recs
+
     raise FileNotFoundError(
-        f"Could not load frozen Stage-1 for {paper_matrix_id}:{pair_id}; "
-        f"provide ledger_path or inspect_path"
+        f"Could not load frozen Stage-1 for {paper_matrix_id}:{pair_id} "
+        f"(tried: {tried or ['no ledger/inspect paths']}). "
+        "Need ledger rows or artifacts/benchmarks/"
+        f"{paper_matrix_id}.inspect.json with pair lux-lux."
     )

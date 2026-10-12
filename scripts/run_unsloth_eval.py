@@ -27,7 +27,7 @@ from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
 from finagent_mesh.config import get_settings
 from finagent_mesh.dataset.validate_real import RealRunError, assert_real_dataset, assert_real_runtime
 from finagent_mesh.matrix.analysis import write_analysis_reports
-from finagent_mesh.matrix.inspect import write_inspect_reports
+from finagent_mesh.matrix.inspect import build_inspect_payload, write_inspect_reports
 from finagent_mesh.matrix.interpret import write_interpretation_report
 from finagent_mesh.matrix.report import write_report
 from finagent_mesh.matrix.runner import MatrixRunner
@@ -39,6 +39,21 @@ from finagent_mesh.unsloth.paths import (
 )
 
 app = typer.Typer(add_completion=False)
+
+
+def _paper_holdout_ids(paper_matrix: Path, n: int | None) -> list[str] | None:
+    """Return paper holdout IDs (optionally truncated) when the matrix JSON exists."""
+    if not paper_matrix.exists():
+        return None
+    ids = list(
+        json.loads(paper_matrix.read_text(encoding="utf-8")).get("selected_example_ids")
+        or []
+    )
+    if not ids:
+        return None
+    if n is None or n <= 0 or n >= len(ids):
+        return ids
+    return ids[:n]
 
 
 @app.command()
@@ -108,16 +123,28 @@ def main(
     except FileNotFoundError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
+    if not frozen:
+        typer.echo(
+            f"Frozen Stage-1 empty for {frozen_stage1_from}:lux-lux "
+            "(need ledger rows or inspect JSON).",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     set_frozen_stage1_records(frozen)
-    typer.echo(f"Loaded {len(frozen)} frozen Stage-1 records from {frozen_stage1_from}")
+    src = next(iter(frozen.values())).source
+    typer.echo(
+        f"Loaded {len(frozen)} frozen Stage-1 records from {frozen_stage1_from} "
+        f"(source={src})"
+    )
 
-    force_ids: list[str] | None = None
-    if paper_matrix.exists() and records == 200 and seed == 42:
-        force_ids = list(
-            json.loads(paper_matrix.read_text(encoding="utf-8")).get(
-                "selected_example_ids"
-            )
-            or []
+    # Always pin to paper holdout (prefix for smoke N<200) so every example has
+    # a frozen Lux Choice Top-1. Random sampling from the full dump breaks S1.
+    force_ids = _paper_holdout_ids(paper_matrix, records)
+    if force_ids is None:
+        typer.echo(
+            f"Warning: {paper_matrix} missing/empty; sampling freely "
+            f"(frozen coverage may be incomplete)",
+            err=True,
         )
 
     pair_list = [p.strip() for p in pairs.split(",") if p.strip()]
@@ -132,7 +159,7 @@ def main(
         matrix = runner.run(
             matrix_run_id=run_id,
             pair_ids=pair_list,
-            sample_size=records,
+            sample_size=records if force_ids is None else len(force_ids),
             sample_seed=seed,
             dataset_path=dataset_path,
             skip_synthesis=skip_synthesis,
@@ -142,14 +169,34 @@ def main(
         clear_frozen_stage1_records()
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    write_report(matrix, out_dir)
-    write_interpretation_report(matrix, out_dir)
+    rid = matrix.matrix_run_id
+    write_report(matrix, out_dir / f"{rid}.json", fmt="json")
+    write_report(matrix, out_dir / f"{rid}.csv", fmt="csv")
+    write_interpretation_report(matrix, out_dir / f"{rid}.md")
+    inspect_payload = None
     try:
-        write_inspect_reports(matrix, out_dir, ledger_path=settings.eval_ledger_path)
+        ds = Path(matrix.dataset_path) if matrix.dataset_path else None
+        write_inspect_reports(
+            matrix,
+            ledger_path=settings.eval_ledger_path,
+            out_json=out_dir / f"{rid}.inspect.json",
+            out_html=out_dir / f"{rid}.inspect.html",
+            dataset_path=ds,
+        )
+        inspect_payload = build_inspect_payload(
+            matrix,
+            ledger_path=settings.eval_ledger_path,
+            dataset_path=ds,
+        )
     except Exception as exc:
         typer.echo(f"inspect skipped: {exc}", err=True)
-    write_analysis_reports(matrix, out_dir)
-    typer.echo(f"Wrote unsloth eval under {out_dir}/{run_id}.*")
+    write_analysis_reports(
+        matrix,
+        out_md=out_dir / f"{rid}.analysis.md",
+        out_json=out_dir / f"{rid}.analysis.json",
+        inspect_payload=inspect_payload,
+    )
+    typer.echo(f"Wrote unsloth eval under {out_dir}/{rid}.*")
 
 
 if __name__ == "__main__":
