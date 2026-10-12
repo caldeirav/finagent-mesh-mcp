@@ -9,9 +9,9 @@ Resume vs clean restart
   supports it; otherwise delete the incomplete dir and restart cleanly.
 - Never writes published paper artifact paths.
 
-ZGX Nano / DGX Spark install (skip broken xformers)::
+Install (uv-managed)::
 
-    bash scripts/install_unsloth_zgx.sh --with-real
+    uv sync --extra real --extra unsloth
 """
 
 from __future__ import annotations
@@ -35,8 +35,7 @@ def _require_unsloth() -> None:
         import unsloth  # noqa: F401
     except ImportError as exc:
         raise UnslothNotInstalledError(
-            "Unsloth is not installed. On ZGX Nano / DGX Spark run: "
-            "bash scripts/install_unsloth_zgx.sh --with-real"
+            "Unsloth is not installed. Run: uv sync --extra real --extra unsloth"
         ) from exc
 
 

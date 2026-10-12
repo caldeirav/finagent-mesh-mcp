@@ -35,26 +35,39 @@ real = [
     "torch>=2.14.1",
     "transformers>=5.17",
 ]
-# Parallel Unsloth decision-Score track (006). Not required for default --real matrix.
+# Parallel Unsloth decision-Score track (006). Entire stack via uv:
+#   uv sync --extra real --extra unsloth
 #
-# Do NOT list the PyPI `unsloth` package here: on aarch64 / DGX Spark (GB10) it
-# pulls `xformers`, which has no wheel and fails to build. Install Unsloth itself
-# with --no-deps via:  bash scripts/install_unsloth_zgx.sh
-# (NVIDIA Spark pattern: pip install --no-deps unsloth unsloth_zoo bitsandbytes)
+# Overrides (see [tool.uv] below):
+# - drop xformers (optional; SDPA on GB10 / aarch64)
+# - keep transformers>=5.18 (validated with Unsloth 2026.10.3; PyPI upper-bound is stale)
 unsloth = [
+    "unsloth>=2026.10.3",
+    "unsloth-zoo>=2026.10.3",
+    "torch>=2.14.1",
+    "torchvision",
+    "triton ; sys_platform == 'linux'",
     "accelerate>=1.15.0",
-    "bitsandbytes",
-    "datasets>=3.0.0",
-    "huggingface-hub>=1.33.0",
-    "peft",
+    "bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5",
+    "datasets>=3.4.1,<5.0.0,!=4.0.*,!=4.1.0,!=4.4.*,!=4.5.0",
+    "diffusers",
+    "hf-transfer",
+    "huggingface-hub>=0.34.0",
+    "peft>=0.18.0,!=0.11.0",
     "protobuf",
     "safetensors>=0.8.0",
-    "sentencepiece",
-    "torch>=2.14.1",
-    # Qwen3.8 FastDecisionModel load path expects vision processors even for text Score
-    "torchvision",
-    "transformers>=4.57.0",
-    "trl",
+    "sentencepiece>=0.2.0",
+    "transformers>=5.18.0",
+    "trl>=0.18.2,!=0.19.0,<=1.13.0",
+    "cut-cross-entropy",
+    "msgspec",
+    "nest-asyncio",
+    "pillow",
+    "psutil",
+    "rich",
+    "structlog>=24.1.0",
+    "torchao>=0.13.0",
+    "tyro",
 ]
 
 [build-system]
@@ -62,13 +75,18 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv]
-# Use only uv-managed CPython from `.python-version` (no conda/system interpreters).
 python-preference = "only-managed"
 package = true
-# If anything still requests xformers, do not try to build broken aarch64 sources.
-# Unsloth uses PyTorch SDPA when xformers is absent.
+# This repo targets ZGX Nano / DGX Spark (and optional x86_64 Linux CI).
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
 override-dependencies = [
+    # Unsloth marks xformers optional for aarch64 already; force-skip everywhere here.
     "xformers ; sys_platform == 'never'",
+    # Unsloth metadata caps transformers<=5.17; 5.18 is what this repo runs successfully.
+    "transformers>=5.18.0",
 ]
 
 [dependency-groups]

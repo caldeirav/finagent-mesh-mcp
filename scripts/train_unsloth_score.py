@@ -5,8 +5,8 @@ Resume: pass --resume to continue an interrupted run in --out-dir.
 Clean restart: pass --force to overwrite a completed/failed checkpoint dir.
 Never writes published paper-* artifacts.
 
-ZGX Nano / DGX Spark install (skip broken xformers):
-  bash scripts/install_unsloth_zgx.sh
+Install (uv-managed):
+  uv sync --extra real --extra unsloth
 """
 
 from __future__ import annotations
