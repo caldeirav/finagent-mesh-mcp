@@ -22,6 +22,30 @@ def test_assert_split_matches_paper():
         assert_split_matches_paper({"test_ids": ["a"]}, ["a", "b"])
 
 
+def test_fab_row_to_decision_rows():
+    from finagent_mesh.unsloth.train import fab_row_to_decision_rows
+
+    rows = fab_row_to_decision_rows(
+        {
+            "example_id": "e1",
+            "query": "What is revenue?",
+            "candidates": [
+                {"id": "c1", "text": "Revenue rose", "doc_type": "10-K", "relevance": 2},
+                {"id": "c2", "text": "Other", "doc_type": "10-K", "relevance": 0},
+            ],
+            "decision": {
+                "type": "score",
+                "instructions": "Rank passages for answering the query.",
+                "criteria": ["not relevant", "partially relevant", "highly relevant"],
+            },
+        }
+    )
+    assert len(rows) == 2
+    assert rows[0]["questions"]["relevance"]["type"] == "score"
+    assert rows[0]["gold"]["relevance"] == 2
+    assert "Query:" in rows[0]["state"]
+
+
 def test_dry_run_train_writes_meta(tmp_path: Path):
     ds = tmp_path / "ds"
     ds.mkdir()

@@ -52,7 +52,7 @@ class UnslothScoreAdapter:
             return False, str(exc)
         return True, "ok"
 
-    def _load(self):
+    def _load(self) -> None:
         if self._model is not None:
             return
         self._ensure_checkpoint()
@@ -60,16 +60,53 @@ class UnslothScoreAdapter:
             from unsloth import FastDecisionModel  # type: ignore
         except ImportError as exc:
             raise OpenDecisionError(
-                f"{self.engine_id}: Unsloth not installed (uv sync --extra unsloth)"
+                f"{self.engine_id}: Unsloth not installed "
+                "(bash scripts/install_unsloth_zgx.sh --with-real)"
             ) from exc
+        # Prefer adapter dir; fall back to base + adapter if needed
         model, tokenizer = FastDecisionModel.from_pretrained(
-            model_name=self.checkpoint or self.base_model,
+            model_name=str(self.checkpoint),
             max_seq_length=2048,
             load_in_4bit=True,
         )
         FastDecisionModel.for_inference(model)
         self._model = model
         self._tokenizer = tokenizer
+        self._FastDecisionModel = FastDecisionModel
+
+    def _score_one(self, query: str, passage: str) -> float:
+        """Return ordinal score in [0, 2] as expectation over criteria probs."""
+        from unsloth import FastDecisionModel  # type: ignore
+
+        state = f"Query: {query}\n\nPassage:\n{passage}"
+        answers = FastDecisionModel.predict(
+            self._model,
+            self._tokenizer,
+            state,
+            {
+                "relevance": {
+                    "type": "score",
+                    "instructions": "How relevant is this passage to answering the query?",
+                    "criteria": list(SCORE_CRITERIA),
+                }
+            },
+        )
+        result = answers.get("relevance") or {}
+        probs = result.get("probabilities") or {}
+        # Expectation over ordinal levels 0..2
+        if probs:
+            total = 0.0
+            for i, name in enumerate(SCORE_CRITERIA):
+                # keys may be "0"/"1"/"2" or criteria strings
+                p = float(probs.get(str(i), probs.get(name, 0.0)))
+                total += i * p
+            return total
+        ans = result.get("answer")
+        if isinstance(ans, (int, float)):
+            return float(ans)
+        if ans in SCORE_CRITERIA:
+            return float(SCORE_CRITERIA.index(ans))
+        return 0.0
 
     def decide(
         self,
@@ -85,38 +122,25 @@ class UnslothScoreAdapter:
         if not candidates:
             raise OpenDecisionError(f"{self.engine_id}: empty candidate list")
 
-        # Allow unit tests to inject a scorer without loading Unsloth
         inject = getattr(self, "_inject_scores", None)
         started = time.perf_counter()
         if inject is not None:
             scores = inject(query, candidates, metadata)
         else:
             self._load()
-            texts = [c.get("text") or "" for c in candidates]
-            ids = [c["id"] for c in candidates]
-            try:
-                pred = self._model.predict(  # type: ignore[union-attr]
-                    type="score",
-                    query=query,
-                    candidates=texts,
-                    criteria=list(SCORE_CRITERIA),
-                )
-                # pred may be list of floats or graded labels
-                if isinstance(pred, dict) and "scores" in pred:
-                    scores = [float(x) for x in pred["scores"]]
-                elif isinstance(pred, list):
-                    scores = [float(x) for x in pred]
-                else:
-                    scores = [0.0] * len(ids)
-            except Exception as exc:
-                raise OpenDecisionError(
-                    f"{self.engine_id}: predict failed: {exc}"
-                ) from exc
-            if len(scores) != len(ids):
-                # Pad / truncate defensively
-                scores = (scores + [0.0] * len(ids))[: len(ids)]
+            scores = []
+            for c in candidates:
+                try:
+                    scores.append(self._score_one(query, c.get("text") or ""))
+                except Exception as exc:
+                    self.parse_failures += 1
+                    raise OpenDecisionError(
+                        f"{self.engine_id}: predict failed for {c.get('id')}: {exc}"
+                    ) from exc
 
         ids = [c["id"] for c in candidates]
+        if len(scores) != len(ids):
+            scores = (list(scores) + [0.0] * len(ids))[: len(ids)]
         ranked = stable_rank(ids, scores)
         ranking = [
             {"id": cid, "score": float(s), "rank": i + 1}

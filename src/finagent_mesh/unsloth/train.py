@@ -8,6 +8,10 @@ Resume vs clean restart
   ``resume=True`` to continue from the latest adapter checkpoint when Unsloth
   supports it; otherwise delete the incomplete dir and restart cleanly.
 - Never writes published paper artifact paths.
+
+ZGX Nano / DGX Spark install (skip broken xformers)::
+
+    bash scripts/install_unsloth_zgx.sh --with-real
 """
 
 from __future__ import annotations
@@ -16,22 +20,23 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from finagent_mesh.unsloth.paths import assert_writable_artifact
-from finagent_mesh.unsloth.types import DEFAULT_BASE_MODEL, UnslothTrainRun
+from finagent_mesh.unsloth.types import DEFAULT_BASE_MODEL, SCORE_CRITERIA, UnslothTrainRun
 
 
 class UnslothNotInstalledError(RuntimeError):
     pass
 
 
-def _require_unsloth():
+def _require_unsloth() -> None:
     try:
         import unsloth  # noqa: F401
     except ImportError as exc:
         raise UnslothNotInstalledError(
-            "Unsloth is not installed. Run: uv sync --extra unsloth"
+            "Unsloth is not installed. On ZGX Nano / DGX Spark run: "
+            "bash scripts/install_unsloth_zgx.sh --with-real"
         ) from exc
 
 
@@ -66,6 +71,72 @@ def assert_split_matches_paper(
         )
 
 
+def iter_jsonl(path: Path) -> Iterator[dict[str, Any]]:
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                yield json.loads(line)
+
+
+def fab_row_to_decision_rows(row: dict[str, Any]) -> list[dict[str, Any]]:
+    """Expand one gold-type FAB export row into Unsloth typed-decision Score rows.
+
+    Unsloth ``build_dataset`` expects::
+
+        {\"state\": str, \"questions\": {name: {type, instructions, criteria}}, \"gold\": {name: label}}
+
+    Score labels are ordinal indices ``0|1|2`` matching ``SCORE_CRITERIA``.
+    """
+    query = str(row.get("query") or "")
+    decision = row.get("decision") or {}
+    criteria = list(decision.get("criteria") or SCORE_CRITERIA)
+    instructions = str(
+        decision.get("instructions")
+        or "How relevant is this passage to answering the query?"
+    )
+    out: list[dict[str, Any]] = []
+    for cand in row.get("candidates") or []:
+        cid = str(cand.get("id") or "")
+        text = str(cand.get("text") or "")
+        rel = int(cand.get("relevance", (row.get("labels") or {}).get(cid, 0)))
+        rel = max(0, min(2, rel))
+        # Keep state compact: query + passage (criteria live on the question)
+        state = f"Query: {query}\n\nPassage:\n{text}"
+        name = "relevance"
+        out.append(
+            {
+                "example_id": row.get("example_id"),
+                "candidate_id": cid,
+                "state": state,
+                "questions": {
+                    name: {
+                        "type": "score",
+                        "instructions": instructions,
+                        "criteria": criteria,
+                    }
+                },
+                "gold": {name: rel},
+            }
+        )
+    return out
+
+
+def load_decision_rows(
+    jsonl_path: Path,
+    *,
+    max_items: int | None = None,
+) -> list[dict[str, Any]]:
+    """Stream FAB export JSONL → Unsloth decision rows, optionally capped."""
+    items: list[dict[str, Any]] = []
+    for row in iter_jsonl(jsonl_path):
+        for dec in fab_row_to_decision_rows(row):
+            items.append(dec)
+            if max_items is not None and len(items) >= max_items:
+                return items
+    return items
+
+
 def run_supervised_score_train(
     *,
     dataset_dir: Path,
@@ -74,6 +145,7 @@ def run_supervised_score_train(
     base_model: str = DEFAULT_BASE_MODEL,
     seed: int = 42,
     max_train_rows: int | None = None,
+    max_steps: int | None = None,
     force: bool = False,
     resume: bool = False,
     dry_run: bool = False,
@@ -116,18 +188,25 @@ def run_supervised_score_train(
         return meta
 
     _require_unsloth()
-    # Real training path — imported only when Unsloth is installed.
-    from unsloth import FastDecisionModel  # type: ignore
-    from trl import DecisionTrainer  # type: ignore  # may vary by Unsloth version
+    from unsloth import (  # type: ignore
+        DecisionTrainer,
+        FastDecisionModel,
+        is_bfloat16_supported,
+    )
+    from transformers import TrainingArguments
 
-    train_file = Path(dataset_dir) / "train.jsonl"
-    rows = [
-        json.loads(line)
-        for line in train_file.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    if max_train_rows is not None:
-        rows = rows[: max(0, int(max_train_rows))]
+    train_path = Path(dataset_dir) / "train.jsonl"
+    val_path = Path(dataset_dir) / "val.jsonl"
+    decision_rows = load_decision_rows(train_path, max_items=max_train_rows)
+    if not decision_rows:
+        raise RuntimeError(f"No Score decision rows produced from {train_path}")
+
+    # Persist converted subset for resume / audit (not the multi-GB FAB export)
+    subset_path = out_dir / "train_decision_rows.jsonl"
+    assert_writable_artifact(subset_path, purpose="train")
+    with subset_path.open("w", encoding="utf-8") as fh:
+        for r in decision_rows:
+            fh.write(json.dumps(r) + "\n")
 
     model, tokenizer = FastDecisionModel.from_pretrained(
         model_name=base_model,
@@ -139,34 +218,90 @@ def run_supervised_score_train(
         r=int(lora["r"]),
         lora_alpha=int(lora["lora_alpha"]),
         lora_dropout=float(lora["lora_dropout"]),
-        finetune_vision_layers=False,
+        use_gradient_checkpointing="unsloth",
+        random_state=seed,
     )
-    # Dataset formatting is Unsloth-version-specific; keep rows on disk for trainer.
-    train_subset = out_dir / "train_subset.jsonl"
-    train_subset.write_text(
-        "\n".join(json.dumps(r) for r in rows) + ("\n" if rows else ""),
-        encoding="utf-8",
+
+    train_items, report = FastDecisionModel.build_dataset(
+        decision_rows, tokenizer, model
     )
-    # DecisionTrainer API evolves; call with minimal kwargs and persist whatever succeeds.
+    if not train_items:
+        raise RuntimeError(
+            f"build_dataset produced 0 items (skipped={report.get('skipped')}, "
+            f"reason={report.get('reason')})"
+        )
+
+    eval_items: list | None = None
+    if val_path.exists():
+        # Small holdout for calibrate; cap to keep smoke fast
+        val_cap = min(200, max(1, (max_train_rows or 200) // 5))
+        val_rows = load_decision_rows(val_path, max_items=val_cap)
+        if val_rows:
+            eval_items, _ = FastDecisionModel.build_dataset(val_rows, tokenizer, model)
+
+    # Smoke: few steps; full: ~1 epoch worth of steps when max_train_rows unset
+    if max_steps is None:
+        if max_train_rows is not None:
+            max_steps = min(240, max(30, len(train_items) // 2))
+        else:
+            max_steps = max(100, min(2000, len(train_items) // 2))
+
     try:
         trainer = DecisionTrainer(
             model=model,
-            tokenizer=tokenizer,
-            train_dataset=rows,
+            processing_class=tokenizer,
+            train_dataset=train_items,
+            eval_dataset=eval_items,
+            args=TrainingArguments(
+                per_device_train_batch_size=1,
+                gradient_accumulation_steps=4,
+                warmup_steps=min(10, max_steps // 4),
+                max_steps=int(max_steps),
+                learning_rate=2e-5,
+                lr_scheduler_type="cosine",
+                weight_decay=0.01,
+                bf16=is_bfloat16_supported(),
+                fp16=not is_bfloat16_supported(),
+                logging_steps=1,
+                output_dir=str(out_dir / "hf_trainer"),
+                report_to="none",
+                seed=seed,
+                save_steps=max(max_steps, 1),
+                eval_strategy="no" if not eval_items else "steps",
+                eval_steps=max(max_steps, 1) if eval_items else None,
+            ),
         )
-        trainer.train()
+        trainer_stats = trainer.train()
         model.save_pretrained(str(out_dir))
         tokenizer.save_pretrained(str(out_dir))
-        meta.status = "completed"
-        meta.holdout_metrics = {
-            "n_train_rows": len(rows),
+
+        holdout: dict[str, Any] = {
+            "n_fab_decision_rows": len(decision_rows),
+            "n_train_items": len(train_items),
+            "build_report": {
+                k: report.get(k) for k in ("total", "skipped", "truncated", "reason")
+            },
+            "max_steps": max_steps,
             "finished_at": datetime.now(timezone.utc).isoformat(),
         }
+        if hasattr(trainer_stats, "metrics"):
+            holdout["trainer_metrics"] = dict(trainer_stats.metrics)
+        if eval_items:
+            try:
+                holdout["calibrate"] = FastDecisionModel.calibrate(
+                    model, tokenizer, eval_items
+                )
+            except Exception as cal_exc:  # noqa: BLE001 — optional post-step
+                holdout["calibrate_error"] = str(cal_exc)
+
+        meta.status = "completed"
+        meta.holdout_metrics = holdout
     except Exception as exc:
         meta.status = "failed"
         meta.holdout_metrics = {"error": str(exc)}
         write_train_run_meta(meta, out_dir)
         raise
+
     mlflow_id = os.getenv("MLFLOW_RUN_ID")
     if mlflow_id:
         meta.mlflow_run_id = mlflow_id
