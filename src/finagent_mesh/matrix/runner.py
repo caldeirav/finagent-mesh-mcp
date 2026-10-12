@@ -176,6 +176,7 @@ class MatrixRunner:
         gemini_model: str | None = None,
         skip_synthesis: bool = False,
         dataset_path: Path | None = None,
+        selected_example_ids: list[str] | None = None,
     ) -> MatrixRun:
         require_official_mock_policy(
             systemone_mock=self.settings.systemone_mock, allow_mock=self.allow_mock
@@ -199,11 +200,21 @@ class MatrixRunner:
         config_ids = [p.pair_id for p in pairs]
         progress_log(f"Loading FinAgentBench from {path} (full dump, then sample)…")
         all_examples = load_examples(Path(path))
-        selection = select_example_ids(
-            [e.example_id for e in all_examples],
-            sample_size=sample_size,
-            sample_seed=sample_seed,
-        )
+        if selected_example_ids is not None:
+            from finagent_mesh.matrix.sampling import SampleSelection
+
+            selection = SampleSelection(
+                sample_seed=sample_seed,
+                sample_size=sample_size or len(selected_example_ids),
+                selected_example_ids=list(selected_example_ids),
+                capped=False,
+            )
+        else:
+            selection = select_example_ids(
+                [e.example_id for e in all_examples],
+                sample_size=sample_size,
+                sample_seed=sample_seed,
+            )
         skips = [s.to_dict() for s in deferred_skip_records(self.registry)]
         if not include_optional:
             from finagent_mesh.matrix.partners import pairs_from_registry

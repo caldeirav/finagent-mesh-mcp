@@ -35,6 +35,12 @@ real = [
     "torch>=2.14.1",
     "transformers>=5.17",
 ]
+# Parallel Unsloth decision-Score track (006). Not required for default --real matrix.
+# Install: uv sync --extra unsloth  (may conflict with --extra real torch pins — use a dedicated venv if needed)
+unsloth = [
+    "unsloth",
+    "transformers>=4.57.0",
+]
 
 [build-system]
 requires = ["hatchling"]

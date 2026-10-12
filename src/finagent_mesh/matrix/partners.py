@@ -17,6 +17,9 @@ INPROCESS_BACKENDS = frozenset(
         "clm_shortlist",
         "lux_shortlist",
         "e5_ce_shortlist",
+        "bm25_unsloth_shortlist",
+        "unsloth_score",
+        "frozen_lux_choice",
     }
 )
 
@@ -77,6 +80,11 @@ class MatrixPair:
             and "decision20-lux" not in ids
         ):
             ids.append("decision20-lux")
+        if (
+            self.stage2_config_id == "bm25-unsloth-score-shortlist-32"
+            and "unsloth-decision-score" not in ids
+        ):
+            ids.append("unsloth-decision-score")
         return ids
 
 
@@ -189,6 +197,8 @@ def is_inprocess_engine(registry: EngineRegistry, config_id: str) -> bool:
         "lexical-ir",
         "dense-ir",
         "noop",
+        "unsloth-decision",
+        "frozen-choice",
     }
 
 

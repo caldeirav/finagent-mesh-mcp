@@ -33,6 +33,8 @@ def sidecar_dependencies(registry: EngineRegistry, config_id: str) -> list[str]:
         return ["decision20-lux"]
     if cfg.backend == "e5_ce_shortlist":
         return []
+    if cfg.backend == "bm25_unsloth_shortlist":
+        return []  # Unsloth Score is in-process; no Lux sidecar
     return []
 
 

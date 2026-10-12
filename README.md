@@ -106,6 +106,16 @@ P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-appr
 | djev / DiffusionGemma | Multimodal | VRAM + not text-SEC chunks |
 | Other Decision-2.0 sizes / Jeeves / SemIf / … | Family completeness | Overlap or memory vs sequential budget |
 | CLM as Stage 1 / Laya·Kai as Stage 2 | — | Wrong primitive or context/cost fit |
+| **Unsloth Qwen3.8 Decision Score** (006 / [#5](https://github.com/caldeirav/finagent-mesh-mcp/issues/5)) | Trainable Score head comparable to paper matrix | **Parallel stack** — not a Decision-2.0 Lux drop-in; optional extra + dedicated CLIs |
+
+**Unsloth track (parallel):** export / train / eval never overwrite `paper-n200-full*` or `paper-p1-ceilings-n200*`. Spec: [`006-unsloth-decision-track`](specs/006-unsloth-decision-track/). Operator guide: [`quickstart.md`](specs/006-unsloth-decision-track/quickstart.md). Choice train and AnyJev×Unsloth compounds are deferred past v1.
+
+```bash
+uv run python scripts/export_unsloth_dataset.py
+uv run --extra unsloth python scripts/train_unsloth_score.py --max-train-rows 1000 --dry-run   # or full GPU train
+uv run --extra unsloth python scripts/run_unsloth_eval.py --real --pairs lux-unsloth-score \
+  --checkpoint artifacts/unsloth/checkpoints/<run> --records 20 --run-id unsloth-score-smoke20
+```
 
 ---
 

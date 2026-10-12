@@ -235,6 +235,10 @@ artifacts/benchmarks/*
 artifacts/matrix_runs/*
 !artifacts/matrix_runs/paper-n200-full.json
 !artifacts/matrix_runs/paper-p1-ceilings-n200.json
+# Unsloth track (006): checkpoints / datasets / train runs stay local
+!artifacts/unsloth/
+artifacts/unsloth/**
+!artifacts/unsloth/.gitkeep
 # Large inspect JSON stays local-only (regenerate with --inspect-from).
 # Compact Markdown inspect is published for GitHub; full HTML is for download/local view.
 

@@ -21,6 +21,8 @@ DEFERRED_ISSUES = [
 
 CHAMPION_PAIR_IDS = ("anyjev-l0-e5", "anyjev-l0-bm25")
 P1_CEILING_PAIR_IDS = ("lux-lux-shortlist", "lux-e5-ce")
+TRAINED_DECISION_PAIR_IDS = ("lux-unsloth-score",)
+TRAINED_COMPARISON_BASELINES = ("lux-lux", "lux-lux-shortlist", "lux-e5")
 
 
 def _fmt(v: Any, *, pct: bool = False) -> str:
@@ -122,6 +124,141 @@ def _champion_section_md(matrix: MatrixRun, series: dict[str, Any]) -> list[str]
             f"{_delta(m.stage2_ndcg_at_5, same_ir_s2)} | "
             f"{_delta(m.stage2_ndcg_at_5, any_s2)} |"
         )
+    return lines
+
+
+def _load_published_baseline_metrics(
+    repo_root: Path | None = None,
+) -> dict[str, float | None]:
+    """Read-only S2 nDCG@5 from published paper-n200-full.json (never written)."""
+    root = repo_root or Path.cwd()
+    path = root / "artifacts" / "benchmarks" / "paper-n200-full.json"
+    if not path.exists():
+        path = root / "artifacts" / "matrix_runs" / "paper-n200-full.json"
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    out: dict[str, float | None] = {}
+    for row in raw.get("rows") or []:
+        pid = str(row.get("variable_config_id") or "")
+        if pid not in TRAINED_COMPARISON_BASELINES:
+            continue
+        m = row.get("metrics") or {}
+        v = m.get("stage2_ndcg_at_5")
+        out[pid] = float(v) if v is not None else None
+    return out
+
+
+def build_trained_comparison(
+    matrix: MatrixRun,
+    *,
+    repo_root: Path | None = None,
+    frozen_stage1_source: str = "paper-n200-full",
+) -> dict[str, Any]:
+    trained_rows = [
+        r
+        for r in matrix.rows
+        if r.variable_config_id in TRAINED_DECISION_PAIR_IDS
+        or (r.role or "") == "trained_decision"
+        or str(matrix.matrix_run_id).startswith("unsloth")
+    ]
+    if not trained_rows and not str(matrix.matrix_run_id).startswith("unsloth"):
+        return {}
+    baselines = _load_published_baseline_metrics(repo_root)
+    comparisons: list[dict[str, Any]] = []
+    for r in trained_rows or matrix.rows:
+        trained_v = r.metrics.stage2_ndcg_at_5 if r.metrics else None
+        for bid in TRAINED_COMPARISON_BASELINES:
+            base_v = baselines.get(bid)
+            delta = None
+            if trained_v is not None and base_v is not None:
+                delta = float(trained_v) - float(base_v)
+            comparisons.append(
+                {
+                    "pair_id": r.variable_config_id,
+                    "baseline_pair_id": bid,
+                    "metric": "stage2_ndcg_at_5",
+                    "trained_value": trained_v,
+                    "baseline_value": base_v,
+                    "delta": delta,
+                }
+            )
+    return {
+        "trained_decision_pairs": [r.variable_config_id for r in (trained_rows or matrix.rows)],
+        "frozen_stage1_source": frozen_stage1_source,
+        "comparison_vs_published": comparisons,
+    }
+
+
+def _trained_decision_section_md(
+    matrix: MatrixRun,
+    series: dict[str, Any],
+    trained_payload: dict[str, Any],
+) -> list[str]:
+    if not trained_payload:
+        return []
+    rows = [
+        r
+        for r in matrix.rows
+        if r.variable_config_id in TRAINED_DECISION_PAIR_IDS
+        or (r.role or "") == "trained_decision"
+    ]
+    if not rows and str(matrix.matrix_run_id).startswith("unsloth"):
+        rows = list(matrix.rows)
+    if not rows:
+        return []
+    lines = [
+        "",
+        "## Trained decision track (Unsloth)",
+        "",
+        "Parallel stack (issue #5 / 006) — **not** a Decision-2.0 Lux weight drop-in. "
+        "Stage-1 Lux Choice is **frozen** from "
+        f"`{trained_payload.get('frozen_stage1_source', 'paper-n200-full')}` "
+        "(not re-inferred). Score was trained on **gold-type** pools; eval uses "
+        "frozen Top-1 type pools with **BM25 shortlist k=32** then trained Score.",
+        "",
+        "| Pair | S1 (frozen) | S2 nDCG (scored) | S2 MRR | S2 nDCG\\|Top-1 | "
+        "S2 nDCG (pipeline) | Empty | Yield | S2 p50 ms |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for r in rows:
+        m = r.metrics
+        pm = (series.get(r.variable_config_id) or {}).get("pipeline_mean") or {}
+        pipe = pm.get("stage2_ndcg_at_5")
+        if pipe is None:
+            pipe = m.stage2_ndcg_at_5_pipeline
+        lines.append(
+            f"| {r.variable_config_id} | frozen Lux | {_fmt(m.stage2_ndcg_at_5)} | "
+            f"{_fmt(m.stage2_mrr_at_5)} | {_fmt(m.stage2_ndcg_at_5_given_top1)} | "
+            f"{_fmt(pipe)} | {_fmt(m.empty_top1_chunk_rate)} | {_fmt(m.pipeline_yield)} | "
+            f"{_fmt(m.latency_stage2_p50_ms)} |"
+        )
+    lines.extend(
+        [
+            "",
+            "### Comparison vs published baselines (read-only)",
+            "",
+            "| Baseline | S2 nDCG (scored) | Trained | Δ |",
+            "|---|---|---|---|",
+        ]
+    )
+    by_base: dict[str, dict[str, Any]] = {}
+    for row in trained_payload.get("comparison_vs_published") or []:
+        by_base[str(row["baseline_pair_id"])] = row
+    for bid in TRAINED_COMPARISON_BASELINES:
+        row = by_base.get(bid) or {}
+        lines.append(
+            f"| {bid} | {_fmt(row.get('baseline_value'))} | "
+            f"{_fmt(row.get('trained_value'))} | {_fmt(row.get('delta'))} |"
+        )
+    lines.extend(
+        [
+            "",
+            "Limitations: Choice train / AnyJev×Unsloth compounds deferred; "
+            "CLM-ft (#1) still separate.",
+            "",
+        ]
+    )
     return lines
 
 
@@ -533,6 +670,7 @@ def build_analysis_payload(
         "artifact_index": artifact_index,
         "rows": [r.to_dict() for r in matrix.rows],
         **p0_public,
+        **build_trained_comparison(matrix),
     }
 
 
@@ -627,6 +765,13 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
             lines.append(f"- {note}")
 
     lines.extend(_p1_ceilings_section_md(matrix, series))
+    trained_payload = {
+        "trained_decision_pairs": payload.get("trained_decision_pairs") or [],
+        "frozen_stage1_source": payload.get("frozen_stage1_source") or "paper-n200-full",
+        "comparison_vs_published": payload.get("comparison_vs_published") or [],
+    }
+    if trained_payload["trained_decision_pairs"] or trained_payload["comparison_vs_published"]:
+        lines.extend(_trained_decision_section_md(matrix, series, trained_payload))
 
     # P0 sections: routing accounting, dual series detail, strata, win/loss, CIs, synth
     lines.extend(render_p0_markdown_sections(payload))
