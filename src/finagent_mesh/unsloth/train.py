@@ -188,6 +188,10 @@ def run_supervised_score_train(
         return meta
 
     _require_unsloth()
+    # Ensure Hub auth before from_pretrained (Unsloth/transformers read both env names).
+    from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
+
+    ensure_hf_hub_auth()
     from unsloth import (  # type: ignore
         DecisionTrainer,
         FastDecisionModel,

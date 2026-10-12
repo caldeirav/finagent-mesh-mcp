@@ -23,6 +23,7 @@ from finagent_mesh.clients.engines.frozen_lux_choice import (
     clear_frozen_stage1_records,
     set_frozen_stage1_records,
 )
+from finagent_mesh.clients.engines.hf_auth import ensure_hf_hub_auth
 from finagent_mesh.config import get_settings
 from finagent_mesh.dataset.validate_real import RealRunError, assert_real_dataset, assert_real_runtime
 from finagent_mesh.matrix.analysis import write_analysis_reports
@@ -84,6 +85,7 @@ def main(
         raise typer.Exit(code=1)
 
     settings = get_settings()
+    ensure_hf_hub_auth()
     if real:
         os.environ.setdefault("SYSTEMONE_MOCK", "0")
         try:
