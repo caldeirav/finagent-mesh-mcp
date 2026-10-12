@@ -32,6 +32,9 @@ else
   uv sync --extra unsloth
 fi
 
+echo "==> Ensuring torchvision (required by Qwen3.8 decision load path)"
+uv pip install torchvision
+
 echo "==> Installing unsloth + unsloth_zoo with --no-deps (NVIDIA Spark pattern)"
 # bitsandbytes is already in the unsloth extra; still include here for parity with NVIDIA docs
 uv pip install --no-deps unsloth unsloth_zoo

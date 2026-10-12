@@ -51,6 +51,8 @@ unsloth = [
     "safetensors>=0.8.0",
     "sentencepiece",
     "torch>=2.14.1",
+    # Qwen3.8 FastDecisionModel load path expects vision processors even for text Score
+    "torchvision",
     "transformers>=4.57.0",
     "trl",
 ]
