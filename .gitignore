@@ -254,3 +254,4 @@ huggingface/
 *.bin
 *.pt
 *.ckpt
+unsloth_compiled_cache/
