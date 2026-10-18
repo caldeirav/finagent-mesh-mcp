@@ -1,0 +1,295 @@
+{
+  "matrix_run_id": "yield-paper-n200-lux",
+  "n_examples": 200,
+  "sample_seed": 42,
+  "dataset_path": "data/finagentbench",
+  "synthesis_enabled": false,
+  "skip_records": [
+    {
+      "pair_id": "lux-clm-ft",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/1"
+    },
+    {
+      "pair_id": "unsloth-choice-lux",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/5"
+    },
+    {
+      "pair_id": "anyjev-l0-unsloth-score",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/5"
+    },
+    {
+      "pair_id": "lux-clm-shortlist",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "lux-lux-shortlist",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "lux-e5-ce",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "anyjev-l0-e5",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "anyjev-l0-bm25",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "one-shot-ar",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "lux-unsloth-score",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "lux-unsloth-score-yield",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "anyjev-l1-lux",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    }
+  ],
+  "deferred": [
+    {
+      "pair_id": "lux-clm-ft",
+      "issue": "https://github.com/caldeirav/finagent-mesh-mcp/issues/1",
+      "rationale": "Trained dual-encoder heads on held-out split"
+    }
+  ],
+  "champion_pairs": [],
+  "p1_ceiling_pairs": [],
+  "executive_summary": [
+    "**Coverage:** 1/1 matrix pairs have measurable ranking metrics on N=200 (seed=42)."
+  ],
+  "findings": [
+    "Answer EM/F1 were **not** collected (ranking-only; Gemini synthesis off)."
+  ],
+  "findings_detail": {
+    "guardrails": [
+      "Answer EM/F1 were **not** collected (ranking-only; Gemini synthesis off)."
+    ],
+    "block_a": [],
+    "block_b": [],
+    "routing": [
+      "When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those examples are a **routing / yield** miss (empty filing-type pool) \u2014 **not** a Stage-2 Score crash. They are **omitted** from primary (scored-only) S2 nDCG/MRR and count as **0** in the secondary **pipeline-averaged** series. See Routing accounting \u2014 empty is not always \u201cwrong Top-1 type.\u201d",
+      "- `lux-lux-yield`: empty-Top-1 rate 2.0% (4 / 200 examples)"
+    ],
+    "latency": [],
+    "takeaways": [
+      "Always separate **router quality** (Block A / empty-Top-1 rate) from **scorer quality** (Block B S2|Top-1); overall S2 mixes both.",
+      "Re-run with `--with-synthesis` when answer-span EM/F1 are needed for the paper."
+    ]
+  },
+  "pair_outcomes": [
+    {
+      "pair_id": "lux-lux-yield",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 196,
+      "n_empty_top1": 4,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "yield-paper-n200-lux.inspect/lux-lux-yield.md"
+    }
+  ],
+  "artifact_index": [
+    {
+      "pair_id": "lux-lux-yield",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 196,
+      "n_empty_top1": 4,
+      "n_other_fail": 0,
+      "href": "yield-paper-n200-lux.inspect/lux-lux-yield.md"
+    }
+  ],
+  "rows": [
+    {
+      "variable_config_id": "lux-lux-yield",
+      "eval_run_id": "yield-paper-n200-lux:lux-lux-yield",
+      "stage1_engine_id": "decision20-lux",
+      "stage2_engine_id": "decision20-lux",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.8413316040194614,
+        "stage1_map_at_5": 0.9068933197000683,
+        "stage1_mrr_at_5": 0.9683026584867076,
+        "stage2_ndcg_at_5": 0.22718471284758193,
+        "stage2_map_at_5": 0.2027659574468085,
+        "stage2_mrr_at_5": 0.4056737588652482,
+        "stage2_ndcg_at_5_given_top1": 0.2398519302835927,
+        "stage2_map_at_5_given_top1": 0.20666666666666667,
+        "stage2_mrr_at_5_given_top1": 0.410239651416122,
+        "stage2_ndcg_at_5_given_effective_type": 0.23413132724509747,
+        "stage2_map_at_5_given_effective_type": 0.1988957055214724,
+        "stage2_mrr_at_5_given_effective_type": 0.4096114519427403,
+        "stage2_ndcg_at_5_pipeline": 0.21355363007672698,
+        "stage2_mrr_at_5_pipeline": 0.3813333333333333,
+        "pipeline_yield": 0.94,
+        "n_scored": 188,
+        "stage1_top1_recall": 0.9386503067484663,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.02,
+        "empty_original_top1_rate": 0.405,
+        "n_yield_fallback": 77,
+        "yield_fallback_rate": 0.385,
+        "n_fallback_scored": 77,
+        "n_fallback_still_empty": 0,
+        "n_recovery_skipped_missing_order": 0,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 160.29741000056674,
+        "latency_ms_p95": 166.08718564912124,
+        "latency_stage1_p50_ms": 160.29741000056674,
+        "latency_stage1_p95_ms": 166.08718564912124,
+        "latency_stage2_p50_ms": 14005.320980499164,
+        "latency_stage2_p95_ms": 39353.59164049896,
+        "gpu_mem_high_water_mb": 0.0,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 4,
+        "blocks": [],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [],
+      "collapsed_stages": false,
+      "role": "yield_recovery"
+    }
+  ],
+  "pipeline_yield": [
+    {
+      "pair_id": "lux-lux-yield",
+      "n_examples": 200,
+      "n_scored": 196,
+      "pipeline_yield": 0.98,
+      "stage1_top1_recall": 0.9386503067484663,
+      "empty_top1_chunk_rate": 0.02
+    }
+  ],
+  "routing_classes": [
+    {
+      "pair_id": "lux-lux-yield",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 153,
+        "correct_top1_empty": 0,
+        "wrong_top1_scored": 43,
+        "wrong_top1_empty": 4,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.765,
+        "correct_top1_empty": 0.0,
+        "wrong_top1_scored": 0.215,
+        "wrong_top1_empty": 0.02,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 196,
+      "pipeline_yield": 0.98
+    }
+  ],
+  "stage2_series": {
+    "lux-lux-yield": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.22718471284758193,
+        "stage2_mrr_at_5": 0.4056737588652482,
+        "stage2_ndcg_at_5_given_top1": 0.2398519302835927,
+        "stage2_mrr_at_5_given_top1": 0.410239651416122
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.213553630076727,
+        "stage2_mrr_at_5": 0.3813333333333333
+      }
+    }
+  },
+  "strata": [],
+  "win_loss": [],
+  "uncertainty": {
+    "bootstrap": [
+      {
+        "pair_id": "lux-lux-yield",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.8413316040194614,
+        "ci_low": 0.8191292844478417,
+        "ci_high": 0.8631436503350975,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-lux-yield",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.22718471284758193,
+        "ci_low": 0.18591750314324462,
+        "ci_high": 0.26621883205831337,
+        "n": 188,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-lux-yield",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.4056737588652482,
+        "ci_low": 0.3426418439716312,
+        "ci_high": 0.4686170212765957,
+        "n": 188,
+        "n_resamples": 1000
+      }
+    ],
+    "multi_seed": []
+  },
+  "synthesis_reuse": null,
+  "yield_recovery_enabled": true,
+  "yield_recovery_pairs": [
+    "lux-lux-yield"
+  ],
+  "yield_recovery_rows": [
+    {
+      "pair_id": "lux-lux-yield",
+      "n_examples": 200,
+      "empty_original_top1_rate": 0.405,
+      "empty_top1_chunk_rate": 0.02,
+      "pipeline_yield": 0.94,
+      "stage2_ndcg_at_5": 0.22718471284758193,
+      "stage2_ndcg_at_5_pipeline": 0.21355363007672698,
+      "stage2_ndcg_at_5_given_top1": 0.2398519302835927,
+      "stage2_ndcg_at_5_given_effective_type": 0.23413132724509747,
+      "n_yield_fallback": 77,
+      "yield_fallback_rate": 0.385,
+      "n_fallback_scored": 77,
+      "n_fallback_still_empty": 0,
+      "baseline_pair_id": "lux-lux",
+      "baseline_empty_top1_chunk_rate": 0.405,
+      "baseline_pipeline_yield": null,
+      "baseline_stage2_ndcg_at_5": 0.22117061292825135,
+      "baseline_stage2_ndcg_at_5_pipeline": null,
+      "delta_empty_vs_baseline": -0.385,
+      "delta_pipeline_ndcg_vs_baseline": null
+    }
+  ],
+  "published_lux_empty_reference": 0.405
+}

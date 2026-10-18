@@ -59,6 +59,7 @@ class MatrixPair:
     collapsed_stages: bool = False
     deferred: bool = False
     deferred_issue: str | None = None
+    yield_recovery: bool = False
 
     def as_binding(self) -> StageBinding:
         return StageBinding(
@@ -149,6 +150,7 @@ def _parse_pair(raw: dict[str, Any], registry: EngineRegistry) -> MatrixPair:
         collapsed_stages=bool(raw.get("collapsed_stages", False)),
         deferred=bool(raw.get("deferred", False)),
         deferred_issue=str(raw["deferred_issue"]) if raw.get("deferred_issue") else None,
+        yield_recovery=bool(raw.get("yield_recovery", False)),
     )
 
 

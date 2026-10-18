@@ -37,4 +37,11 @@ def run_stage1(state: AgentState, client: OpenDecisionClient) -> dict[str, Any]:
         scores=scores,
         decision_distribution={k: float(v) for k, v in resp.get("distribution", {}).items()},
     )
-    return {"stage1": result, "top1_doc_type": top1, "error": None}
+    # Frozen Lux may lack full Choice order — recovery must not invent types.
+    order_missing = bool(resp.get("stage1_order_missing"))
+    return {
+        "stage1": result,
+        "top1_doc_type": top1,
+        "error": None,
+        "stage1_order_missing": order_missing,
+    }

@@ -66,6 +66,15 @@ class AgentState(BaseModel):
     skip_synthesis: bool = False
     synthesis_k: int = 5
     top1_doc_type: str | None = None
+    # 007 yield recovery — defaults keep non-recovery pairs identical to today
+    yield_recovery_enabled: bool = False
+    original_top1_doc_type: str | None = None
+    original_top1_empty: bool | None = None
+    effective_doc_type: str | None = None
+    yield_recovery_used: bool = False
+    yield_recovery_attempted_types: list[str] = Field(default_factory=list)
+    stage1_order_missing: bool = False
+    n_recovery_skipped_missing_order: int = 0
     stage1: StageRankingResult | None = None
     stage2: StageRankingResult | None = None
     stage2_chunks: list[PassageChunk] = Field(default_factory=list)

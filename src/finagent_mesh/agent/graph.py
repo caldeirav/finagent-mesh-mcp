@@ -19,6 +19,14 @@ class GraphState(TypedDict, total=False):
     skip_synthesis: bool
     synthesis_k: int
     top1_doc_type: str | None
+    yield_recovery_enabled: bool
+    original_top1_doc_type: str | None
+    original_top1_empty: bool | None
+    effective_doc_type: str | None
+    yield_recovery_used: bool
+    yield_recovery_attempted_types: list
+    stage1_order_missing: bool
+    n_recovery_skipped_missing_order: int
     stage1: Any
     stage2: Any
     stage2_chunks: list
@@ -118,6 +126,7 @@ def run_example(
     *,
     skip_synthesis: bool,
     synthesis_k: int,
+    yield_recovery_enabled: bool = False,
 ) -> AgentState:
     """Invoke the LangGraph pipeline for one FinAgentBench example.
 
@@ -134,6 +143,7 @@ def run_example(
                 "skip_synthesis": skip_synthesis,
                 "synthesis_k": synthesis_k,
                 "n_chunks": len(example.chunks),
+                "yield_recovery_enabled": yield_recovery_enabled,
             }
         )
     result = compiled.invoke(
@@ -141,6 +151,7 @@ def run_example(
             "example": example,
             "skip_synthesis": skip_synthesis,
             "synthesis_k": synthesis_k,
+            "yield_recovery_enabled": yield_recovery_enabled,
             "tool_records": [],
         }
     )

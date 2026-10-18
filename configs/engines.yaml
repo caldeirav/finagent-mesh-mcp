@@ -272,6 +272,11 @@ engines:
 # Paper matrix: Block A (Choice×Lux Score) + Block B (Lux Choice×Score).
 # Default --real runs optional=false only; --include-optional adds shortlist + one-shot + P1.
 # Deferred (not runnable): lux-clm-ft (#1). CE ceiling lux-e5-ce is optional (005 / #2).
+#
+# Yield recovery (007 / #10): optional pairs set yield_recovery: true so Stage-2
+# walks Choice-ranked filing types until a non-empty chunk pool is found (first
+# non-empty; never peeks at gold). Default required pairs MUST leave this unset/
+# false. Example opt-in ids: lux-lux-yield, lux-unsloth-score-yield.
 matrix_pairs:
   - pair_id: lux-lux
     stage1: decision20-lux
@@ -399,6 +404,28 @@ matrix_pairs:
     rationale: >
       Parallel Unsloth track (006 / #5): frozen Lux Choice from paper-n200-full
       + BM25 k=32 + trained Unsloth Score. Not a Decision-2.0 drop-in.
+
+  - pair_id: lux-lux-yield
+    stage1: decision20-lux
+    stage2: decision20-lux
+    blocks: []
+    role: yield_recovery
+    optional: true
+    yield_recovery: true
+    rationale: >
+      Yield recovery twin of lux-lux (007 / #10): same Lux Choice×Score stack with
+      ordered first-non-empty type fallback when Top-1 chunk pool is empty.
+
+  - pair_id: lux-unsloth-score-yield
+    stage1: frozen-lux-choice
+    stage2: bm25-unsloth-score-shortlist-32
+    blocks: []
+    role: yield_recovery
+    optional: true
+    yield_recovery: true
+    rationale: >
+      Yield recovery twin of lux-unsloth-score (007 / #10): frozen Lux Choice +
+      BM25→Unsloth Score with ordered first-non-empty type fallback.
 
   # Calibration-gated (not required for Block A); kept for compatibility
   - pair_id: anyjev-l1-lux

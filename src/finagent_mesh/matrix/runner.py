@@ -79,6 +79,23 @@ class MatrixRunner:
                 stage1_top1_recall=m.get("stage1_top1_recall"),
                 stage1_top5_recall=m.get("stage1_top5_recall"),
                 empty_top1_chunk_rate=m.get("empty_top1_chunk_rate"),
+                empty_original_top1_rate=m.get("empty_original_top1_rate"),
+                n_yield_fallback=int(m.get("n_yield_fallback") or 0),
+                yield_fallback_rate=m.get("yield_fallback_rate"),
+                n_fallback_scored=int(m.get("n_fallback_scored") or 0),
+                n_fallback_still_empty=int(m.get("n_fallback_still_empty") or 0),
+                n_recovery_skipped_missing_order=int(
+                    m.get("n_recovery_skipped_missing_order") or 0
+                ),
+                stage2_ndcg_at_5_given_effective_type=m.get(
+                    "stage2_ndcg_at_5_given_effective_type"
+                ),
+                stage2_map_at_5_given_effective_type=m.get(
+                    "stage2_map_at_5_given_effective_type"
+                ),
+                stage2_mrr_at_5_given_effective_type=m.get(
+                    "stage2_mrr_at_5_given_effective_type"
+                ),
                 option_flip_rate=m.get("option_flip_rate"),
                 parse_failure_rate=m.get("parse_failure_rate"),
                 latency_ms_p50=m.get("latency_ms_p50"),
@@ -335,9 +352,11 @@ class MatrixRunner:
                     gemini_model=matrix.gemini_model,
                     allow_mock=self.allow_mock,
                     port_overrides=port_plan,
+                    yield_recovery=bool(pair.yield_recovery),
                 )
                 progress_log(
                     f"{pair.pair_id}: ranking {len(matrix.selected_example_ids)} example(s)…"
+                    + (" [yield_recovery]" if pair.yield_recovery else "")
                 )
                 harness.run(
                     row.eval_run_id,
@@ -445,6 +464,23 @@ class MatrixRunner:
             stage1_top1_recall=paper.get("stage1_top1_recall"),
             stage1_top5_recall=paper.get("stage1_top5_recall"),
             empty_top1_chunk_rate=paper.get("empty_top1_chunk_rate"),
+            empty_original_top1_rate=paper.get("empty_original_top1_rate"),
+            n_yield_fallback=int(paper.get("n_yield_fallback") or 0),
+            yield_fallback_rate=paper.get("yield_fallback_rate"),
+            n_fallback_scored=int(paper.get("n_fallback_scored") or 0),
+            n_fallback_still_empty=int(paper.get("n_fallback_still_empty") or 0),
+            n_recovery_skipped_missing_order=int(
+                paper.get("n_recovery_skipped_missing_order") or 0
+            ),
+            stage2_ndcg_at_5_given_effective_type=paper.get(
+                "stage2_ndcg_at_5_given_effective_type"
+            ),
+            stage2_map_at_5_given_effective_type=paper.get(
+                "stage2_map_at_5_given_effective_type"
+            ),
+            stage2_mrr_at_5_given_effective_type=paper.get(
+                "stage2_mrr_at_5_given_effective_type"
+            ),
             option_flip_rate=paper.get("option_flip_rate"),
             parse_failure_rate=paper.get("parse_failure_rate"),
             latency_ms_p50=paper.get("latency_stage1_p50_ms"),

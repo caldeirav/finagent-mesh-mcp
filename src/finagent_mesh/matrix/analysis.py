@@ -23,6 +23,11 @@ CHAMPION_PAIR_IDS = ("anyjev-l0-e5", "anyjev-l0-bm25")
 P1_CEILING_PAIR_IDS = ("lux-lux-shortlist", "lux-e5-ce")
 TRAINED_DECISION_PAIR_IDS = ("lux-unsloth-score",)
 TRAINED_COMPARISON_BASELINES = ("lux-lux", "lux-lux-shortlist", "lux-e5")
+YIELD_RECOVERY_PAIR_IDS = ("lux-lux-yield", "lux-unsloth-score-yield")
+YIELD_BASELINE_BY_PAIR = {
+    "lux-lux-yield": "lux-lux",
+    "lux-unsloth-score-yield": "lux-unsloth-score",
+}
 
 
 def _fmt(v: Any, *, pct: bool = False) -> str:
@@ -147,6 +152,192 @@ def _load_published_baseline_metrics(
         v = m.get("stage2_ndcg_at_5")
         out[pid] = float(v) if v is not None else None
     return out
+
+
+def _load_baseline_row_metrics(
+    pair_id: str,
+    *,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    """Read-only metrics dict for a published baseline pair (never mutated)."""
+    root = repo_root or Path.cwd()
+    candidates = [
+        root / "artifacts" / "benchmarks" / "paper-n200-full.json",
+        root / "artifacts" / "matrix_runs" / "paper-n200-full.json",
+        root / "artifacts" / "benchmarks" / "unsloth-score-paper-n200.json",
+        root / "artifacts" / "matrix_runs" / "unsloth-score-paper-n200.json",
+    ]
+    for path in candidates:
+        if not path.exists():
+            continue
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        for row in raw.get("rows") or []:
+            if str(row.get("variable_config_id") or "") == pair_id:
+                return dict(row.get("metrics") or {})
+            # Unsloth single-pair matrix may use any pair_id in the file
+            if pair_id == "lux-unsloth-score" and "unsloth" in path.name:
+                return dict(row.get("metrics") or {})
+    return {}
+
+
+def build_yield_recovery_comparison(
+    matrix: MatrixRun,
+    *,
+    repo_root: Path | None = None,
+) -> dict[str, Any]:
+    """Payload for the Yield recovery analysis section (007)."""
+    yield_rows = [
+        r
+        for r in matrix.rows
+        if r.variable_config_id in YIELD_RECOVERY_PAIR_IDS
+        or (r.role or "") == "yield_recovery"
+        or "yield" in str(matrix.matrix_run_id)
+    ]
+    if not yield_rows and "yield" not in str(matrix.matrix_run_id):
+        return {}
+    if not yield_rows:
+        yield_rows = list(matrix.rows)
+
+    pairs_out: list[dict[str, Any]] = []
+    for r in yield_rows:
+        m = r.metrics
+        base_id = YIELD_BASELINE_BY_PAIR.get(r.variable_config_id)
+        if not base_id and "unsloth" in r.variable_config_id:
+            base_id = "lux-unsloth-score"
+        elif not base_id:
+            base_id = "lux-lux"
+        base_m = _load_baseline_row_metrics(base_id, repo_root=repo_root)
+        empty_orig = m.empty_original_top1_rate
+        if empty_orig is None:
+            empty_orig = m.empty_top1_chunk_rate
+        pairs_out.append(
+            {
+                "pair_id": r.variable_config_id,
+                "n_examples": m.n_examples,
+                "empty_original_top1_rate": empty_orig,
+                "empty_top1_chunk_rate": m.empty_top1_chunk_rate,
+                "pipeline_yield": m.pipeline_yield,
+                "stage2_ndcg_at_5": m.stage2_ndcg_at_5,
+                "stage2_ndcg_at_5_pipeline": m.stage2_ndcg_at_5_pipeline,
+                "stage2_ndcg_at_5_given_top1": m.stage2_ndcg_at_5_given_top1,
+                "stage2_ndcg_at_5_given_effective_type": m.stage2_ndcg_at_5_given_effective_type,
+                "n_yield_fallback": m.n_yield_fallback,
+                "yield_fallback_rate": m.yield_fallback_rate,
+                "n_fallback_scored": m.n_fallback_scored,
+                "n_fallback_still_empty": m.n_fallback_still_empty,
+                "baseline_pair_id": base_id,
+                "baseline_empty_top1_chunk_rate": base_m.get("empty_top1_chunk_rate"),
+                "baseline_pipeline_yield": base_m.get("pipeline_yield"),
+                "baseline_stage2_ndcg_at_5": base_m.get("stage2_ndcg_at_5"),
+                "baseline_stage2_ndcg_at_5_pipeline": base_m.get(
+                    "stage2_ndcg_at_5_pipeline"
+                ),
+                "delta_empty_vs_baseline": (
+                    None
+                    if m.empty_top1_chunk_rate is None
+                    or base_m.get("empty_top1_chunk_rate") is None
+                    else float(m.empty_top1_chunk_rate)
+                    - float(base_m["empty_top1_chunk_rate"])
+                ),
+                "delta_pipeline_ndcg_vs_baseline": (
+                    None
+                    if m.stage2_ndcg_at_5_pipeline is None
+                    or base_m.get("stage2_ndcg_at_5_pipeline") is None
+                    else float(m.stage2_ndcg_at_5_pipeline)
+                    - float(base_m["stage2_ndcg_at_5_pipeline"])
+                ),
+            }
+        )
+    return {
+        "yield_recovery_enabled": True,
+        "yield_recovery_pairs": [p["pair_id"] for p in pairs_out],
+        "yield_recovery_rows": pairs_out,
+        "published_lux_empty_reference": 0.405,
+    }
+
+
+def _yield_recovery_section_md(
+    matrix: MatrixRun,
+    yield_payload: dict[str, Any],
+) -> list[str]:
+    if not yield_payload:
+        return []
+    rows = yield_payload.get("yield_recovery_rows") or []
+    if not rows:
+        return []
+    lux_ref = yield_payload.get("published_lux_empty_reference")
+    lines = [
+        "",
+        "## Yield recovery",
+        "",
+        "Opt-in Stage-2 type fallback (007 / #10): when the **original** Choice Top-1 "
+        "filing type has no chunks, walk Choice-ranked types until a non-empty pool "
+        "(first-non-empty; never peeks at gold). Empty pools are a **routing / corpus "
+        "yield** issue — not a Stage-2 Score failure.",
+        "",
+        f"- **Run id**: `{matrix.matrix_run_id}`",
+        f"- **N**: {len(matrix.selected_example_ids)} · **Seed**: {matrix.sample_seed}",
+        f"- **Recovery pairs**: {', '.join(f'`{p}`' for p in yield_payload.get('yield_recovery_pairs') or [])}",
+        f"- **Published Lux Choice empty (reference)**: {_fmt(lux_ref, pct=True)} on `paper-n200-full`",
+        "",
+        "### Dual empty / yield",
+        "",
+        "| Pair | Empty (original Top-1) | Empty (post-recovery) | Pipeline yield | "
+        "n fallback | Fallback rate | Still empty |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for row in rows:
+        lines.append(
+            f"| {row['pair_id']} | {_fmt(row.get('empty_original_top1_rate'), pct=True)} | "
+            f"{_fmt(row.get('empty_top1_chunk_rate'), pct=True)} | "
+            f"{_fmt(row.get('pipeline_yield'), pct=True)} | "
+            f"{row.get('n_yield_fallback', 0)} | {_fmt(row.get('yield_fallback_rate'), pct=True)} | "
+            f"{row.get('n_fallback_still_empty', 0)} |"
+        )
+    lines.extend(
+        [
+            "",
+            "### Pipeline vs scored + dual conditional",
+            "",
+            "| Pair | S2 nDCG (scored) | S2 nDCG (pipeline) | S2 nDCG\\|Top-1 | "
+            "S2 nDCG\\|effective type |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"| {row['pair_id']} | {_fmt(row.get('stage2_ndcg_at_5'))} | "
+            f"{_fmt(row.get('stage2_ndcg_at_5_pipeline'))} | "
+            f"{_fmt(row.get('stage2_ndcg_at_5_given_top1'))} | "
+            f"{_fmt(row.get('stage2_ndcg_at_5_given_effective_type'))} |"
+        )
+    lines.extend(
+        [
+            "",
+            "### Δ vs read-only baselines",
+            "",
+            "| Pair | Baseline | Δ empty | Δ pipeline S2 nDCG | Baseline empty | Baseline yield |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for row in rows:
+        lines.append(
+            f"| {row['pair_id']} | `{row.get('baseline_pair_id')}` | "
+            f"{_delta(row.get('empty_top1_chunk_rate'), row.get('baseline_empty_top1_chunk_rate'))} | "
+            f"{_delta(row.get('stage2_ndcg_at_5_pipeline'), row.get('baseline_stage2_ndcg_at_5_pipeline'))} | "
+            f"{_fmt(row.get('baseline_empty_top1_chunk_rate'), pct=True)} | "
+            f"{_fmt(row.get('baseline_pipeline_yield'), pct=True)} |"
+        )
+    lines.extend(
+        [
+            "",
+            "**Limitations:** first-non-empty may select a non-gold filing type; "
+            "corpus-limited empties (all Choice types empty) remain after full exhaust. "
+            "Do not treat effective-type conditional as published Top-1 conditional.",
+            "",
+        ]
+    )
+    return lines
 
 
 def build_trained_comparison(
@@ -512,9 +703,10 @@ def _build_findings(
         # Lux-backed Block B rows share Choice → same empty rate; Choice-varying Block A differ.
         routing_notes.append(
             "When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those "
-            "examples are **omitted** from primary (scored-only) S2 nDCG/MRR and count as "
-            "**0** in the secondary **pipeline-averaged** series. See Routing accounting "
-            "for class counts — empty is not always “wrong Top-1 type.”"
+            "examples are a **routing / yield** miss (empty filing-type pool) — **not** a "
+            "Stage-2 Score crash. They are **omitted** from primary (scored-only) S2 "
+            "nDCG/MRR and count as **0** in the secondary **pipeline-averaged** series. "
+            "See Routing accounting — empty is not always “wrong Top-1 type.”"
         )
         for pid, rate, n in empty_rates:
             row = _find_row(matrix, pid)
@@ -671,6 +863,7 @@ def build_analysis_payload(
         "rows": [r.to_dict() for r in matrix.rows],
         **p0_public,
         **build_trained_comparison(matrix),
+        **build_yield_recovery_comparison(matrix),
     }
 
 
@@ -772,6 +965,15 @@ def build_analysis_markdown(matrix: MatrixRun, payload: dict[str, Any]) -> str:
     }
     if trained_payload["trained_decision_pairs"] or trained_payload["comparison_vs_published"]:
         lines.extend(_trained_decision_section_md(matrix, series, trained_payload))
+
+    yield_payload = {
+        "yield_recovery_enabled": payload.get("yield_recovery_enabled"),
+        "yield_recovery_pairs": payload.get("yield_recovery_pairs") or [],
+        "yield_recovery_rows": payload.get("yield_recovery_rows") or [],
+        "published_lux_empty_reference": payload.get("published_lux_empty_reference"),
+    }
+    if yield_payload["yield_recovery_rows"]:
+        lines.extend(_yield_recovery_section_md(matrix, yield_payload))
 
     # P0 sections: routing accounting, dual series detail, strata, win/loss, CIs, synth
     lines.extend(render_p0_markdown_sections(payload))
