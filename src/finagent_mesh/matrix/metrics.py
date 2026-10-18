@@ -83,9 +83,17 @@ def aggregate_paper_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
     s2_ndcg_cond: list[float] = []
     s2_map_cond: list[float] = []
     s2_mrr_cond: list[float] = []
+    s2_ndcg_eff: list[float] = []
+    s2_map_eff: list[float] = []
+    s2_mrr_eff: list[float] = []
     top1_hits: list[float] = []
     top5_hits: list[float] = []
     empty_top1 = 0
+    empty_original = 0
+    n_yield_fallback = 0
+    n_fallback_scored = 0
+    n_fallback_still_empty = 0
+    n_recovery_skipped_missing_order = 0
     ofr_flags: list[float] = []
     parse_flags: list[float] = []
     lat_s1: list[float] = []
@@ -110,12 +118,36 @@ def aggregate_paper_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
         if empty:
             empty_top1 += 1
 
+        # Dual empty: original Top-1 pool vs post-recovery emptiness
+        orig_empty_flag = ranking.get("original_top1_empty")
+        if orig_empty_flag is None:
+            orig_empty_flag = empty
+        if bool(orig_empty_flag):
+            empty_original += 1
+
+        recovery_used = bool(ranking.get("yield_recovery_used"))
+        if recovery_used:
+            n_yield_fallback += 1
+            if ordered2 and not empty:
+                n_fallback_scored += 1
+            elif empty:
+                n_fallback_still_empty += 1
+        n_recovery_skipped_missing_order += int(
+            ranking.get("n_recovery_skipped_missing_order") or 0
+        )
+
         correct = ranking.get("top1_correct")
         if correct is None:
             correct = top1_correct(top1, labels1)
+        # Conditional-on-Top-1 uses original Top-1 ∈ gold + scored (not post-recovery empty)
         eligible = ranking.get("eligible_for_conditional_s2")
         if eligible is None:
             eligible = bool(correct) and not empty
+
+        effective = ranking.get("effective_doc_type") or top1
+        effective_in_gold = top1_correct(effective, labels1) if effective else False
+        scored = bool(ordered2) and not empty
+        eligible_eff = bool(effective_in_gold) and scored
 
         if ordered1:
             t1 = topk_recall(ordered1, labels1, 1)
@@ -148,6 +180,10 @@ def aggregate_paper_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
                 s2_ndcg_cond.append(n2)
                 s2_map_cond.append(m2)
                 s2_mrr_cond.append(r2)
+            if eligible_eff:
+                s2_ndcg_eff.append(n2)
+                s2_map_eff.append(m2)
+                s2_mrr_eff.append(r2)
 
         if ranking.get("option_flipped") is not None:
             ofr_flags.append(1.0 if ranking.get("option_flipped") else 0.0)
@@ -179,9 +215,18 @@ def aggregate_paper_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
         "stage2_ndcg_at_5_given_top1": _avg(s2_ndcg_cond),
         "stage2_map_at_5_given_top1": _avg(s2_map_cond),
         "stage2_mrr_at_5_given_top1": _avg(s2_mrr_cond),
+        "stage2_ndcg_at_5_given_effective_type": _avg(s2_ndcg_eff),
+        "stage2_map_at_5_given_effective_type": _avg(s2_map_eff),
+        "stage2_mrr_at_5_given_effective_type": _avg(s2_mrr_eff),
         "stage1_top1_recall": _avg(top1_hits),
         "stage1_top5_recall": _avg(top5_hits),
         "empty_top1_chunk_rate": empty_top1 / n,
+        "empty_original_top1_rate": empty_original / n,
+        "n_yield_fallback": n_yield_fallback,
+        "yield_fallback_rate": n_yield_fallback / n if n else 0.0,
+        "n_fallback_scored": n_fallback_scored,
+        "n_fallback_still_empty": n_fallback_still_empty,
+        "n_recovery_skipped_missing_order": n_recovery_skipped_missing_order,
         "option_flip_rate": _avg(ofr_flags),
         "parse_failure_rate": _avg(parse_flags),
         "latency_stage1_p50_ms": percentile(lat_s1, 50),
@@ -239,10 +284,17 @@ def assign_routing_class(ranking: dict[str, Any]) -> RoutingClass:
 def routing_class_counts(records: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(records)
     counts = {cid: 0 for cid in ROUTING_CLASS_IDS}
+    n_fallback_scored = 0
+    n_fallback_still_empty = 0
     for rec in records:
         ranking = rec.get("ranking") or rec
         cid = assign_routing_class(ranking)
         counts[cid] = counts.get(cid, 0) + 1
+        if bool(ranking.get("yield_recovery_used")):
+            if _is_scored(ranking):
+                n_fallback_scored += 1
+            elif _is_empty(ranking):
+                n_fallback_still_empty += 1
     rates = {k: (v / n if n else 0.0) for k, v in counts.items()}
     n_scored = counts["correct_top1_scored"] + counts["wrong_top1_scored"]
     return {
@@ -251,6 +303,8 @@ def routing_class_counts(records: list[dict[str, Any]]) -> dict[str, Any]:
         "rates": rates,
         "n_scored": n_scored,
         "pipeline_yield": n_scored / n if n else 0.0,
+        "n_fallback_scored": n_fallback_scored,
+        "n_fallback_still_empty": n_fallback_still_empty,
     }
 
 

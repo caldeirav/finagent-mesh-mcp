@@ -39,6 +39,15 @@ class EngineMetricsRecord:
     stage1_top1_recall: float | None = None
     stage1_top5_recall: float | None = None
     empty_top1_chunk_rate: float | None = None
+    empty_original_top1_rate: float | None = None
+    n_yield_fallback: int = 0
+    yield_fallback_rate: float | None = None
+    n_fallback_scored: int = 0
+    n_fallback_still_empty: int = 0
+    n_recovery_skipped_missing_order: int = 0
+    stage2_ndcg_at_5_given_effective_type: float | None = None
+    stage2_map_at_5_given_effective_type: float | None = None
+    stage2_mrr_at_5_given_effective_type: float | None = None
     option_flip_rate: float | None = None
     parse_failure_rate: float | None = None
     latency_ms_p50: float | None = None
@@ -69,6 +78,9 @@ class EngineMetricsRecord:
             "stage2_ndcg_at_5_given_top1": self.stage2_ndcg_at_5_given_top1,
             "stage2_map_at_5_given_top1": self.stage2_map_at_5_given_top1,
             "stage2_mrr_at_5_given_top1": self.stage2_mrr_at_5_given_top1,
+            "stage2_ndcg_at_5_given_effective_type": self.stage2_ndcg_at_5_given_effective_type,
+            "stage2_map_at_5_given_effective_type": self.stage2_map_at_5_given_effective_type,
+            "stage2_mrr_at_5_given_effective_type": self.stage2_mrr_at_5_given_effective_type,
             "stage2_ndcg_at_5_pipeline": self.stage2_ndcg_at_5_pipeline,
             "stage2_mrr_at_5_pipeline": self.stage2_mrr_at_5_pipeline,
             "pipeline_yield": self.pipeline_yield,
@@ -76,6 +88,12 @@ class EngineMetricsRecord:
             "stage1_top1_recall": self.stage1_top1_recall,
             "stage1_top5_recall": self.stage1_top5_recall,
             "empty_top1_chunk_rate": self.empty_top1_chunk_rate,
+            "empty_original_top1_rate": self.empty_original_top1_rate,
+            "n_yield_fallback": self.n_yield_fallback,
+            "yield_fallback_rate": self.yield_fallback_rate,
+            "n_fallback_scored": self.n_fallback_scored,
+            "n_fallback_still_empty": self.n_fallback_still_empty,
+            "n_recovery_skipped_missing_order": self.n_recovery_skipped_missing_order,
             "option_flip_rate": self.option_flip_rate,
             "parse_failure_rate": self.parse_failure_rate,
             "latency_ms_p50": self.latency_ms_p50,

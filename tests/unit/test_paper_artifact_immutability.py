@@ -31,7 +31,16 @@ def test_published_stems_detected(name: str):
 
 def test_unsloth_paths_allowed():
     assert_writable_artifact(Path("artifacts/benchmarks/unsloth-score-smoke20.json"))
-    assert_unsloth_run_id("unsloth-score-paper-n200")
+    assert_unsloth_run_id("unsloth-score-smoke20")
+
+
+def test_published_unsloth_stem_refused():
+    with pytest.raises(PublishedArtifactWriteError):
+        assert_unsloth_run_id("unsloth-score-paper-n200")
+    with pytest.raises(PublishedArtifactWriteError):
+        assert_writable_artifact(
+            Path("artifacts/benchmarks/unsloth-score-paper-n200.json")
+        )
 
 
 def test_bad_run_id_rejected():

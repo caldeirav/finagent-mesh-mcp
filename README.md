@@ -251,6 +251,27 @@ Parallel **006** eval on the **same paper holdout ids** as `paper-n200-full` (ra
 
 **Takeaway:** specializing Stage-2 Score under a fixed Choice + shortlist contract clearly beats both classical IR and untuned Lux Score on this holdout. Empty-Top-1 remains ~**37–40%** — yield is still an architecture/corpus issue, not fixed by Score FT alone. Latency (~29 s p50 for the 27B QLoRA path) is a product trade vs BM25/E5.
 
+### Yield recovery (007 / [#10](https://github.com/caldeirav/finagent-mesh-mcp/issues/10))
+
+Opt-in **first-non-empty** Stage-2 type fallback when Choice Top-1 has no chunks. Does **not** overwrite `paper-n200-full*` or `unsloth-score-paper-n200*`. Operator guide: [`specs/007-stage2-yield/quickstart.md`](specs/007-stage2-yield/quickstart.md).
+
+```bash
+# Lux twin
+uv run python scripts/run_benchmark.py --real --skip-synthesis \
+  --pairs lux-lux-yield --records 200 --seed 42 --run-id yield-paper-n200-lux
+
+# Unsloth twin
+uv run --extra unsloth python scripts/run_unsloth_eval.py --real --skip-synthesis \
+  --pairs lux-unsloth-score-yield --yield-recovery \
+  --frozen-stage1-from paper-n200-full \
+  --checkpoint artifacts/unsloth/checkpoints/score-qwen38-r16 \
+  --records 200 --seed 42 --run-id yield-unsloth-score-paper-n200
+
+# Baseline checksum regression (must be unchanged after yield runs)
+sha256sum artifacts/benchmarks/paper-n200-full.json \
+          artifacts/benchmarks/unsloth-score-paper-n200.json
+```
+
 | Artifact | Path |
 |---|---|
 | **Plain-language comparison** | [`artifacts/benchmarks/unsloth-score-paper-n200-comparison.md`](artifacts/benchmarks/unsloth-score-paper-n200-comparison.md) |

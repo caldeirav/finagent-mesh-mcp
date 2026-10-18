@@ -14,7 +14,9 @@ ZGX Nano / DGX Spark. Does **not** replace or rewrite published `paper-n200-full
 ```bash
 uv run pytest tests/unit/test_yield_recovery_stage2.py \
   tests/unit/test_yield_dual_metrics.py \
-  tests/unit/test_yield_analysis.py -q
+  tests/unit/test_yield_analysis.py \
+  tests/unit/test_yield_artifact_paths.py \
+  tests/unit/test_paper_artifact_immutability.py -q
 ```
 
 Expect: first-non-empty selection, dual empty rates, analysis section keys, immutable path guards.

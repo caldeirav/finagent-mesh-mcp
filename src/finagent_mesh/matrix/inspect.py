@@ -116,11 +116,24 @@ def _example_card(
                 "text": (ch.get("text") or "")[:400],
             }
         )
+    skipped = s2.get("skipped_reason")
+    empty_label = None
+    if skipped == "empty_top1_chunks" or ranking.get("empty_top1_chunks"):
+        empty_label = "routing_yield_empty_pool"
     return {
         "example_id": example_id or expected.get("example_id") or "",
         "pair_id": pair_id,
         "ledger_state": entry_state,
         "error": last_error or ranking.get("error"),
+        "empty_pool_label": empty_label,
+        "original_top1_doc_type": ranking.get("original_top1_doc_type") or top1,
+        "original_top1_empty": ranking.get("original_top1_empty"),
+        "effective_doc_type": ranking.get("effective_doc_type") or top1,
+        "yield_recovery_enabled": bool(ranking.get("yield_recovery_enabled")),
+        "yield_recovery_used": bool(ranking.get("yield_recovery_used")),
+        "yield_recovery_attempted_types": list(
+            ranking.get("yield_recovery_attempted_types") or []
+        ),
         "expected": expected,
         "stage1": {
             "engine": ranking.get("stage1_engine"),
@@ -137,7 +150,7 @@ def _example_card(
         },
         "stage2": {
             "engine": ranking.get("stage2_engine"),
-            "skipped_reason": s2.get("skipped_reason"),
+            "skipped_reason": skipped,
             "ndcg_at_5": s2.get("ndcg_at_5"),
             "map_at_5": s2.get("map_at_5"),
             "mrr_at_5": s2.get("mrr_at_5"),
@@ -442,9 +455,19 @@ def write_compact_inspect_markdown(payload: dict[str, Any], *, out_dir: Path) ->
             ordered1 = s1.get("ordered_ids") or []
             if ordered1:
                 lines.append(f"- **S1 ordered**: `{_md_cell(ordered1[:5])}`")
+            if ex.get("yield_recovery_enabled") or ex.get("yield_recovery_used"):
+                lines.append(
+                    f"- **yield**: original=`{_md_cell(ex.get('original_top1_doc_type'))}` · "
+                    f"effective=`{_md_cell(ex.get('effective_doc_type'))}` · "
+                    f"used={_md_cell(ex.get('yield_recovery_used'))}"
+                )
+            s2_skip = s2.get("skipped_reason")
+            skip_note = _md_cell(s2_skip)
+            if s2_skip == "empty_top1_chunks" or ex.get("empty_pool_label"):
+                skip_note = f"{skip_note} (routing/yield empty pool, not Score failure)"
             lines.append(
                 f"- **S2**: nDCG@5={_md_cell(s2.get('ndcg_at_5'))} · "
-                f"skipped={_md_cell(s2.get('skipped_reason'))} · "
+                f"skipped={skip_note} · "
                 f"n_scored={_md_cell(s2.get('n_scored'))}"
             )
             rows = (s2.get("rows") or [])[:_TOP_CHUNKS]

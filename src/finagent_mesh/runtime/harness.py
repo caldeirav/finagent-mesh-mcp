@@ -69,10 +69,32 @@ def _ranking_payload(
     # Collapsed one-shot: Top-1 sentinel is not a filing-type routing success
     if top1 == "__all__":
         correct = False
+    # 007 yield audit: original Top-1 emptiness vs post-recovery empty
+    original_empty = None
+    if state is not None and state.original_top1_empty is not None:
+        original_empty = bool(state.original_top1_empty)
+    elif state is not None:
+        # Recovery off / pre-audit: original empty ≡ today's empty signal
+        original_empty = empty
+    recovery_enabled = bool(state.yield_recovery_enabled) if state else False
+    recovery_used = bool(state.yield_recovery_used) if state else False
+    effective = (state.effective_doc_type if state else None) or top1
+    attempted = list(state.yield_recovery_attempted_types) if state else []
     return {
         "stage1": s1,
         "stage2": s2,
         "top1_doc_type": top1,
+        "original_top1_doc_type": (
+            state.original_top1_doc_type if state and state.original_top1_doc_type else top1
+        ),
+        "original_top1_empty": original_empty,
+        "effective_doc_type": effective,
+        "yield_recovery_enabled": recovery_enabled,
+        "yield_recovery_used": recovery_used,
+        "yield_recovery_attempted_types": attempted,
+        "n_recovery_skipped_missing_order": (
+            int(state.n_recovery_skipped_missing_order) if state else 0
+        ),
         "stage2_chunks": chunks,
         "stage1_engine": stage1_engine or decision.stage1_engine_id,
         "stage2_engine": stage2_engine or decision.stage2_engine_id,
@@ -99,12 +121,14 @@ class Harness:
         gemini_model: str | None = None,
         allow_mock: bool = False,
         port_overrides: dict[str, int] | None = None,
+        yield_recovery: bool = False,
     ) -> None:
         self.settings = settings or get_settings()
         self.allow_mock = allow_mock
         self.stage1_engine = stage1_engine
         self.stage2_engine = stage2_engine
         self.port_overrides = dict(port_overrides or {})
+        self.yield_recovery = bool(yield_recovery)
         self.gemini_model = gemini_model or self.settings.gemini_model
         require_official_mock_policy(
             systemone_mock=self.settings.systemone_mock, allow_mock=allow_mock
@@ -492,6 +516,7 @@ class Harness:
                             example,
                             skip_synthesis=True,
                             synthesis_k=k,
+                            yield_recovery_enabled=self.yield_recovery,
                         )
                         # Reflect the operator intent on state before outcome metrics.
                         state = state.model_copy(update={"skip_synthesis": skip_synthesis})

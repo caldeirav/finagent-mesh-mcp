@@ -64,10 +64,18 @@ class FrozenLuxChoiceAdapter:
         ids = [c["id"] for c in candidates] or list(DOC_TYPES)
         if top1 and top1 not in ids:
             ids = [top1, *ids]
-        ordered = list(rec.stage1_ordered_ids) if rec.stage1_ordered_ids else []
-        if top1:
-            ordered = [top1] + [i for i in (ordered or ids) if i != top1]
-        elif not ordered:
+        record_ordered = list(rec.stage1_ordered_ids) if rec.stage1_ordered_ids else []
+        order_missing = not bool(record_ordered)
+        if record_ordered:
+            ordered = list(record_ordered)
+            if top1 and top1 not in ordered:
+                ordered = [top1] + [i for i in ordered if i != top1]
+            elif top1:
+                ordered = [top1] + [i for i in ordered if i != top1]
+        elif top1:
+            # Do not invent a full DOC_TYPES walk for yield recovery (007).
+            ordered = [top1]
+        else:
             ordered = list(ids)
         scores = list(rec.stage1_scores)
         if len(scores) < len(ordered):
@@ -89,4 +97,5 @@ class FrozenLuxChoiceAdapter:
             "frozen_stage1": True,
             "frozen_source": rec.source,
             "empty_top1": rec.empty_top1,
+            "stage1_order_missing": order_missing,
         }

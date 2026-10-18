@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Dedicated Unsloth-track eval (frozen Lux Choice + BM25 k=32 → trained Score).
 
-Writes only ``unsloth-*`` artifact stems. Never mutates paper-n200-full* /
-paper-p1-ceilings-n200*.
+Writes ``unsloth-*`` or ``yield-*`` artifact stems. Never mutates paper-n200-full* /
+paper-p1-ceilings-n200* / unsloth-score-paper-n200*.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from finagent_mesh.unsloth.paths import (
     PublishedArtifactWriteError,
     assert_unsloth_run_id,
     assert_writable_artifact,
+    assert_yield_run_id,
 )
 
 app = typer.Typer(add_completion=False)
@@ -74,16 +75,39 @@ def main(
     real: bool = typer.Option(True, "--real/--allow-mock"),
     ledger_path: Optional[Path] = typer.Option(None, "--ledger-path"),
     inspect_path: Optional[Path] = typer.Option(None, "--inspect-path"),
+    yield_recovery: bool = typer.Option(
+        False,
+        "--yield-recovery/--no-yield-recovery",
+        help="Opt-in Stage-2 type fallback; prefer pair lux-unsloth-score-yield and run-id yield-*",
+    ),
 ) -> None:
-    try:
-        assert_unsloth_run_id(run_id)
-        assert_writable_artifact(out_dir / f"{run_id}.json", purpose="eval")
-        assert_writable_artifact(
-            Path("artifacts/matrix_runs") / f"{run_id}.json", purpose="eval"
-        )
-    except (ValueError, PublishedArtifactWriteError) as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=1) from exc
+    pair_list = [p.strip() for p in pairs.split(",") if p.strip()]
+    if yield_recovery:
+        if not pair_list or pair_list == ["lux-unsloth-score"]:
+            pair_list = ["lux-unsloth-score-yield"]
+            typer.echo("yield-recovery: using pair lux-unsloth-score-yield")
+        if run_id == "unsloth-score-smoke20":
+            run_id = "yield-unsloth-score-smoke20"
+            typer.echo(f"yield-recovery: defaulting run-id to {run_id}")
+        try:
+            assert_yield_run_id(run_id)
+            assert_writable_artifact(out_dir / f"{run_id}.json", purpose="eval")
+            assert_writable_artifact(
+                Path("artifacts/matrix_runs") / f"{run_id}.json", purpose="eval"
+            )
+        except (ValueError, PublishedArtifactWriteError) as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+    else:
+        try:
+            assert_unsloth_run_id(run_id)
+            assert_writable_artifact(out_dir / f"{run_id}.json", purpose="eval")
+            assert_writable_artifact(
+                Path("artifacts/matrix_runs") / f"{run_id}.json", purpose="eval"
+            )
+        except (ValueError, PublishedArtifactWriteError) as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
 
     if checkpoint:
         os.environ["UNSLOTH_SCORE_CHECKPOINT"] = str(checkpoint.resolve())
@@ -147,7 +171,6 @@ def main(
             err=True,
         )
 
-    pair_list = [p.strip() for p in pairs.split(",") if p.strip()]
     runner = MatrixRunner(
         settings=settings,
         allow_mock=not real,
