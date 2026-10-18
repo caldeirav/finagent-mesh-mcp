@@ -31,4 +31,5 @@
 
 ## Notes
 
-- Validation pass 2026-10-18: defaults locked in Clarifications (ordered Choice fallback; opt-in artifacts; paper N=200 holdout). Ready for `/speckit-clarify` (optional) or `/speckit-plan`.
+- Validation pass 2026-10-18: defaults locked in Clarifications (ordered Choice fallback; opt-in artifacts; paper N=200 holdout).
+- Clarify session 2026-10-18: dual empty/yield metrics; dual conditional reporting; Lux + Unsloth acceptance paths; full Choice exhaust; first-non-empty without gold peek. Ready for `/speckit-plan`.
