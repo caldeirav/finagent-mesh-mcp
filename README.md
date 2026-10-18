@@ -96,6 +96,7 @@ Survey latency / composite figures are **not** FinAgentBench scores — they gui
 | `lux-lux-shortlist` | B optional | Lux | BM25→Lux Score (k=32) | Opt-in P1 (S2b) |
 | `lux-e5-ce` | B baseline | Lux | E5→CrossEncoder (k=32) | Opt-in P1 (S7; [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)) |
 | `lux-unsloth-score` | trained | frozen Lux | BM25→Unsloth Score (k=32) | Parallel 006 track (`run_unsloth_eval.py`) |
+| `lux-lux-yield` / `lux-unsloth-score-yield` | yield | Lux / frozen Lux | Lux / BM25→Unsloth + first-non-empty | Opt-in 007 (`yield_recovery: true`) |
 
 Deferred trained CLM heads: issue [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1).
 P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/); measured in `paper-p1-ceilings-n200` (see below).
@@ -251,9 +252,25 @@ Parallel **006** eval on the **same paper holdout ids** as `paper-n200-full` (ra
 
 **Takeaway:** specializing Stage-2 Score under a fixed Choice + shortlist contract clearly beats both classical IR and untuned Lux Score on this holdout. Empty-Top-1 remains ~**37–40%** — yield is still an architecture/corpus issue, not fixed by Score FT alone. Latency (~29 s p50 for the 27B QLoRA path) is a product trade vs BM25/E5.
 
-### Yield recovery (007 / [#10](https://github.com/caldeirav/finagent-mesh-mcp/issues/10))
+### Yield recovery (007 / [#10](https://github.com/caldeirav/finagent-mesh-mcp/issues/10)) — measured
 
-Opt-in **first-non-empty** Stage-2 type fallback when Choice Top-1 has no chunks. Does **not** overwrite `paper-n200-full*` or `unsloth-score-paper-n200*`. Operator guide: [`specs/007-stage2-yield/quickstart.md`](specs/007-stage2-yield/quickstart.md).
+Opt-in **first-non-empty** Stage-2 type fallback when Choice Top-1 has no chunks. Does **not** overwrite `paper-n200-full*` or `unsloth-score-paper-n200*`. Same N=200 / seed 42 holdout as the paper matrix.
+
+| System | Empty (orig → post) | Yield | Fallbacks | S2 nDCG scored | S2 nDCG pipeline |
+|---|---:|---:|---:|---:|---:|
+| paper `lux-lux` | 40.5% → 40.5% | ~59.5% | — | 0.221 | — |
+| **`lux-lux-yield`** | **40.5% → 2.0%** | **94%** | 77 | 0.227 | 0.214 |
+| `lux-unsloth-score` (006) | 37.5% → 37.5% | 58.5% | — | 0.606 | 0.354 |
+| **`lux-unsloth-score-yield`** | **37.5% → 2.0%** | **94%** | 71 | 0.614 | **0.577** |
+
+**Takeaway:** yield recovery collapses empty Top-1 from ~**38–40%** to **2%** and lifts Unsloth **pipeline** S2 nDCG by **+0.22**; scored-only quality barely moves (+0.008). Score FT (006) and yield fallback (007) fix different gaps. Caveat: first-non-empty may pick a non-gold filing type.
+
+| Artifact | Path |
+|---|---|
+| **Plain-language comparison** | [`artifacts/benchmarks/yield-recovery-n200-comparison.md`](artifacts/benchmarks/yield-recovery-n200-comparison.md) |
+| Lux twin analysis | [`yield-paper-n200-lux.analysis.md`](artifacts/benchmarks/yield-paper-n200-lux.analysis.md) · [matrix](artifacts/matrix_runs/yield-paper-n200-lux.json) |
+| Unsloth twin analysis | [`yield-unsloth-score-paper-n200.analysis.md`](artifacts/benchmarks/yield-unsloth-score-paper-n200.analysis.md) · [matrix](artifacts/matrix_runs/yield-unsloth-score-paper-n200.json) |
+| Spec / quickstart | [`specs/007-stage2-yield/`](specs/007-stage2-yield/) · [`quickstart.md`](specs/007-stage2-yield/quickstart.md) |
 
 ```bash
 # Lux twin
@@ -272,7 +289,7 @@ sha256sum artifacts/benchmarks/paper-n200-full.json \
           artifacts/benchmarks/unsloth-score-paper-n200.json
 ```
 
-| Artifact | Path |
+| Artifact (006 Unsloth Score) | Path |
 |---|---|
 | **Plain-language comparison** | [`artifacts/benchmarks/unsloth-score-paper-n200-comparison.md`](artifacts/benchmarks/unsloth-score-paper-n200-comparison.md) |
 | Harness analysis | [`artifacts/benchmarks/unsloth-score-paper-n200.analysis.md`](artifacts/benchmarks/unsloth-score-paper-n200.analysis.md) |
@@ -491,7 +508,8 @@ Stop leftovers: `bash scripts/serve_engine.sh stop-all`.
 - `artifacts/benchmarks/paper-n200-full.*` — published N=200 analysis; compact `.inspect.md` + per-pair pages for GitHub; full `.inspect.html` for download
 - `artifacts/benchmarks/paper-p1-ceilings-n200.*` — same pattern for P1 ceilings
 - `artifacts/benchmarks/unsloth-score-paper-n200.*` — trained Score track (006); plus [`unsloth-score-paper-n200-comparison.md`](artifacts/benchmarks/unsloth-score-paper-n200-comparison.md)
+- `artifacts/benchmarks/yield-*-n200*` / [`yield-recovery-n200-comparison.md`](artifacts/benchmarks/yield-recovery-n200-comparison.md) — Stage-2 yield recovery (007)
 - `scripts/export_unsloth_dataset.py` / `train_unsloth_score.py` / `run_unsloth_eval.py` — 006 parallel train/eval CLIs
 - Architecture (short): [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md) · [`Tuning Decision Models for Enterprise Agents.md`](Tuning%20Decision%20Models%20for%20Enterprise%20Agents.md)
 - Survey (long): [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md)
-- Specs: [`specs/006-unsloth-decision-track/`](specs/006-unsloth-decision-track/) · [`specs/005-s2-approach-ceilings/`](specs/005-s2-approach-ceilings/) · [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)
+- Specs: [`specs/007-stage2-yield/`](specs/007-stage2-yield/) · [`specs/006-unsloth-decision-track/`](specs/006-unsloth-decision-track/) · [`specs/005-s2-approach-ceilings/`](specs/005-s2-approach-ceilings/) · [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)

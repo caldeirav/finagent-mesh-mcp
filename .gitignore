@@ -247,8 +247,8 @@ artifacts/matrix_runs/*
 !artifacts/benchmarks/unsloth-score-paper-n200.inspect/
 !artifacts/benchmarks/unsloth-score-paper-n200.inspect/**
 !artifacts/matrix_runs/unsloth-score-paper-n200.json
-# Yield recovery (007) — published summary stems when acceptance runs land;
-# large inspect JSON stays gitignored under artifacts/benchmarks/* default.
+# Yield recovery (007) — published summary stems; large inspect JSON stays local.
+!artifacts/benchmarks/yield-recovery-n200-comparison.md
 !artifacts/benchmarks/yield-paper-n200-lux.analysis.md
 !artifacts/benchmarks/yield-paper-n200-lux.analysis.json
 !artifacts/benchmarks/yield-paper-n200-lux.json
@@ -256,6 +256,8 @@ artifacts/matrix_runs/*
 !artifacts/benchmarks/yield-paper-n200-lux.md
 !artifacts/benchmarks/yield-paper-n200-lux.inspect.html
 !artifacts/benchmarks/yield-paper-n200-lux.inspect.md
+!artifacts/benchmarks/yield-paper-n200-lux.inspect/
+!artifacts/benchmarks/yield-paper-n200-lux.inspect/**
 !artifacts/matrix_runs/yield-paper-n200-lux.json
 !artifacts/benchmarks/yield-unsloth-score-paper-n200.analysis.md
 !artifacts/benchmarks/yield-unsloth-score-paper-n200.analysis.json
@@ -264,6 +266,8 @@ artifacts/matrix_runs/*
 !artifacts/benchmarks/yield-unsloth-score-paper-n200.md
 !artifacts/benchmarks/yield-unsloth-score-paper-n200.inspect.html
 !artifacts/benchmarks/yield-unsloth-score-paper-n200.inspect.md
+!artifacts/benchmarks/yield-unsloth-score-paper-n200.inspect/
+!artifacts/benchmarks/yield-unsloth-score-paper-n200.inspect/**
 !artifacts/matrix_runs/yield-unsloth-score-paper-n200.json
 # Unsloth track (006): checkpoints / datasets / train runs stay local
 !artifacts/unsloth/

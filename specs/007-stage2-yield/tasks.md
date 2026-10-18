@@ -111,7 +111,7 @@
 **Purpose**: Acceptance documentation and cross-story consistency
 
 - [X] T025 [P] Align `specs/007-stage2-yield/quickstart.md` with final CLI flags/pair ids after implementation
-- [ ] T026 Comment on GitHub [#10](https://github.com/caldeirav/finagent-mesh-mcp/issues/10) with links to yield artifact stems once N=200 acceptance runs exist (operator)
+- [X] T026 Comment on GitHub [#10](https://github.com/caldeirav/finagent-mesh-mcp/issues/10) with links to yield artifact stems once N=200 acceptance runs exist (operator)
 - [X] T027 Run `uv run pytest tests/unit/test_yield_*.py tests/unit/test_paper_artifact_immutability.py -q` and fix regressions
 - [X] T028 Verify default `run_benchmark.py --list-pairs` still marks required Block A/B without yield pairs unless `--include-optional`
 
