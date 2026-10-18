@@ -82,20 +82,33 @@ Full N=200 eval after full training (`lux-unsloth-score`):
 
 ### Takeaways
 
-- **Specialize the weak hop.** On FinAgentBench, Choice was already strong open-weight; Score was the bottleneck—and supervised decision fine-tuning moved it past published IR and untuned decision baselines on the same sample.
-- **Keep the agent contract.** Frozen Choice + shortlist + Score preserved auditability and MCP-friendly stages; training did not force a one-shot generative ranker.
-- **Hold out the paper slice.** Zero leakage vs the published 200 ids is what makes the comparison fair.
-- **Measure two numbers:** scored quality (is the scorer good?) and pipeline yield (does the route deliver candidates?). Improving only the first leaves empty-pool pain untouched.
-- **SFT before RL.** Labeled Score grades were enough for a large lift; RL is optional complexity until the reward and online loop are clear.
+**Specialize the hop that is actually weak.** In our FinAgentBench agent, open decision models were already good at Stage 1 (picking a filing type). The weaker link was Stage 2 (ranking passages after that pick). We spent training budget on Score, not on rewriting the whole agent or fine-tuning a chat model to “do everything.” After that focused work, the tuned Score path beat both classical search (BM25 / E5) and the untuned Lux Score baseline on the same held-out questions. For architects, the lesson is practical: profile which stage fails users, then improve that stage behind a stable interface.
+
+**Keep a clear agent contract when you train.** We did not collapse the design into one giant generative ranker. Stage 1 still returns a typed Choice, Stage 2 still ranks an explicit candidate list, and tools still sit behind MCP. Training only changed *which Score engine* sits in that slot. That matters for audit trails, fail-closed behavior, and swapping engines later: you can change a checkpoint without redesigning the control plane.
+
+**Protect the evaluation set the way you protect a production regression suite.** The 200 paper questions never appeared in train or validation. Without that holdout, a “big win” on the same ids you trained on is not comparable to the published matrix. Treat the paper slice like a locked golden test pack: train elsewhere, measure here, and refuse silent leakage.
+
+**Track two different health metrics.** *Scored quality* asks: when we have passages to rank, how well do we order them? *Pipeline yield* asks: how often does the agent even get a passage list after routing? Our tuned Score looked strong on the first (~0.61 nDCG) while empty pools still blocked roughly four questions in ten. If product dashboards only show ranking quality, you will over-celebrate models that cannot help empty-pool cases. Log both numbers the way you would log success rate and “dependency unavailable.”
+
+**Prefer labeled supervised training before reinforcement learning.** We used human-style relevance grades (0 / 1 / 2) and ordinary supervised fine-tuning of a decision Score head. That was enough for a large lift. Reinforcement learning (trial-and-error from a reward signal) adds moving parts: what counts as reward, how you sample online, how you stop the model from gaming the metric. Start with clean labels and a fair holdout; add RL only when those basics are stable and you know what “better” means in production.
+
+**Treat smoke runs as engineering checks, not product claims.** A tiny train and a 20-question eval can prove that the pipeline boots. They should not set expectations for stakeholders. Put full-train + full-holdout numbers in design reviews, and keep smoke artifacts clearly labeled.
+
+**Ship trained engines as an optional parallel track.** Published zero-shot baselines (`paper-n200-full`) stayed untouched. The tuned run lives under its own run id and artifact prefix. That is the same discipline you use for canary services: keep the known-good baseline, attach the new engine behind a flag or config, and compare side by side.
 
 ### Future exploration
 
-1. **Trained Choice (and compounds).** Deferred pairs (`unsloth-choice-lux`, AnyJev × trained Score) test whether router FT + Score FT compound—or whether AnyJev + tuned Score is enough.
-2. **Yield engineering.** Better type→chunk coverage, fallback types, or “empty pool” recovery policies matter as much as another LoRA epoch.
-3. **Latency path.** Distillation, smaller bases, adaptive shortlist K, or “IR first / Score escalate” routing policies for interactive SLAs.
-4. **RL / preference later.** Only after a stable offline Score and a clear preference signal (human or judge) that maps to Stage-2 ranks—not as a substitute for leakage-safe SFT.
-5. **Answer-level eval.** Reuse rankings with synthesis + human or LLM-as-judge when free-form gold exists; routing/Score wins are necessary but not sufficient for user-facing quality.
-6. **Multi-seed / full dump.** Confirm the N=200 seed-42 story on additional draws and larger slices before calling it a general finance Score ceiling.
+**Train Choice as well—and test combinations carefully.** We only specialized Score. Next experiments can fine-tune a Choice head the same way, then try compounds such as “best open router × tuned Score” or “tuned Choice × tuned Score.” The question for architects is not “train everything,” but whether a second trained hop still pays for itself once Score is strong, versus simply pairing today’s best router with the new Score engine.
+
+**Invest in yield, not only model quality.** Empty Stage-2 pools often mean “we routed to a type that has no chunks in the index,” not “the ranker is dumb.” Fixes look like better corpus coverage, fallback types when the top type is empty, clearer operator alerts, or a second-chance route. Those are product and data-engineering problems. Another training epoch will not invent missing documents.
+
+**Design a latency ladder for interactive agents.** The tuned 27B Score path is much slower than BM25 or E5 on our hardware. A sensible production shape is a ladder: cheap search first, escalate to the tuned Score when policy or low confidence requires it; or train a smaller / distilled Score for the hot path. Architects should set latency budgets explicitly so quality wins do not silently break SLAs.
+
+**Consider reinforcement learning or preference tuning only after the offline story is solid.** Once Score is stable offline, you can explore preference data (humans or a trusted judge picking which ranking is better) or RL-style loops. Do that as an *upgrade path*, not as a replacement for a leakage-safe labeled train set. Without a clear reward tied to Stage-2 ranking quality, RL is easy to mis-aim.
+
+**Add answer-level evaluation when you care about user-facing prose.** Our N=200 claim is about routing and passage ranking. Users still experience the final answer. When you have gold answers or a review process, reuse the saved rankings, run synthesis, and score answers separately. Strong Score is necessary for grounded answers; it is not proof that the paragraph the user reads is correct.
+
+**Confirm the result beyond one 200-question draw.** Seed 42 / N=200 is a solid, comparable paper slice—not the entire FinAgentBench universe. Re-running on other seeds and larger slices reduces the risk that we overfit a lucky sample. Treat broader confirmation the way you would treat load tests on more than one environment before calling a pattern “the standard.”
 
 ---
 

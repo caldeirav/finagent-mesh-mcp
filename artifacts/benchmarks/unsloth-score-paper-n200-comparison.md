@@ -4,7 +4,7 @@
 **Companion technical analysis:** [`unsloth-score-paper-n200.analysis.md`](unsloth-score-paper-n200.analysis.md)  
 **Paper baselines (unchanged):** [`paper-n200-full.analysis.md`](paper-n200-full.analysis.md), [`paper-p1-ceilings-n200.analysis.md`](paper-p1-ceilings-n200.analysis.md)
 
-This note is **additional** to the harness analysis. It explains what we measured in everyday language and how the **fully tuned** Score model compares to scores you already published on the **same 200 questions**.
+This note is **additional** to the harness analysis. It explains what we measured and how the **fully tuned** Score model compares to scores you already published on the **same 200 questions**.
 
 ---
 
