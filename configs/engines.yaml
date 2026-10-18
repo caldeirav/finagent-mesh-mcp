@@ -220,6 +220,55 @@ engines:
     model_revision: noop
     backend: noop_inprocess
 
+  # 006 Unsloth track (optional / trained_decision — not default Block A/B)
+  - config_id: frozen-lux-choice
+    family: frozen-choice
+    display_name: Frozen Lux Choice (paper-n200-full)
+    primitives: [choice]
+    primary_stages: [stage1]
+    base_url: http://localhost:8710
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: false
+    is_light_edge: true
+    calibration_ref: null
+    container_ref: ""
+    weights_ref: ""
+    model_revision: frozen-lux-paper-n200
+    backend: frozen_lux_choice
+
+  - config_id: unsloth-decision-score
+    family: unsloth-decision
+    display_name: Unsloth Decision Score (Qwen3.8 QLoRA)
+    primitives: [score]
+    primary_stages: [stage2]
+    base_url: http://localhost:8711
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: true
+    is_light_edge: false
+    calibration_ref: null
+    container_ref: ""
+    weights_ref: ${UNSLOTH_SCORE_CHECKPOINT:-}
+    model_revision: unsloth-qwen38-score
+    backend: unsloth_score
+
+  - config_id: bm25-unsloth-score-shortlist-32
+    family: hybrid-ir
+    display_name: BM25 top-32 then Unsloth Decision Score
+    primitives: [score]
+    primary_stages: [stage2]
+    base_url: http://localhost:8711
+    health_path: /healthz
+    decide_path: /v1/systemone
+    is_heavy_gpu: true
+    is_light_edge: false
+    calibration_ref: null
+    container_ref: ""
+    weights_ref: ${UNSLOTH_SCORE_CHECKPOINT:-}
+    model_revision: bm25-unsloth-score-shortlist-32
+    backend: bm25_unsloth_shortlist
+
 # Paper matrix: Block A (Choice×Lux Score) + Block B (Lux Choice×Score).
 # Default --real runs optional=false only; --include-optional adds shortlist + one-shot + P1.
 # Deferred (not runnable): lux-clm-ft (#1). CE ceiling lux-e5-ce is optional (005 / #2).
@@ -341,6 +390,16 @@ matrix_pairs:
       One-shot generative ranking of all chunks; collapses two-stage contract;
       labeled baseline only.
 
+  - pair_id: lux-unsloth-score
+    stage1: frozen-lux-choice
+    stage2: bm25-unsloth-score-shortlist-32
+    blocks: []
+    role: trained_decision
+    optional: true
+    rationale: >
+      Parallel Unsloth track (006 / #5): frozen Lux Choice from paper-n200-full
+      + BM25 k=32 + trained Unsloth Score. Not a Decision-2.0 drop-in.
+
   # Calibration-gated (not required for Block A); kept for compatibility
   - pair_id: anyjev-l1-lux
     stage1: anyjev-l1
@@ -355,6 +414,12 @@ deferred_pairs:
   - pair_id: lux-clm-ft
     issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/1
     rationale: Trained dual-encoder heads on held-out FinAgentBench split.
+  - pair_id: unsloth-choice-lux
+    issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/5
+    rationale: Trained Unsloth Choice deferred past v1 Score track.
+  - pair_id: anyjev-l0-unsloth-score
+    issue: https://github.com/caldeirav/finagent-mesh-mcp/issues/5
+    rationale: AnyJev × Unsloth Score compound deferred past v1.
 
 ports:
   stage1_default: 8000

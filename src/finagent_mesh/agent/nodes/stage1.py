@@ -21,7 +21,12 @@ def run_stage1(state: AgentState, client: OpenDecisionClient) -> dict[str, Any]:
         return {"stage1": result, "error": None}
 
     candidates = [{"id": dt, "text": f"Document type {dt} for firm {example.firm_id}"} for dt in DOC_TYPES]
-    resp = client.decide("choice", example.query_text, candidates, {"firm_id": example.firm_id})
+    resp = client.decide(
+        "choice",
+        example.query_text,
+        candidates,
+        {"firm_id": example.firm_id, "example_id": example.example_id},
+    )
     ranking = sorted(resp["ranking"], key=lambda r: r["rank"])
     ordered = [r["id"] for r in ranking]
     scores = [float(r["score"]) for r in ranking]

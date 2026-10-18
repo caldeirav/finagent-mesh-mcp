@@ -207,11 +207,26 @@ def create_adapter(
         from finagent_mesh.clients.engines.e5_ce_shortlist import E5CeShortlistAdapter
 
         return E5CeShortlistAdapter(cfg)
+    if cfg.backend == "bm25_unsloth_shortlist":
+        from finagent_mesh.clients.engines.bm25_unsloth_shortlist import (
+            Bm25UnslothShortlistAdapter,
+        )
+
+        return Bm25UnslothShortlistAdapter(cfg)
     if family == "hybrid-ir":
         raise ValueError(
             f"Unknown hybrid-ir backend={cfg.backend!r} for {cfg.config_id}; "
-            "expected clm_shortlist, lux_shortlist, or e5_ce_shortlist"
+            "expected clm_shortlist, lux_shortlist, e5_ce_shortlist, "
+            "or bm25_unsloth_shortlist"
         )
+    if family == "unsloth-decision" or cfg.backend == "unsloth_score":
+        from finagent_mesh.clients.engines.unsloth_score import UnslothScoreAdapter
+
+        return UnslothScoreAdapter(cfg)
+    if family == "frozen-choice" or cfg.backend == "frozen_lux_choice":
+        from finagent_mesh.clients.engines.frozen_lux_choice import FrozenLuxChoiceAdapter
+
+        return FrozenLuxChoiceAdapter(cfg)
     if family == "noop" or cfg.backend == "noop_inprocess":
         from finagent_mesh.clients.engines.noop_choice import NoopChoiceAdapter
 

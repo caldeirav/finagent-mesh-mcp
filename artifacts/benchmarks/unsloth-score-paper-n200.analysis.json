@@ -1,0 +1,277 @@
+{
+  "matrix_run_id": "unsloth-score-paper-n200",
+  "n_examples": 200,
+  "sample_seed": 42,
+  "dataset_path": "data/finagentbench",
+  "synthesis_enabled": false,
+  "skip_records": [
+    {
+      "pair_id": "lux-clm-ft",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/1"
+    },
+    {
+      "pair_id": "unsloth-choice-lux",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/5"
+    },
+    {
+      "pair_id": "anyjev-l0-unsloth-score",
+      "reason": "deferred_issue",
+      "issue_url": "https://github.com/caldeirav/finagent-mesh-mcp/issues/5"
+    },
+    {
+      "pair_id": "lux-clm-shortlist",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "lux-lux-shortlist",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "lux-e5-ce",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "anyjev-l0-e5",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "anyjev-l0-bm25",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "one-shot-ar",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    },
+    {
+      "pair_id": "anyjev-l1-lux",
+      "reason": "optional_not_requested",
+      "issue_url": null
+    }
+  ],
+  "deferred": [
+    {
+      "pair_id": "lux-clm-ft",
+      "issue": "https://github.com/caldeirav/finagent-mesh-mcp/issues/1",
+      "rationale": "Trained dual-encoder heads on held-out split"
+    }
+  ],
+  "champion_pairs": [],
+  "p1_ceiling_pairs": [],
+  "executive_summary": [
+    "**Coverage:** 1/1 matrix pairs have measurable ranking metrics on N=200 (seed=42)."
+  ],
+  "findings": [
+    "Answer EM/F1 were **not** collected (ranking-only; Gemini synthesis off)."
+  ],
+  "findings_detail": {
+    "guardrails": [
+      "Answer EM/F1 were **not** collected (ranking-only; Gemini synthesis off)."
+    ],
+    "block_a": [],
+    "block_b": [],
+    "routing": [
+      "When Stage-2 has no type-filtered candidates (`empty_top1_chunks`), those examples are **omitted** from primary (scored-only) S2 nDCG/MRR and count as **0** in the secondary **pipeline-averaged** series. See Routing accounting for class counts \u2014 empty is not always \u201cwrong Top-1 type.\u201d",
+      "- `lux-unsloth-score`: empty-Top-1 rate 37.5% (75 / 200 examples)"
+    ],
+    "latency": [],
+    "takeaways": [
+      "Always separate **router quality** (Block A / empty-Top-1 rate) from **scorer quality** (Block B S2|Top-1); overall S2 mixes both.",
+      "Re-run with `--with-synthesis` when answer-span EM/F1 are needed for the paper."
+    ]
+  },
+  "pair_outcomes": [
+    {
+      "pair_id": "lux-unsloth-score",
+      "status": "measured",
+      "n_examples": 200,
+      "n_completed": 125,
+      "n_empty_top1": 75,
+      "n_other_fail": 0,
+      "measured": true,
+      "href": "unsloth-score-paper-n200.inspect/lux-unsloth-score.md"
+    }
+  ],
+  "artifact_index": [
+    {
+      "pair_id": "lux-unsloth-score",
+      "example_id": null,
+      "status": "measured",
+      "n_completed": 125,
+      "n_empty_top1": 75,
+      "n_other_fail": 0,
+      "href": "unsloth-score-paper-n200.inspect/lux-unsloth-score.md"
+    }
+  ],
+  "rows": [
+    {
+      "variable_config_id": "lux-unsloth-score",
+      "eval_run_id": "unsloth-score-paper-n200:lux-unsloth-score",
+      "stage1_engine_id": "frozen-lux-choice",
+      "stage2_engine_id": "bm25-unsloth-score-shortlist-32",
+      "status": "completed",
+      "error": null,
+      "metrics": {
+        "n_examples": 200,
+        "stage1_ndcg_at_5": 0.8478091588876772,
+        "stage1_map_at_5": 0.9047205180640763,
+        "stage1_mrr_at_5": 0.9644171779141104,
+        "stage2_ndcg_at_5": 0.605914883400855,
+        "stage2_map_at_5": 0.6131410256410256,
+        "stage2_mrr_at_5": 0.7944444444444445,
+        "stage2_ndcg_at_5_given_top1": 0.6426075307401754,
+        "stage2_map_at_5_given_top1": 0.6447554347826088,
+        "stage2_mrr_at_5_given_top1": 0.7875,
+        "stage2_ndcg_at_5_pipeline": 0.3544602067895001,
+        "stage2_mrr_at_5_pipeline": 0.46475,
+        "pipeline_yield": 0.585,
+        "n_scored": 117,
+        "stage1_top1_recall": 0.9325153374233128,
+        "stage1_top5_recall": 1.0,
+        "empty_top1_chunk_rate": 0.375,
+        "option_flip_rate": null,
+        "parse_failure_rate": 0.0,
+        "latency_ms_p50": 0.007160500103964296,
+        "latency_ms_p95": 0.01397190308125572,
+        "latency_stage1_p50_ms": 0.007160500103964296,
+        "latency_stage1_p95_ms": 0.01397190308125572,
+        "latency_stage2_p50_ms": 28631.307545000025,
+        "latency_stage2_p95_ms": 39734.9663307999,
+        "gpu_mem_high_water_mb": 23174.66748046875,
+        "answer_normalized_em": null,
+        "answer_token_f1": null,
+        "n_synthesis_attempted": 0,
+        "n_synthesis_failed": 0,
+        "n_empty_top1": 75,
+        "blocks": [],
+        "stage1_unsupported_reason": null,
+        "stage2_unsupported_reason": null
+      },
+      "blocks": [],
+      "collapsed_stages": false,
+      "role": "trained_decision"
+    }
+  ],
+  "pipeline_yield": [
+    {
+      "pair_id": "lux-unsloth-score",
+      "n_examples": 200,
+      "n_scored": 125,
+      "pipeline_yield": 0.625,
+      "stage1_top1_recall": 0.9325153374233128,
+      "empty_top1_chunk_rate": 0.375
+    }
+  ],
+  "routing_classes": [
+    {
+      "pair_id": "lux-unsloth-score",
+      "n_examples": 200,
+      "counts": {
+        "correct_top1_scored": 92,
+        "correct_top1_empty": 60,
+        "wrong_top1_scored": 33,
+        "wrong_top1_empty": 15,
+        "missing_top1": 0,
+        "other": 0
+      },
+      "rates": {
+        "correct_top1_scored": 0.46,
+        "correct_top1_empty": 0.3,
+        "wrong_top1_scored": 0.165,
+        "wrong_top1_empty": 0.075,
+        "missing_top1": 0.0,
+        "other": 0.0
+      },
+      "n_scored": 125,
+      "pipeline_yield": 0.625
+    }
+  ],
+  "stage2_series": {
+    "lux-unsloth-score": {
+      "label_scored": "scored_only",
+      "label_pipeline": "pipeline_averaged",
+      "scored_mean": {
+        "stage2_ndcg_at_5": 0.605914883400855,
+        "stage2_mrr_at_5": 0.7944444444444445,
+        "stage2_ndcg_at_5_given_top1": 0.6426075307401754,
+        "stage2_mrr_at_5_given_top1": 0.7875
+      },
+      "pipeline_mean": {
+        "stage2_ndcg_at_5": 0.35446020678950013,
+        "stage2_mrr_at_5": 0.46475
+      }
+    }
+  },
+  "strata": [],
+  "win_loss": [],
+  "uncertainty": {
+    "bootstrap": [
+      {
+        "pair_id": "lux-unsloth-score",
+        "metric": "stage1_ndcg_at_5",
+        "point": 0.8478091588876772,
+        "ci_low": 0.8230778886603346,
+        "ci_high": 0.8702588286446038,
+        "n": 163,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-unsloth-score",
+        "metric": "stage2_ndcg_at_5_scored",
+        "point": 0.605914883400855,
+        "ci_low": 0.5425107961773941,
+        "ci_high": 0.6640838321716963,
+        "n": 117,
+        "n_resamples": 1000
+      },
+      {
+        "pair_id": "lux-unsloth-score",
+        "metric": "stage2_mrr_at_5_scored",
+        "point": 0.7944444444444445,
+        "ci_low": 0.7282051282051283,
+        "ci_high": 0.8582621082621082,
+        "n": 117,
+        "n_resamples": 1000
+      }
+    ],
+    "multi_seed": []
+  },
+  "synthesis_reuse": null,
+  "trained_decision_pairs": [
+    "lux-unsloth-score"
+  ],
+  "frozen_stage1_source": "paper-n200-full",
+  "comparison_vs_published": [
+    {
+      "pair_id": "lux-unsloth-score",
+      "baseline_pair_id": "lux-lux",
+      "metric": "stage2_ndcg_at_5",
+      "trained_value": 0.605914883400855,
+      "baseline_value": 0.22117061292825135,
+      "delta": 0.3847442704726036
+    },
+    {
+      "pair_id": "lux-unsloth-score",
+      "baseline_pair_id": "lux-lux-shortlist",
+      "metric": "stage2_ndcg_at_5",
+      "trained_value": 0.605914883400855,
+      "baseline_value": null,
+      "delta": null
+    },
+    {
+      "pair_id": "lux-unsloth-score",
+      "baseline_pair_id": "lux-e5",
+      "metric": "stage2_ndcg_at_5",
+      "trained_value": 0.605914883400855,
+      "baseline_value": 0.2824856232460483,
+      "delta": 0.32342926015480666
+    }
+  ]
+}

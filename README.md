@@ -20,6 +20,7 @@ Institutional questions over SEC filings need **document structure** and **passa
 | Doc | Audience | Contents |
 |---|---|---|
 | [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md) | Developers & architects | Short note: agent shape, FinAgentBench, MCP, performance/safety — takeaways from `paper-n200-full` + P1 ceilings |
+| [`Tuning Decision Models for Enterprise Agents.md`](Tuning%20Decision%20Models%20for%20Enterprise%20Agents.md) | Developers & architects | Continuation: why/how we specialized Stage-2 Score (006), results vs paper baselines, next steps |
 | [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md) | Deeper survey | System-1 landscape, trade-offs, failure modes |
 
 ---
@@ -94,9 +95,11 @@ Survey latency / composite figures are **not** FinAgentBench scores — they gui
 | `anyjev-l0-e5` / `anyjev-l0-bm25` | champion | AnyJev L0 | E5 / BM25 | Opt-in P1 (S8) |
 | `lux-lux-shortlist` | B optional | Lux | BM25→Lux Score (k=32) | Opt-in P1 (S2b) |
 | `lux-e5-ce` | B baseline | Lux | E5→CrossEncoder (k=32) | Opt-in P1 (S7; [#2](https://github.com/caldeirav/finagent-mesh-mcp/issues/2)) |
+| `lux-unsloth-score` | trained | frozen Lux | BM25→Unsloth Score (k=32) | Parallel 006 track (`run_unsloth_eval.py`) |
 
 Deferred trained CLM heads: issue [#1](https://github.com/caldeirav/finagent-mesh-mcp/issues/1).
 P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-approach-ceilings`](specs/005-s2-approach-ceilings/); measured in `paper-p1-ceilings-n200` (see below).
+Trained Score track (Unsloth): feature [`006-unsloth-decision-track`](specs/006-unsloth-decision-track/); measured in `unsloth-score-paper-n200` (see below).
 
 ### Out of the default matrix
 
@@ -106,6 +109,28 @@ P1 Stage-2 ceilings (champions, shortlist→Lux, E5→CE): feature [`005-s2-appr
 | djev / DiffusionGemma | Multimodal | VRAM + not text-SEC chunks |
 | Other Decision-2.0 sizes / Jeeves / SemIf / … | Family completeness | Overlap or memory vs sequential budget |
 | CLM as Stage 1 / Laya·Kai as Stage 2 | — | Wrong primitive or context/cost fit |
+| **Unsloth Qwen3.8 Decision Score** (006 / [#5](https://github.com/caldeirav/finagent-mesh-mcp/issues/5)) | Trainable Score head comparable to paper matrix | **Parallel stack** — not a Decision-2.0 Lux drop-in; optional `uv` extra + dedicated CLIs |
+
+### Unsloth Score track (006) — high level
+
+After the zero-shot matrix showed **Stage-2 Score** (not Choice) as the weaker hop, feature **006** adds a **parallel trained Score path** that does **not** overwrite paper baselines:
+
+1. **Export** a leakage-safe split: paper N=200 ids are **test-only**; train/val come from the rest of FinAgentBench.
+2. **Train** a QLoRA Score head (Unsloth `FastDecisionModel` / `DecisionTrainer` on Qwen3.8-27B) — supervised relevance grades, **not** RL in v1.
+3. **Eval** with frozen Lux Choice from `paper-n200-full` + BM25 shortlist k=32 + the trained head (`lux-unsloth-score`), writing only `unsloth-*` artifacts.
+
+Operator guide: [`specs/006-unsloth-decision-track/quickstart.md`](specs/006-unsloth-decision-track/quickstart.md). Architect narrative: [`Tuning Decision Models for Enterprise Agents.md`](Tuning%20Decision%20Models%20for%20Enterprise%20Agents.md). Plain-language vs paper numbers: [`unsloth-score-paper-n200-comparison.md`](artifacts/benchmarks/unsloth-score-paper-n200-comparison.md). Choice train and AnyJev×Unsloth compounds remain deferred past v1.
+
+```bash
+# Unsloth fine-tune stack — all deps via uv (pyproject [unsloth] extra):
+uv sync --extra real --extra unsloth
+# or: bash scripts/install_unsloth_zgx.sh --with-real
+
+uv run python scripts/export_unsloth_dataset.py
+uv run python scripts/train_unsloth_score.py --max-train-rows 1000 --dry-run   # or full GPU train
+uv run python scripts/run_unsloth_eval.py --real --pairs lux-unsloth-score \
+  --checkpoint artifacts/unsloth/checkpoints/<run> --records 20 --run-id unsloth-score-smoke20
+```
 
 ---
 
@@ -207,6 +232,44 @@ Full re-run:
 uv run python scripts/run_benchmark.py --real --skip-synthesis \
   --pairs anyjev-l0-e5,anyjev-l0-bm25,lux-lux-shortlist,lux-e5-ce \
   --records 200 --seed 42 --run-id paper-p1-ceilings-n200
+```
+
+---
+
+## Results: unsloth-score-paper-n200 (N=200, seed=42)
+
+Parallel **006** eval on the **same paper holdout ids** as `paper-n200-full` (ranking-only). Stage-1 Lux Choice is **frozen** from the published run; Stage-2 is BM25 top-32 → fully trained Unsloth Score (`score-qwen38-r16`). Paper `paper-n200-full*` / `paper-p1-ceilings-n200*` files are left untouched.
+
+### Headline findings
+
+| Comparator | S2 nDCG@5 (scored) | Notes |
+|---|---:|---|
+| **`lux-unsloth-score` (tuned)** | **0.606** | MRR 0.794; S2\|Top-1 0.643; pipeline-averaged 0.355 |
+| Untuned Lux Score (`lux-lux`) | 0.221 | Pre-tune decision Score baseline |
+| Best required Block B (`lux-e5`) | 0.283 | Best zero-shot scorer in `paper-n200-full` |
+| Best shortlist peer (`lux-lux-shortlist`) | 0.352 | Same BM25→Score *shape*, untuned Lux head (P1) |
+
+**Takeaway:** specializing Stage-2 Score under a fixed Choice + shortlist contract clearly beats both classical IR and untuned Lux Score on this holdout. Empty-Top-1 remains ~**37–40%** — yield is still an architecture/corpus issue, not fixed by Score FT alone. Latency (~29 s p50 for the 27B QLoRA path) is a product trade vs BM25/E5.
+
+| Artifact | Path |
+|---|---|
+| **Plain-language comparison** | [`artifacts/benchmarks/unsloth-score-paper-n200-comparison.md`](artifacts/benchmarks/unsloth-score-paper-n200-comparison.md) |
+| Harness analysis | [`artifacts/benchmarks/unsloth-score-paper-n200.analysis.md`](artifacts/benchmarks/unsloth-score-paper-n200.analysis.md) |
+| Matrix tables | [`artifacts/benchmarks/unsloth-score-paper-n200.json`](artifacts/benchmarks/unsloth-score-paper-n200.json) · [`.csv`](artifacts/benchmarks/unsloth-score-paper-n200.csv) · [`.md`](artifacts/benchmarks/unsloth-score-paper-n200.md) |
+| Matrix state | [`artifacts/matrix_runs/unsloth-score-paper-n200.json`](artifacts/matrix_runs/unsloth-score-paper-n200.json) |
+| Compact inspect | [`artifacts/benchmarks/unsloth-score-paper-n200.inspect.md`](artifacts/benchmarks/unsloth-score-paper-n200.inspect.md) · [per-pair](artifacts/benchmarks/unsloth-score-paper-n200.inspect/) |
+| Architect write-up | [`Tuning Decision Models for Enterprise Agents.md`](Tuning%20Decision%20Models%20for%20Enterprise%20Agents.md) |
+| Spec / quickstart | [`specs/006-unsloth-decision-track/`](specs/006-unsloth-decision-track/) · [`quickstart.md`](specs/006-unsloth-decision-track/quickstart.md) |
+
+Full paper-slice eval (after train; resume-safe ledger):
+
+```bash
+uv run --extra unsloth python scripts/run_unsloth_eval.py --real --skip-synthesis \
+  --pairs lux-unsloth-score \
+  --frozen-stage1-from paper-n200-full \
+  --checkpoint artifacts/unsloth/checkpoints/score-qwen38-r16 \
+  --records 200 --seed 42 \
+  --run-id unsloth-score-paper-n200
 ```
 
 ---
@@ -406,6 +469,8 @@ Stop leftovers: `bash scripts/serve_engine.sh stop-all`.
 - `src/finagent_mesh/clients/engines/real_infer.py` — Decision-2.0 / embed / AR / CLM
 - `artifacts/benchmarks/paper-n200-full.*` — published N=200 analysis; compact `.inspect.md` + per-pair pages for GitHub; full `.inspect.html` for download
 - `artifacts/benchmarks/paper-p1-ceilings-n200.*` — same pattern for P1 ceilings
-- Architecture (short): [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md)
+- `artifacts/benchmarks/unsloth-score-paper-n200.*` — trained Score track (006); plus [`unsloth-score-paper-n200-comparison.md`](artifacts/benchmarks/unsloth-score-paper-n200-comparison.md)
+- `scripts/export_unsloth_dataset.py` / `train_unsloth_score.py` / `run_unsloth_eval.py` — 006 parallel train/eval CLIs
+- Architecture (short): [`Decision Models for Enterprise Agentic Architecture.md`](Decision%20Models%20for%20Enterprise%20Agentic%20Architecture.md) · [`Tuning Decision Models for Enterprise Agents.md`](Tuning%20Decision%20Models%20for%20Enterprise%20Agents.md)
 - Survey (long): [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md)
-- Specs: [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/005-s2-approach-ceilings/`](specs/005-s2-approach-ceilings/) · [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)
+- Specs: [`specs/006-unsloth-decision-track/`](specs/006-unsloth-decision-track/) · [`specs/005-s2-approach-ceilings/`](specs/005-s2-approach-ceilings/) · [`specs/003-choice-score-paper/`](specs/003-choice-score-paper/) · [`specs/004-paper-p0-evidence/`](specs/004-paper-p0-evidence/) · [`specs/002-decision-model-bench/`](specs/002-decision-model-bench/) · [`specs/001-finagentbench-harness/`](specs/001-finagentbench-harness/)

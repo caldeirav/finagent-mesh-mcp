@@ -235,6 +235,22 @@ artifacts/benchmarks/*
 artifacts/matrix_runs/*
 !artifacts/matrix_runs/paper-n200-full.json
 !artifacts/matrix_runs/paper-p1-ceilings-n200.json
+# Unsloth full paper-slice eval (006) — summaries + comparison; not checkpoints
+!artifacts/benchmarks/unsloth-score-paper-n200-comparison.md
+!artifacts/benchmarks/unsloth-score-paper-n200.analysis.md
+!artifacts/benchmarks/unsloth-score-paper-n200.analysis.json
+!artifacts/benchmarks/unsloth-score-paper-n200.json
+!artifacts/benchmarks/unsloth-score-paper-n200.csv
+!artifacts/benchmarks/unsloth-score-paper-n200.md
+!artifacts/benchmarks/unsloth-score-paper-n200.inspect.html
+!artifacts/benchmarks/unsloth-score-paper-n200.inspect.md
+!artifacts/benchmarks/unsloth-score-paper-n200.inspect/
+!artifacts/benchmarks/unsloth-score-paper-n200.inspect/**
+!artifacts/matrix_runs/unsloth-score-paper-n200.json
+# Unsloth track (006): checkpoints / datasets / train runs stay local
+!artifacts/unsloth/
+artifacts/unsloth/**
+!artifacts/unsloth/.gitkeep
 # Large inspect JSON stays local-only (regenerate with --inspect-from).
 # Compact Markdown inspect is published for GitHub; full HTML is for download/local view.
 
@@ -250,3 +266,4 @@ huggingface/
 *.bin
 *.pt
 *.ckpt
+unsloth_compiled_cache/
