@@ -157,3 +157,5 @@ In short: **MCP standardizes tools; decision models standardize how agents selec
 6. **Self-host when the control plane is sensitive.** Open decision weights plus local MCP is a coherent enterprise deployment story—performance *and* a smaller trust boundary.
 
 For depth on model families, latency trade-offs, and failure modes (order sensitivity, candidate filtering ceilings, when *not* to use decision models), see [`Architectural Foundations for Open Decision Models.md`](Architectural%20Foundations%20for%20Open%20Decision%20Models.md). For numbers, matrix commands, and artifacts, see [`README.md`](README.md) (`paper-n200-full` and `paper-p1-ceilings-n200` analyses).
+
+**Continuation:** after the zero-shot matrix, we specialized Stage-2 Score with supervised Unsloth decision fine-tuning on a held-out FinAgentBench split. See [`Tuning Decision Models for Enterprise Agents.md`](Tuning%20Decision%20Models%20for%20Enterprise%20Agents.md) and the plain-language comparison in [`artifacts/benchmarks/unsloth-score-paper-n200-comparison.md`](artifacts/benchmarks/unsloth-score-paper-n200-comparison.md).
