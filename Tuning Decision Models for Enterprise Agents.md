@@ -76,6 +76,45 @@ Full N=200 eval after full training (`lux-unsloth-score`):
 
 6. **Parallel track, not silent overwrite.** Architects can keep `paper-n200-full` as the compliance / paper baseline and treat `unsloth-score-paper-n200` as an **optional trained engine**—same ledger and MLflow story, different checkpoint env var.
 
+### A concrete example: same question, better evidence after tuning
+
+Aggregate tables can feel abstract. Here is **one held-out question** from the N=200 paper slice (`dev:q76caada13eca`) where Stage 1 stayed the same and Stage 2 clearly improved after Score tuning. You can open the same case in the inspect reports under `unsloth-score-paper-n200` and `paper-n200-full`.
+
+**The user question**
+
+> What causes differences between Weyerhaeuser Company’s cash flow and net income (e.g., timberland harvest cycles or non-cash depreciation)?
+
+In plain terms: the agent must find filing passages that explain why cash flow and reported earnings can diverge for a timber company—not a housing-outlook chat snippet, and not a call “Operator” line.
+
+**Stage 1 — which document class? (unchanged by tuning)**
+
+The Choice engine (the same frozen Lux decision used in the paper matrix) ranked filing types and picked **10-K** first, with confidence about **48%**, ahead of Earnings (~28%) and 10-Q (~19%). That Top-1 type is among the labels FinAgentBench marks as acceptable for this question, so routing did its job: the agent is looking in the right *kind* of document pool.
+
+Tuning did **not** redo this step. Before and after Score training, Stage 1 is the same freeze—so any quality jump below is from passage ranking, not from a luckier type pick.
+
+**Stage 2 — which passages? (what improved)**
+
+After type filtering, every system ranked the same style of candidate list. What they put at the top differed:
+
+| System | What landed at #1 (paraphrased) | Passage ranking quality on this question\* |
+|--------|----------------------------------|-------------------------------------------:|
+| **Tuned Score** (BM25 shortlist → trained head) | Management discussing **cash from operations** (~$288M in the quarter, >$1.4B for the year) as they walk financial items | **~0.98** (gold evidence at rank 1) |
+| Untuned Lux Score | Literally the call line **“Operator”** | **0.00** (no gold evidence in the top ranks) |
+| Dense search (E5) | An analyst Q&A about **housing outlook and ramping production** | **~0.28** (the cash-flow gold chunk only appears around rank 5) |
+| Shortlist → untuned Lux | Discussion of **lumber production flexibility** for 2024 | **~0.12** |
+
+\*Stage-2 nDCG@5 on this single example (1.0 = gold evidence ranked ideally; 0 = missed in the top of the list).
+
+So the story for architects is concrete: **same question, same type route, same agent stages**—only the Score engine changed. The tuned head promoted the cash-from-operations discussion that matches the question; the untuned decision Score and the general search baselines preferred boilerplate or adjacent topics.
+
+**System 2 — the generative LLM**
+
+For this comparison run we stayed **ranking-only**: no Gemini (or other) answer synthesis was attached. That is deliberate. We wanted to see whether the agent selected the *right evidence*, not whether a frontier model could write a fluent paragraph. In a full product path you would next feed the top-ranked passages into System 2 to draft an answer—and fail closed if no evidence list exists. Here, System 2 did **nothing**, because we did not turn it on; the win is entirely in the control-plane ranking step.
+
+**Why this example matters**
+
+If you only watched the final chat reply, you might blame “the LLM.” In this case the failure mode of the untuned stack is earlier: Stage 1 was fine, Stage 2 handed the wrong passages (or noise) to whatever would come next. Tuning Score is how we improved that handoff without rewriting MCP tools or the whole agent graph.
+
 ---
 
 ## 4. Key takeaways and where to explore next
